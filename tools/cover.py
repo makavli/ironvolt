@@ -3,6 +3,7 @@ action is cropped and drawn 4x, and the logo goes over the sky. Headless.
 
     python tools/cover.py            candidates in shots/cover_*.png plus shots/cover_sheet.png to choose from
     python tools/cover.py 4321       renders that frame number as docs/media/cover.png
+    python tools/cover.py 4321 banner   the page banner (960 wide, the scene's skyline drawn 3x) as docs/media/banner.png
 """
 import os, sys
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy"); os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -63,7 +64,23 @@ def play(wanted):
     return out
 
 
-if len(sys.argv) > 1:
+def banner(frame, cx):
+    """The skyline across the whole frame, drawn 3x (960 wide), with the logo in the middle."""
+    strip = pygame.transform.scale(frame.subsurface((0, 40, W, 64)), (W * 3, 192))
+    shade = pygame.Surface(strip.get_size(), pygame.SRCALPHA)
+    shade.fill((8, 6, 14, 110))
+    strip.blit(shade, (0, 0))
+    big = pygame.transform.scale(logo, (logo.get_width() * 3, logo.get_height() * 3))
+    strip.blit(big, ((strip.get_width() - big.get_width()) // 2, (192 - big.get_height()) // 2))
+    return strip
+
+
+if len(sys.argv) > 2 and sys.argv[2] == "banner":
+    n = int(sys.argv[1])
+    path = os.path.join(ROOT, "docs", "media", "banner.png")
+    pygame.image.save(banner(*play({n})[n]), path)
+    print("saved", path)
+elif len(sys.argv) > 1:
     n = int(sys.argv[1])
     path = os.path.join(ROOT, "docs", "media", "cover.png")
     pygame.image.save(compose(*play({n})[n]), path)
