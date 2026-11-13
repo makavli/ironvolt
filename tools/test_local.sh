@@ -21,14 +21,14 @@ step "3. Screenshots -> shots/sheet.png"
 "$PY" tools/shots.py | tail -n 1
 
 step "4. A real window, vsync and GPU scaling, 180 frames"
-IRONVOLT_FRAMES=180 "$PY" run.py >/dev/null 2>&1 || fail "real window"
+SDL_AUDIODRIVER=dummy IRONVOLT_FRAMES=180 "$PY" run.py >/dev/null 2>&1 || fail "real window"
 
 if [[ "${1:-}" == "--exe" ]]; then
     step "5. Windows exe (PyInstaller, one file, as released)"
     "$PY" -m pip install --quiet pyinstaller==6.22.3
     "$PY" -m PyInstaller --noconfirm --clean --windowed --onefile --name Ironvolt --distpath dist --workpath build/pyi \
         run.py >/dev/null 2>&1 || fail "exe build"
-    IRONVOLT_FRAMES=120 ./dist/Ironvolt.exe || fail "exe run"
+    SDL_AUDIODRIVER=dummy IRONVOLT_FRAMES=120 ./dist/Ironvolt.exe || fail "exe run"
 fi
 if [[ "${1:-}" == "--web" ]]; then
     step "5. Browser build (pygbag), played in headless Chrome"

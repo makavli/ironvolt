@@ -69,11 +69,11 @@ def _build():
 
 # (camera x that triggers it, kind, x, extra). x "edge" = just off the right side of the screen.
 SPAWNS = [
-    (40, "soldier", "edge", None), (140, "soldier", "edge", None), (200, "soldier", "edge", None),
-    (260, "hostage", 21 * TILE, "H"), (300, "soldier", "edge", None), (330, "lobber", 27 * TILE, None),
+    (40, "soldier", "edge", None), (100, "hostage", 21 * TILE, "H"),     # in view ahead, not behind the player
+    (140, "soldier", "edge", None), (200, "soldier", "edge", None), (300, "soldier", "edge", None), (330, "lobber", 27 * TILE, None),
     (420, "drone", "edge", None), (470, "soldier", "edge", None), (500, "soldier", "edge", None),
-    (560, "turret", 36 * TILE, None), (640, "drone", "edge", None), (700, "soldier", "edge", None),
-    (720, "soldier", "edge", None), (760, "hostage", 56 * TILE, "B"), (830, "turret", 67 * TILE, None),
+    (560, "turret", 36 * TILE, None), (640, "drone", "edge", None), (660, "hostage", 56 * TILE, "B"),
+    (700, "soldier", "edge", None), (720, "soldier", "edge", None), (830, "turret", 67 * TILE, None),
     (860, "soldier", "edge", None), (900, "lobber", 73 * TILE, None), (960, "drone", "edge", None),
     (980, "drone", "edge", None), (1040, "soldier", "edge", None), (1100, "soldier", "edge", None),
     (1140, "hostage", 88 * TILE, "S"), (1200, "soldier", "edge", None), (1260, "lobber", 103 * TILE, None),

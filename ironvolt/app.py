@@ -252,6 +252,9 @@ class App:
         while self.frame():
             pass
         self.controls.close()
+        # textures, then renderer, then window, before SDL goes: left to the final GC they segfault on Linux
+        self.frame_cache = self.tex = None
+        self.renderer = self.window = None
         pygame.quit()
 
     async def run_web(self):

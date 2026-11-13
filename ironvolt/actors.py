@@ -85,6 +85,9 @@ JUMP_CUT = 0.4                             # let go early, jump lower
 COYOTE, BUFFER = 6, 6                      # frames of forgiveness at ledges and before landing
 FIRE_BUFFER = 8                            # a tap between two shots still fires, as soon as the gun allows
 STAND, DUCK = 21, 12                       # body heights: rifle fire flies 15 px up, over a crouch
+SLIDE, SLIDE_V, SLIDE_DRAG = 22, 3.2, 0.95  # down + jump on solid ground: a low dash under rifle fire
+KNIFE_REACH, KNIFE_DMG, KNIFE_RATE = 18, 3, 14   # fire with a foe this close: a stab that downs any trooper
+STOMP_DMG, STOMP_BOUNCE = 2, -4.6          # landing on a foe's head; hold jump to bounce high
 
 
 class Player(Body):
@@ -110,6 +113,7 @@ class Player(Body):
         self.trigger, self.lob = 0, False      # a fire press and a grenade press, waiting their turn
         self.run_t = 0.0
         self.recoil = 0
+        self.slide = self.slash = 0    # frames left in a slide, and of the knife's swipe on screen
         self.god = False               # tests and the attract demo
 
     @property
@@ -147,7 +151,15 @@ class Player(Body):
             self.safe -= 1
         dx, dy = pad.axis()
         self.crouch = dy > 0 and self.on_ground
-        if dx:
+        if self.slide:
+            self.slide -= 1
+            self.vx *= SLIDE_DRAG
+            if not self.on_ground or not self.vx:      # off a ledge or into a wall: over
+                self.slide = 0
+            elif not self.slide and not self.room_to_stand(world.stage):
+                self.slide = 1                          # never stand up under a ceiling too low for it
+            self.crouch = self.crouch or bool(self.slide)
+        if dx and not self.slide:
             self.facing = dx
         target = 0 if self.crouch else dx * RUN
         if not self.on_ground:
@@ -158,7 +170,8 @@ class Player(Body):
             accel = TURN if self.vx * dx < 0 else ACCEL
             if self.vx * dx <= -RUN:
                 world.dust(self.x, self.y)              # boots dig in on a full turn-about
-        self.vx += max(-accel, min(accel, target - self.vx))
+        if not self.slide:
+            self.vx += max(-accel, min(accel, target - self.vx))
         # aim: up, diagonals, down only in the air
         if dy < 0:
             self.aim = (dx, -1) if dx else (0, -1)
@@ -169,9 +182,14 @@ class Player(Body):
 
         # jumping: buffered presses, coyote time, a cut when the button is let go, a float at the top while held
         self.coyote = COYOTE if self.on_ground else max(0, self.coyote - 1)
-        if self.buffer and self.crouch and self.on_catwalk(world.stage):
+        if self.buffer and self.crouch and not self.slide and self.on_catwalk(world.stage):
             self.drop, self.buffer, self.coyote, self.on_ground = 10, 0, 0, False   # down + jump: through a catwalk
+        elif self.buffer and self.crouch and not self.slide and self.on_ground:
+            self.slide, self.vx, self.buffer = SLIDE, self.facing * SLIDE_V, 0      # down + jump on solid ground
+            world.dust(self.x, self.y)
+            audio.play("land")
         elif self.buffer and self.coyote:
+            self.slide = 0                              # a jump out of a slide keeps its speed
             self.vy = JUMP_V
             self.buffer = self.coyote = 0
             if self.on_ground:
@@ -197,11 +215,17 @@ class Player(Body):
         self.run_t = self.run_t + abs(self.vx) * 0.12 if self.on_ground and abs(self.vx) > 0.2 else 0
 
         self.cooldown, self.recoil = max(0, self.cooldown - 1), max(0, self.recoil - 1)
+        self.slash = max(0, self.slash - 1)
         rate = WEAPONS[self.weapon][0]
         # a tap fires once half the wait is over (mashing beats holding); a held button keeps the weapon's beat
         if (self.trigger and self.cooldown <= rate // 2) or (pad.held("fire") and not self.cooldown):
             self.trigger = 0
-            self.shoot(world)
+            foe = self.in_reach(world)
+            if foe:
+                self.stab(foe, world)
+                rate = KNIFE_RATE
+            else:
+                self.shoot(world)
             self.cooldown = rate
         self.trigger = max(0, self.trigger - 1)
         if self.lob and self.grenades:
@@ -212,6 +236,34 @@ class Player(Body):
 
         if self.y > H + 40:
             world.kill_player(self)
+
+    def room_to_stand(self, stage):
+        h, self.h = self.h, STAND
+        free = not self.blocked(stage, self.y)
+        self.h = h
+        return free
+
+    def in_reach(self, world):
+        """The foe a knife would reach: in front, at body height. Not the boss: a blade is no answer to a tank."""
+        x0 = self.x if self.facing > 0 else self.x - KNIFE_REACH
+        box = pygame.Rect(round(x0), round(self.y - STAND), KNIFE_REACH, STAND)
+        return next((e for e in world.foes if not getattr(e, "dying", 0) and box.colliderect(e.rect())), None)
+
+    def stab(self, foe, world):
+        foe.damage(KNIFE_DMG, world, self, push=self.facing)
+        self.slash = 8
+        world.sparks(foe.x - self.facing * 3, self.y - 13, 5)
+        world.hitstop(3)                                # a blow that lands: the world holds its breath
+        world.feel(self, "heavy")
+        audio.play("slash")
+
+    def stomp(self, foe, world):
+        foe.damage(STOMP_DMG, world, self)
+        self.vy, self.coyote, self.slide = STOMP_BOUNCE, 0, 0
+        world.dust(self.x, self.y)
+        world.hitstop(2)
+        world.feel(self, "land")
+        audio.play("hit")
 
     def muzzle(self):
         ax, ay = self.aim
@@ -248,38 +300,44 @@ class Player(Body):
 
     def frame(self, atlas):
         frames = (atlas.players if self.facing > 0 else atlas.players_l)[self.index]
-        if self.dying or not self.on_ground:
-            return frames["jump"]
+        if self.dying:
+            return frames["down" if self.on_ground else "hurt"]
+        if self.slide:
+            return frames["slide"]
         if self.crouch:
             return frames["crouch"]
+        up = "" if self.aim[1] >= 0 else "u" if self.aim[0] else "U"      # the head tilts back to aim up
+        if not self.on_ground:
+            return frames[("jump" if self.vy < 0 else "fall") + up]
         if self.run_t:
-            return frames["run%d" % (int(self.run_t) % 4)]
-        return frames["stand"]
+            return frames["run%d" % (int(self.run_t * 2.4) % 8) + up]     # a frame every 3.5 px: boots do not skate
+        return frames["stand" + up]
 
     def draw(self, surf, atlas, cam):
         if self.out or (self.safe and (self.safe // 3) % 2) and not self.dying:
             return
         img = self.frame(atlas)
-        x = round(self.x - cam) - img.get_width() // 2
-        y = round(self.y) - img.get_height() + 1
-        bob = 1 if self.run_t and int(self.run_t) % 2 else 0
-        surf.blit(img, (x, y - bob))
+        x, y = round(self.x - cam), round(self.y)
+        surf.blit(img, (x - img.get_width() // 2, y - img.get_height() + 1))
         if self.dying:
             return
-        # arm and gun, drawn toward the aim so all 8 directions read clearly
+        # the hands: 15 px up (9 in a crouch), riding the stride's rise and dip. What they hold points along the aim.
         ax, ay = self.aim
         n = math.hypot(ax, ay) or 1
-        ux, uy = ax / n, ay / n
-        kick = 2 if self.recoil else 0
-        sx = round(self.x - cam + self.facing * 2 - ux * kick)
-        sy = round(self.y - (9 if self.crouch else 15) - bob - uy * kick)
-        length = {"P": 8, "H": 11, "S": 10, "R": 12}[self.weapon]
-        ex, ey = sx + ux * length, sy + uy * length
-        pygame.draw.line(surf, C["ink"], (sx, sy), (ex, ey), 4)
-        pygame.draw.line(surf, C["steel_d"], (sx, sy), (ex, ey), 2)
-        pygame.draw.line(surf, C["steel_l"], (sx + ux * 3, sy + uy * 3 - 1), (ex, ey - 1), 1)
-        hand = {"P": C["steel"], "H": C["red"], "S": C["blue"], "R": C["olive"]}[self.weapon]
-        surf.set_at((round(sx + ux * 3), round(sy + uy * 3)), hand)
+        hx = x + (2 if self.facing > 0 else -3)         # the same pixel of the body, facing either way
+        hy = y - (9 if self.crouch else 15 + img.get_height() - atlas.tall)
+        if self.slash:                                  # the knife: a thrust, and a bright arc that fades
+            held = atlas.knife[self.index][self.facing, 0, self.facing]
+            hx += self.facing * (0, 1, 2, 3, 4, 5, 5, 4)[self.slash - 1]
+            r = pygame.Rect(x + self.facing * 6 - 10, hy - 10, 20, 20)
+            a = 0 if self.facing > 0 else math.pi
+            sweep = 1.4 * (8 - self.slash) / 8 + 0.4
+            pygame.draw.arc(surf, C["white"] if self.slash > 4 else C["steel_l"], r, a - sweep / 2, a + sweep / 2, 2)
+        else:
+            held = atlas.guns[self.weapon][ax, ay, ax or self.facing]
+            kick = 2 if self.recoil else 0
+            hx, hy = hx - round(ax / n * kick), hy - round(ay / n * kick)
+        surf.blit(held, (hx - held.get_width() // 2, hy - held.get_height() // 2))
 
 
 # ------------------------------------------------------------------ projectiles
@@ -512,26 +570,23 @@ class Foe(Body):
         right = self.facing > 0
         frames = (atlas.foe if right else atlas.foe_l) if self.kind == "soldier" else \
                  (atlas.lobber if right else atlas.lobber_l)
-        if self.dying:
-            img = frames["jump"]
-            if (self.dying // 4) % 2:
-                return
+        if self.dying and (self.dying // 4) % 2:
+            return
+        if self.dying or self.stun:
+            img = frames["hurt"]                          # knocked off its feet, or back on its heels
         elif self.run_t:
-            img = frames["run%d" % (int(self.run_t) % 4)]
+            img = frames["run%d" % (int(self.run_t * 2.4) % 8)]
         else:
             img = frames["stand"]
-        if self.hurt:
-            img = atlas.flash(img)
-        x = round(self.x - cam) - img.get_width() // 2
-        y = round(self.y) - img.get_height() + 1
-        surf.blit(img, (x, y))
-        if not self.dying:
-            sx, sy = round(self.x - cam + self.facing * 2), round(self.y - 15)
-            lift = -4 if self.kind == "lobber" and self.aiming else 0
-            pygame.draw.line(surf, C["ink"], (sx, sy), (sx + self.facing * 9, sy + lift), 4)
-            pygame.draw.line(surf, C["steel_d"], (sx, sy), (sx + self.facing * 9, sy + lift), 2)
+        x, y = round(self.x - cam), round(self.y)
+        surf.blit(atlas.flash(img) if self.hurt else img, (x - img.get_width() // 2, y - img.get_height() + 1))
+        if not self.dying and not self.stun:
+            lift = self.kind == "lobber" and self.aiming      # a grenadier raises the tube to lob
+            gun = (atlas.rifle if self.kind == "soldier" else atlas.tube)[self.facing, -1 if lift else 0, self.facing]
+            sx, sy = x + (2 if right else -3), y - 15 - (img.get_height() - atlas.tall)
+            surf.blit(gun, (sx - gun.get_width() // 2, sy - gun.get_height() // 2))
             if self.aiming and self.aiming % 6 < 3:
-                surf.set_at((sx + self.facing * 10, sy + lift), C["red"])
+                surf.set_at((sx + self.facing * 9, sy - (4 if lift else 0)), C["red"])
 
 
 class Drone(Body):
@@ -574,7 +629,7 @@ class Drone(Body):
         return True
 
     def draw(self, surf, atlas, cam):
-        img = atlas.drone[(int(self.t * 10)) % 2]
+        img = atlas.drone[int(self.t * 10) % len(atlas.drone)]
         if self.hurt:
             img = atlas.flash(img)
         surf.blit(img, (round(self.x - cam) - img.get_width() // 2, round(self.y) - img.get_height()))
@@ -623,15 +678,14 @@ class Turret(Body):
 
     def draw(self, surf, atlas, cam):
         x, y = round(self.x - cam), round(self.y)
-        body = C["white"] if self.hurt else C["steel_d"]
+        base, dome = atlas.turret
         c, s = math.cos(self.angle), math.sin(self.angle)
+        surf.blit(base, (x - base.get_width() // 2, y - base.get_height() + 1))
         pygame.draw.line(surf, C["ink"], (x, y - 10), (x + c * 13, y - 10 + s * 13), 5)
         pygame.draw.line(surf, C["steel"], (x, y - 10), (x + c * 12, y - 10 + s * 12), 3)
-        pygame.draw.rect(surf, C["ink"], (x - 9, y - 7, 18, 7))
-        pygame.draw.rect(surf, C["rust"], (x - 8, y - 6, 16, 6))
-        pygame.draw.circle(surf, C["ink"], (x, y - 10), 7)
-        pygame.draw.circle(surf, body, (x, y - 10), 6)
-        pygame.draw.circle(surf, C["steel_l"] if not self.hurt else C["white"], (x - 2, y - 12), 2)
+        pygame.draw.line(surf, C["steel_l"], (x, y - 11), (x + c * 12, y - 11 + s * 12))
+        dome = atlas.flash(dome) if self.hurt else dome
+        surf.blit(dome, (x - dome.get_width() // 2, y - 10 - dome.get_height() // 2))
         surf.set_at((x + round(c * 3), y - 10 + round(s * 3)), C["red"])
 
 
@@ -666,10 +720,14 @@ class Hostage(Body):
         world.pickups.append(Pickup(self.x + 6, self.y - 10, self.gift))
         audio.play("free")
 
-    def draw(self, surf, atlas, cam):
-        img = atlas.hostage[1 if self.freed else 0]
-        if self.freed > 50 and (self.freed // 6) % 2:
-            img = pygame.transform.flip(img, True, False)
+    def draw(self, surf, atlas, cam, frame=0):
+        if self.freed > 50:
+            name = "run%d" % (self.freed // 2 % 8)            # off to the left, arms in the air
+        elif self.freed:
+            name = "cheer%d" % (self.freed // 8 % 2)
+        else:
+            name = "bound0" if frame // 8 % 8 else "bound1"   # now and then he pulls at the ropes
+        img = atlas.hostage[name]
         surf.blit(img, (round(self.x - cam) - img.get_width() // 2, round(self.y) - img.get_height() + 1))
 
 
@@ -820,49 +878,28 @@ class Bastion(Body):
 
     def draw(self, surf, atlas, cam):
         x, y = round(self.x - cam), round(self.y)
-        hot = self.hurt and self.hurt % 2
-        hull = C["white"] if hot else C["steel_d"]
-        armour = C["white"] if hot else C["rust"]
         ink = C["ink"]
-        # treads
-        pygame.draw.rect(surf, ink, (x - 46, y - 16, 92, 16), border_radius=7)
-        pygame.draw.rect(surf, C["steel_d"], (x - 44, y - 14, 88, 12), border_radius=6)
-        for i in range(-40, 44, 8):
+        img = atlas.bastion[self.angry]                  # once it breaks, the cracked hull
+        surf.blit(atlas.flash(img) if self.hurt and self.hurt % 2 else img, (x - 53, y - 71))
+        for i in range(-40, 44, 8):                      # the tread's links crawl with it
             tx = x + i + int(self.tread) % 8
-            if x - 44 < tx < x + 44:
-                pygame.draw.line(surf, ink, (tx, y - 14), (tx, y - 3))
-        for wx in range(-34, 40, 17):
-            pygame.draw.circle(surf, ink, (x + wx, y - 8), 5)
-            pygame.draw.circle(surf, C["steel"], (x + wx, y - 8), 4)
-            pygame.draw.circle(surf, ink, (x + wx, y - 8), 1)
-        # hull
-        hull_pts = [(x - 48, y - 16), (x - 40, y - 38), (x + 30, y - 40), (x + 46, y - 26), (x + 44, y - 16)]
-        pygame.draw.polygon(surf, ink, [(px + (1 if px > x else -1), py + 1) for px, py in hull_pts])
-        pygame.draw.polygon(surf, armour, hull_pts)
-        pygame.draw.line(surf, C["ember"] if not hot else C["white"], (x - 40, y - 37), (x + 30, y - 39))
-        for rx in range(-36, 40, 10):
-            surf.set_at((x + rx, y - 20), C["sun"])
-        pygame.draw.rect(surf, hull, (x - 30, y - 34, 40, 12))
-        pygame.draw.rect(surf, ink, (x - 30, y - 34, 40, 12), 1)
-        for i in range(4):                               # vents
-            pygame.draw.line(surf, ink, (x - 26 + i * 9, y - 31), (x - 26 + i * 9, y - 25))
+            if x - 42 < tx < x + 42:
+                pygame.draw.line(surf, ink, (tx, y - 15), (tx, y - 13))
+                pygame.draw.line(surf, ink, (tx, y - 3), (tx, y - 1))
         # chin gun
         c, s = math.cos(self.gun_angle), math.sin(self.gun_angle)
         gx, gy = x - 40, y - 18
         pygame.draw.line(surf, ink, (gx, gy), (gx + c * 13, gy + s * 13), 5)
-        pygame.draw.line(surf, C["steel_l"], (gx, gy), (gx + c * 12, gy + s * 12), 2)
-        pygame.draw.circle(surf, ink, (gx, gy), 5)
-        pygame.draw.circle(surf, hull, (gx, gy), 4)
-        # mortar turret
-        pygame.draw.rect(surf, ink, (x - 6, y - 54, 32, 16), border_radius=4)
-        pygame.draw.rect(surf, hull, (x - 5, y - 53, 30, 14), border_radius=3)
-        pygame.draw.line(surf, ink, (x + 6, y - 54), (x + 14, y - 66), 7)
-        pygame.draw.line(surf, C["steel"], (x + 6, y - 54), (x + 14, y - 66), 4)
+        pygame.draw.line(surf, C["steel"], (gx, gy), (gx + c * 12, gy + s * 12), 3)
+        pygame.draw.line(surf, C["steel_l"], (gx, gy - 1), (gx + c * 12, gy + s * 12 - 1))
+        pygame.draw.circle(surf, ink, (gx, gy), 3)
+        pygame.draw.circle(surf, C["steel"], (gx, gy), 2)
         # the core: pulses faster as it breaks
         rate = 12 if not self.angry else 5
         core = C["cyan"] if (self.t // rate) % 2 else C["white"]
-        pygame.draw.circle(surf, ink, (x + 34, y - 30), 5)
-        pygame.draw.circle(surf, core, (x + 34, y - 30), 4)
+        pygame.draw.circle(surf, core, (x + 34, y - 30), 4 if self.angry else 3)
+        if not self.angry:                               # still behind its grille
+            pygame.draw.line(surf, ink, (x + 31, y - 30), (x + 37, y - 30))
         for mx, frames in self.marks:                    # missile warnings: a slow blink, a fast one as it falls
             if frames % 8 < 5 if frames > 0 else frames % 4 < 2:
                 px = round(mx - cam)

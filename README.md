@@ -41,7 +41,7 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 | | |
 |---|---|
 | <img src="docs/media/play_700.png" alt="Catwalks, troopers and drones" width="400"> | <img src="docs/media/play_2600.png" alt="Rockets against the Legion" width="400"> |
-| **8-way aim, run, jump, drop through catwalks.** Troopers, grenadiers, drones and turrets come from every side. | **Free the prisoners, take their guns:** heavy gun, spread, rockets, grenades, extra lives. |
+| **8-way aim, run, jump, slide, stomp, knife up close, drop through catwalks.** Troopers, grenadiers, drones and turrets come from every side. | **Free the prisoners, take their guns:** heavy gun, spread, rockets, grenades, extra lives. |
 
 <div align="center">
 

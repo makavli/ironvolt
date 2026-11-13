@@ -127,7 +127,8 @@ PAD = [
 ]
 KEYBOARD = [
     ("MOVE / AIM", "ARROWS", "WASD"), ("FIRE", "Z", "G"), ("JUMP", "X", "H"), ("GRENADE", "C", "J"),
-    ("START", "ENTER", "2"), ("COIN", "5", "5"), ("CROUCH", "DOWN", "S"), ("DROP DOWN", "DOWN+JUMP", "S+H"),
+    ("START", "ENTER", "2"), ("COIN", "5", "5"), ("CROUCH", "DOWN", "S"), ("SLIDE / DROP", "DOWN+JUMP", "S+H"),
+    ("KNIFE", "Z UP CLOSE", "G UP CLOSE"),
 ]
 SYSTEM = [("PAUSE", "ESC"), ("FULLSCREEN", "F11"), ("CRT LINES", "F2"), ("FREE PLAY", "F3")]
 

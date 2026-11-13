@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0
+
+New moves and a new look.
+- **Knife:** fire with a trooper within reach and you stab instead of shooting. One stab downs any trooper.
+- **Slide:** down + jump on solid ground is a fast, low dash under rifle fire; jump out of it to keep the speed. On a
+  catwalk, down + jump still drops through.
+- **Stomp:** land on a foe's head to hurt it and bounce off; hold jump to bounce high.
+- **Art:** bigger, more detailed heroes and troopers, 8-frame runs, jump and fall, slide, stab, hurt and down poses,
+  guns that turn with the aim, a new drone, turret, hostage and BASTION. Riveted decks, hazard stripes at the edges,
+  lattice catwalks, and a deeper dusk skyline behind them.
+- **Hostages** now appear ahead of you, never behind or on top of you.
+- The controls page lists the slide and the knife.
+- The local checks play the game silently (they used to sound through the speakers).
+
 ## 0.5.1
 
 Fullscreen on phones and tablets.

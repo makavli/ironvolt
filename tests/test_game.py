@@ -225,6 +225,59 @@ class Feel(unittest.TestCase):
             run(w, pads, 150, down=crouch)
             self.assertEqual(p.lives == 3 and not p.dying, crouch)
 
+    def test_fire_up_close_is_a_knife(self):
+        run(self.w, self.pads, 5)
+        foe = Foe(self.p.x + 12, GROUND_Y)
+        foe.timer = 10_000
+        self.w.foes.append(foe)
+        self.pads[0].press(fire=True)
+        self.w.step(self.pads)
+        self.assertTrue(foe.dying)                    # one stab downs a trooper...
+        self.assertFalse(self.w.shots)                # ...and no bullet left the gun
+        self.assertEqual(self.p.score, 100)
+
+    def test_down_and_jump_on_the_ground_slides_low_and_fast(self):
+        run(self.w, self.pads, 30, right=True)
+        x = self.p.x
+        self.pads[0].press(down=True, jump=True)
+        self.w.step(self.pads)
+        run(self.w, self.pads, 15)
+        self.assertGreater(self.p.x - x, 16 * RUN)    # farther than 16 frames of running
+        self.assertEqual(self.p.h, 12)                # low enough to pass under rifle fire
+        run(self.w, self.pads, 30)
+        self.assertFalse(self.p.slide)
+        self.assertEqual(self.p.h, 21)
+
+    def test_landing_on_a_head_stomps_and_bounces(self):
+        run(self.w, self.pads, 5)
+        foe = Foe(self.p.x + 30, GROUND_Y)
+        foe.timer, foe.hp = 10_000, 2
+        self.w.foes.append(foe)
+        self.p.x, self.p.y, self.p.vy = foe.x, GROUND_Y - 40, 0.0
+        self.p.on_ground, self.p.coyote = False, 0           # dropped from above, not standing
+        bounced = False
+        for _ in range(30):
+            self.pads[0].press(jump=True)
+            self.w.step(self.pads)
+            bounced = bounced or (foe.dying and self.p.vy < 0)
+        self.assertTrue(bounced)
+
+    def test_every_hostage_appears_ahead_of_the_player(self):
+        from ironvolt.stage import SPAWNS
+        self.assertEqual([c for c, *_ in SPAWNS], sorted(c for c, *_ in SPAWNS))   # the spawner reads them in order
+        for cam, kind, x, _ in SPAWNS:
+            if kind == "hostage":
+                self.assertGreater(x - cam, 200, x)  # the player runs ~130 px into the screen
+
+    def test_the_first_hostage_is_reached_on_foot(self):
+        self.p.god = True
+        for i in range(600):
+            self.pads[0].press(right=True, jump=i % 40 < 20)    # hops the crates on the way
+            self.w.step(self.pads)
+            if any(h.freed for h in self.w.hostages):
+                break
+        self.assertTrue(any(h.freed for h in self.w.hostages))
+
     def test_a_hit_staggers_a_soldier_out_of_its_shot(self):
         foe = Foe(self.p.x + 60, GROUND_Y)
         foe.timer = 1
@@ -761,6 +814,51 @@ class TouchControls(unittest.TestCase):
             self.assertEqual(storage.load_options()["music"], "8")
         finally:
             storage.local = real
+
+
+class Art(unittest.TestCase):
+    """What the actors' drawing is promised by the atlas."""
+
+    def test_every_pose_has_a_picture_standing_on_its_feet(self):
+        s = pygame.Surface((W, H))
+        states = [dict(run_t=i / 2.4) for i in range(1, 9)] + [
+            {}, dict(crouch=True), dict(crouch=True, slide=5), dict(slash=8), dict(crouch=True, slash=1),
+            dict(dying=9), dict(on_ground=False, vy=-2.0), dict(on_ground=False, vy=2.0),
+            dict(on_ground=False, dying=9)]
+        for p in World((0, 1), seed=1).players:
+            for state in states:
+                for facing in (1, -1):
+                    for aim in ((facing, 0), (facing, -1), (0, -1), (facing, 1), (0, 1)):
+                        vars(p).update(dict(run_t=0.0, crouch=False, slide=0, slash=0, dying=0, on_ground=True, vy=0.0,
+                                            safe=0, facing=facing, aim=aim), **state)
+                        img = p.frame(ATLAS)
+                        if p.on_ground:                 # nothing under the boots but the ground
+                            self.assertEqual(img.get_bounding_rect().bottom, img.get_height(), state)
+                        p.draw(s, ATLAS, 0)
+        for kind in ("soldier", "lobber"):
+            for state in ({}, dict(run_t=1.3), dict(aiming=4), dict(stun=5), dict(dying=3), dict(hurt=2)):
+                for facing in (1, -1):
+                    foe = Foe(100, GROUND_Y, kind)
+                    vars(foe).update(state, facing=facing)
+                    foe.draw(s, ATLAS, 0)
+
+    def test_the_gun_is_drawn_out_to_the_muzzle(self):
+        p = World((0,), seed=1).players[0]
+        p.safe, p.x, p.y = 0, 40.0, 60.0
+        bare = pygame.Surface(ATLAS.players[0]["stand"].get_size(), pygame.SRCALPHA)
+        p.frame = lambda atlas: bare                    # no body: only what the hand holds is painted
+        for weapon in ATLAS.guns:
+            for facing in (1, -1):
+                for aim in ((facing, 0), (facing, -1), (0, -1), (facing, 1), (0, 1), "crouch"):
+                    p.crouch = aim == "crouch"
+                    p.weapon, p.facing, p.aim = weapon, facing, (facing, 0) if p.crouch else aim
+                    s = pygame.Surface((80, 80), pygame.SRCALPHA)
+                    p.draw(s, ATLAS, 0)
+                    mx, my, ux, uy = p.muzzle()
+                    past = [(x + 0.5 - mx) * ux + (y + 0.5 - my) * uy       # how far past the muzzle, on the aim's line
+                            for x in range(round(mx) - 5, round(mx) + 6) for y in range(round(my) - 5, round(my) + 6)
+                            if s.get_at((x, y)).a and abs((x + 0.5 - mx) * uy - (y + 0.5 - my) * ux) < 1.5]
+                    self.assertTrue(past and -1 <= max(past) <= 3, (weapon, facing, aim, past and max(past)))
 
 
 if __name__ == "__main__":

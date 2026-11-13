@@ -72,6 +72,7 @@ def _effects():
         "alarm": _cat(*(_tone(0.18, f, f, duty=0.5, vol=0.25, decay=0.5) for f in (440, 330, 440, 330))),
         "enemy_shot": _tone(0.08, 500, 250, duty=0.5, vol=0.18, decay=8),
         "clank": _tone(0.04, 2000, 1500, noise=0.5, vol=0.2, decay=15, seed=9),
+        "slash": _tone(0.08, 2600, 500, noise=0.55, vol=0.3, decay=10, seed=10),
     }
 
 
