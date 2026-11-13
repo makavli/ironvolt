@@ -2,7 +2,7 @@ name: itch.io
 
 # Manual only: Actions -> itch.io -> Run workflow.
 #   tag       empty = the latest release
-#   platforms all, or one of windows / mac / linux
+#   platforms all, or one of windows / mac / linux / web (web = the html5 channel, played in the page)
 #   dry_run   check the setup and the release files, upload nothing
 # Uploads the GitHub release's builds with butler; the itch.io page itself (text, pictures) is never touched.
 # Needs, once: repository variable ITCH_GAME = "<itch user>/<game page>", and secret BUTLER_API_KEY
@@ -17,7 +17,7 @@ on:
       platforms:
         description: "Which builds"
         type: choice
-        options: [all, windows, mac, linux]
+        options: [all, windows, mac, linux, web]
         default: all
       dry_run:
         description: "Check only, upload nothing"
@@ -58,9 +58,10 @@ jobs:
           case "$tag" in v[0-9]*) ;; *) echo "::error::'$tag' is not a release tag"; exit 1 ;; esac
           gh release download "$tag" -R "$GITHUB_REPOSITORY" -D dl
           echo "TAG=$tag" >> "$GITHUB_ENV"
-          mkdir -p itch/windows itch/linux
+          mkdir -p itch/windows itch/linux itch/web
           want() { [ "$PLATFORMS" = all ] || [ "$PLATFORMS" = "$1" ]; }
-          if want windows; then unzip -q dl/Ironvolt-windows.zip -d itch/windows; test -f itch/windows/Ironvolt/Ironvolt.exe; fi
+          if want windows; then cp dl/Ironvolt.exe itch/windows/; fi
+          if want web; then unzip -q dl/Ironvolt-web.zip -d itch/web; test -f itch/web/index.html; fi
           if want linux; then tar xzf dl/Ironvolt-linux.tar.gz -C itch/linux; test -x itch/linux/Ironvolt/Ironvolt; fi
           if want mac; then test -s dl/Ironvolt-macos.zip; fi
           ls -la dl
@@ -87,6 +88,7 @@ jobs:
           want windows && push itch/windows windows
           want mac && push dl/Ironvolt-macos.zip mac
           want linux && push itch/linux linux
+          want web && push itch/web html5
           [ "$DRY" = "true" ] || butler/butler status "$ITCH_GAME"
           {
             echo "### itch.io: $TAG ($PLATFORMS)$([ "$DRY" = "true" ] && echo ', dry run')"

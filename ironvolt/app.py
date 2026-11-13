@@ -3,6 +3,8 @@
 The game draws into a 320x224 surface. The GPU scales it by the largest whole number that fits (sharp pixels,
 no shimmer), centres it, frames it with a cabinet bezel, and lays optional scanlines over it. Logic steps at a
 fixed 60 Hz; every refresh of the screen paints the blend of the last two steps, so motion is even at any rate.
+In a browser (pygbag) there is no GPU renderer: the same picture is scaled on the CPU into the page's canvas, and
+the loop hands the browser back control once per frame.
 """
 
 import os
@@ -16,6 +18,9 @@ from .art import Atlas
 from .controls import Controls
 from .game import Game
 from .settings import C, H, MAX_DT, STEP, W
+
+WEB = sys.platform == "emscripten"
+WEB_SCALE = 3                                     # the canvas is 960x672; the page fits it to the browser window
 
 
 def pace(acc, dt):
@@ -58,17 +63,21 @@ class App:
         os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "0")      # nearest: crisp pixels
         pygame.init()
         audio.init()
-        from pygame._sdl2.video import Renderer, Texture
-        self.Texture = Texture
-        desk = pygame.display.get_desktop_sizes()[0]
-        k, _ = integer_fit((desk[0] - 80, desk[1] - 120))
-        self.window = pygame.Window("IRONVOLT " + __version__, (W * k, H * k), resizable=True)
-        self.window.minimum_size = (W, H)
-        self.renderer = Renderer(self.window, vsync=True)
         self.screen = pygame.Surface((W, H))
-        self.tex = Texture.from_surface(self.renderer, self.screen)
         self.atlas = Atlas()
-        self.window.set_icon(self.atlas.players[0]["stand"])
+        if WEB:
+            self.canvas = pygame.display.set_mode((W * WEB_SCALE, H * WEB_SCALE))
+            self.texture = lambda surf: surf             # the browser path draws surfaces as they are
+        else:
+            from pygame._sdl2.video import Renderer, Texture
+            desk = pygame.display.get_desktop_sizes()[0]
+            k, _ = integer_fit((desk[0] - 80, desk[1] - 120))
+            self.window = pygame.Window("IRONVOLT " + __version__, (W * k, H * k), resizable=True)
+            self.window.minimum_size = (W, H)
+            self.renderer = Renderer(self.window, vsync=True)
+            self.texture = lambda surf: Texture.from_surface(self.renderer, surf)
+            self.tex = self.texture(self.screen)
+            self.window.set_icon(self.atlas.players[0]["stand"])
         self.game = Game(self.atlas)
         self.controls = Controls()
         self.game.controls = self.controls              # the prompts follow the device in use
@@ -77,15 +86,17 @@ class App:
         self.frame_cache = None
 
     def layout(self):
-        size = self.window.size
+        size = self.canvas.get_size() if WEB else self.window.size
         k, rect = integer_fit(size)
         key = (size, self.crt)
         if self.frame_cache is None or self.frame_cache[0] != key:
-            self.frame_cache = (key, k, rect, self.Texture.from_surface(self.renderer, bezel(size, rect)),
-                                self.Texture.from_surface(self.renderer, scanlines(k, rect)) if self.crt else None)
+            self.frame_cache = (key, k, rect, self.texture(bezel(size, rect)),
+                                self.texture(scanlines(k, rect)) if self.crt else None)
         return self.frame_cache[1:]
 
     def toggle_full(self):
+        if WEB:
+            return                                # the page's own fullscreen button does it
         self.full = not self.full
         if self.full:
             self.window.set_fullscreen(desktop=True)
@@ -111,54 +122,79 @@ class App:
                     g.to_title()
                 elif g.mode == "play":
                     g.toggle_pause()
-                elif g.mode in ("title", "scores", "demo"):
+                elif g.mode in ("title", "scores", "demo") and not WEB:   # a browser tab cannot close itself
                     return False
             elif e.key == pygame.K_RETURN and self.game.paused:
                 self.game.toggle_pause()
         return True
 
-    def run(self):
-        clock = pygame.time.Clock()
-        last = time.perf_counter()                 # pygame's clock counts whole milliseconds: too coarse to blend by
-        acc = 0.0
-        moving = False                             # did the world step on the latest tick?
-        waiting = []                               # events no step has read yet: a fast screen refreshes between steps
-        running = True
-        limit = int(os.environ.get("IRONVOLT_FRAMES", "0"))    # the local smoke test quits by itself
-        shown = 0
-        while running and not (limit and shown >= limit):
-            clock.tick(400)                        # a brake, for a driver that ignores vsync
-            now = time.perf_counter()
-            steps, acc = pace(acc, now - last)
-            last = now
-            for e in pygame.event.get():
-                running = self.handle(e) and running
-                waiting.append(e)
-            for _ in range(steps):
-                self.controls.read(waiting)
-                waiting = []                                 # a coin event counts once, and none is dropped
-                world = self.game.world or self.game.demo
-                seen = world and world.frame
-                self.game.step(self.controls)
-                moving = bool(world) and world.frame != seen
-                if moving and world is self.game.world:      # a played world shakes the pads; the demo does not
-                    for i, moment in world.felt:
-                        self.controls.feel(i, moment)
+    def start(self):
+        self.clock = pygame.time.Clock()
+        self.last = time.perf_counter()            # pygame's clock counts whole milliseconds: too coarse to blend by
+        self.acc = 0.0
+        self.moving = False                        # did the world step on the latest tick?
+        self.waiting = []                          # events no step has read yet: a fast screen refreshes between steps
+        self.running = True
+        self.limit = int(os.environ.get("IRONVOLT_FRAMES", "0"))    # the local smoke test quits by itself
+        self.shown = 0
+
+    def frame(self):
+        """One screen refresh: due logic steps, then the picture. Returns False once the game should end."""
+        if not WEB:
+            self.clock.tick(400)                   # a brake, for a driver that ignores vsync
+        now = time.perf_counter()
+        steps, self.acc = pace(self.acc, now - self.last)
+        self.last = now
+        for e in pygame.event.get():
+            self.running = self.handle(e) and self.running
+            self.waiting.append(e)
+        for _ in range(steps):
+            self.controls.read(self.waiting)
+            self.waiting = []                                # a coin event counts once, and none is dropped
             world = self.game.world or self.game.demo
-            if world:                              # a world that did not step (pause, game over) holds its picture
-                world.blend = acc / STEP if moving else 1.0
-            self.game.draw(self.screen)
-            self.tex.update(self.screen)
-            k, rect, frame, lines = self.layout()
-            self.renderer.clear()
-            frame.draw()
-            self.tex.draw(dstrect=rect)
+            seen = world and world.frame
+            self.game.step(self.controls)
+            self.moving = bool(world) and world.frame != seen
+            if self.moving and world is self.game.world:     # a played world shakes the pads; the demo does not
+                for i, moment in world.felt:
+                    self.controls.feel(i, moment)
+        world = self.game.world or self.game.demo
+        if world:                                  # a world that did not step (pause, game over) holds its picture
+            world.blend = self.acc / STEP if self.moving else 1.0
+        self.game.draw(self.screen)
+        self.present()
+        self.shown += 1
+        return self.running and not (self.limit and self.shown >= self.limit)
+
+    def present(self):
+        k, rect, frame, lines = self.layout()
+        if WEB:
+            self.canvas.blit(frame, (0, 0))
+            self.canvas.blit(pygame.transform.scale(self.screen, rect.size), rect)
             if lines:
-                lines.draw(dstrect=rect)
-            self.renderer.present()
-            shown += 1
+                self.canvas.blit(lines, rect)
+            pygame.display.flip()
+            return
+        self.tex.update(self.screen)
+        self.renderer.clear()
+        frame.draw()
+        self.tex.draw(dstrect=rect)
+        if lines:
+            lines.draw(dstrect=rect)
+        self.renderer.present()
+
+    def run(self):
+        self.start()
+        while self.frame():
+            pass
         self.controls.close()
         pygame.quit()
+
+    async def run_web(self):
+        import asyncio
+        self.start()
+        while self.frame():
+            await asyncio.sleep(0)                 # the browser paints the canvas and runs its events here
 
 
 def main():

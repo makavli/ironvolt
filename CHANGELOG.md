@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+IRONVOLT on every desk and in the browser.
+- **Play in the browser:** the same game, built with pygbag, runs in a web page with nothing to install (the itch.io
+  page plays it in place). Sound starts on the first click or key.
+- **One file for Windows:** the release carries `Ironvolt.exe`, a single file to double-click, instead of a zip.
+- Download buttons for Windows, macOS and Linux at the top of the README.
+
 ## 0.1.0
 
 The first playable mission.

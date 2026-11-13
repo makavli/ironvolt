@@ -6,6 +6,7 @@ The music is built in a background thread so the title appears at once. Without 
 
 import math
 import random
+import sys
 import threading
 from array import array
 
@@ -157,7 +158,10 @@ def init():
     for name, data in _effects().items():
         _sounds[name] = pygame.mixer.Sound(buffer=data.tobytes())
     _sounds["heavy"].set_volume(0.7)
-    threading.Thread(target=_build_music, daemon=True).start()
+    if sys.platform == "emscripten":
+        _build_music()                             # a browser has no threads; this takes a moment under the loader
+    else:
+        threading.Thread(target=_build_music, daemon=True).start()
     return True
 
 
