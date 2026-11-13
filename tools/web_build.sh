@@ -20,5 +20,5 @@ with zipfile.ZipFile(sys.argv[1], 'w', zipfile.ZIP_DEFLATED) as z:
 ls -la "$src/build/web" out/Ironvolt-web.zip
 if [ "${1:-}" = "--serve" ]; then
     echo "Open http://localhost:8000 (Ctrl+C stops)"
-    "$PY" -m http.server 8000 -d "$src/build/web"
+    "$PY" -m http.server 8000 -b 127.0.0.1 -d "$src/build/web"
 fi

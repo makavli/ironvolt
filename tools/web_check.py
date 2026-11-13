@@ -35,16 +35,18 @@ def main():
     port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     profile = tempfile.mkdtemp()
-    proc = subprocess.Popen([chrome(), "--headless=new", "--remote-debugging-port=9333", "--user-data-dir=" + profile,
+    proc = subprocess.Popen([chrome(), "--headless=new", "--remote-debugging-port=0", "--user-data-dir=" + profile,
                              "--autoplay-policy=no-user-gesture-required", "--window-size=1000,720",
                              "--no-first-run", "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     lines, n = [], [0]
     try:
-        for _ in range(50):
+        for _ in range(100):                       # Chrome picks a free loopback port and writes it in the profile
             try:
-                tabs = json.load(urllib.request.urlopen("http://127.0.0.1:9333/json"))
+                with open(os.path.join(profile, "DevToolsActivePort")) as f:
+                    debug = int(f.readline())
+                tabs = json.load(urllib.request.urlopen("http://127.0.0.1:%d/json" % debug))
                 break
-            except OSError:
+            except (OSError, ValueError):
                 time.sleep(0.2)
         ws = websocket.create_connection([t for t in tabs if t["type"] == "page"][0]["webSocketDebuggerUrl"])
 
@@ -95,6 +97,8 @@ def main():
         shot("web_play.png")
     finally:
         proc.terminate()
+        proc.wait(timeout=10)
+        shutil.rmtree(profile, ignore_errors=True)
         srv.shutdown()
     text = "\n".join(lines)
     bad = [l for l in lines if "Traceback" in l or "Error" in l.split(":")[0] or l.startswith("EXCEPTION")]
