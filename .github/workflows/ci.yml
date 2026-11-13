@@ -38,7 +38,7 @@ jobs:
       - name: The bot clears the stage
         run: python tools/sim.py god | tee sim.log && grep -q "cleared True" sim.log
       - name: The version is new
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'   # its action bumps release nothing
         run: python tools/version_check.py
 
   # Pull requests build Linux only (the packaging check); main builds all three for the release.
@@ -61,6 +61,7 @@ jobs:
         shell: bash
         run: python -m PyInstaller --noconfirm --clean --windowed --name Ironvolt run.py
       - name: The build starts, plays 120 frames and quits
+        timeout-minutes: 3             # the game quits itself after IRONVOLT_FRAMES; macOS has no `timeout`
         shell: bash
         env:
           IRONVOLT_FRAMES: "120"
@@ -71,7 +72,7 @@ jobs:
             macOS)   exe=dist/Ironvolt.app/Contents/MacOS/Ironvolt ;;
             Linux)   exe=dist/Ironvolt/Ironvolt ;;
           esac
-          timeout 120 "$exe"
+          "$exe"
       - name: Pack
         shell: bash
         env:
