@@ -1,5 +1,5 @@
 """Plays the browser build in headless Chrome and checks it: serves build/web-src/build/web, waits, presses Enter to
-start a game, saves screenshots to shots/web_*.png, and fails on a Python traceback in the page's console.
+start a game, holds the touch stick and the fire button like a phone, saves screenshots to shots/web_*.png, and fails on a Python traceback in the page's console.
 
     python tools/web_check.py [seconds]        (after bash tools/web_build.sh; needs Chrome and websocket-client)
 """
@@ -82,8 +82,9 @@ def main():
                 f.write(base64.b64decode(data))
 
         def key(code, vk, text=""):
-            for t in ("keyDown", "keyUp"):
+            for t in ("keyDown", "keyUp"):          # held a moment: the game reads the keys once a frame
                 call("Input.dispatchKeyEvent", type=t, key=code, code=code, windowsVirtualKeyCode=vk, text=text if t == "keyDown" else "")
+                pump(0.2)
 
         call("Runtime.enable")
         call("Page.enable")
@@ -92,9 +93,25 @@ def main():
         shot("web_title.png")
         call("Input.dispatchMouseEvent", type="mousePressed", x=500, y=360, button="left", clickCount=1)
         call("Input.dispatchMouseEvent", type="mouseReleased", x=500, y=360, button="left", clickCount=1)
-        key("Enter", 13, "\r")
+        key("Enter", 13, "\r")                      # the demo or the menu -> the difficulty screen
+        pump(1)
+        key("Enter", 13, "\r")                      # -> play
         pump(6)
         shot("web_play.png")
+        box = json.loads(call("Runtime.evaluate", returnByValue=True, expression=
+                              "JSON.stringify(document.getElementById('canvas').getBoundingClientRect())")
+                         ["result"]["value"])
+        at = lambda gx, gy: {"x": box["x"] + box["width"] * gx / 320, "y": box["y"] + box["height"] * gy / 224}
+        call("Emulation.setTouchEmulationEnabled", enabled=True, maxTouchPoints=5)
+        thumbs = [dict(at(60, 160), id=1), dict(at(252, 204), id=2)]           # the stick, and FIRE
+        call("Input.dispatchTouchEvent", type="touchStart", touchPoints=thumbs)
+        for step in range(1, 6):
+            thumbs[0].update(at(60 + step * 4, 160), id=1)
+            call("Input.dispatchTouchEvent", type="touchMove", touchPoints=thumbs)
+            pump(0.2)
+        pump(1.5)
+        shot("web_touch.png")
+        call("Input.dispatchTouchEvent", type="touchEnd", touchPoints=[])
     finally:
         proc.terminate()
         proc.wait(timeout=10)
@@ -103,7 +120,7 @@ def main():
     text = "\n".join(lines)
     bad = [l for l in lines if "Traceback" in l or "Error" in l.split(":")[0] or l.startswith("EXCEPTION")]
     print("\n".join(lines[-25:]))
-    print("screenshots: shots/web_title.png shots/web_play.png")
+    print("screenshots: shots/web_title.png shots/web_play.png shots/web_touch.png")
     if "music: baked" not in text:
         bad.append("the page built its music instead of loading the baked songs")
     if bad or "Traceback" in text:

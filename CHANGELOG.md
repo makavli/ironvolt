@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+Play on a phone or a tablet, in the browser.
+- **Touch controls:** touch the left half of the screen and a stick appears under your thumb (it follows a thumb
+  that runs past its edge). FIRE, JUMP and GRenade sit on the right; slide a thumb from one to another. The II
+  button pauses. They drive player 1, work in every menu, and stay hidden until the screen is touched.
+- **Turn your phone:** held upright, the game asks to be turned sideways.
+- **Browser saves:** the options and the high scores now live in the browser's storage and survive a reload.
+  Before, the browser version forgot them with the page.
+- `tools/web_check.py` now really starts a game (it held keys too briefly before) and plays a moment with an
+  emulated touchscreen.
+
 ## 0.4.1
 
 Clean music in the browser, for real this time.

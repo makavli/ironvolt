@@ -1,7 +1,11 @@
-"""The high-score table and the options, saved as JSON in the user's app-data folder (IRONVOLT_HOME overrides it)."""
+"""The high-score table and the options, saved as JSON in the user's app-data folder (IRONVOLT_HOME overrides it).
+In a browser the files would vanish with the page, so they go to its localStorage instead."""
 
 import json
 import os
+import sys
+
+WEB = sys.platform == "emscripten"
 
 DEFAULT = [["VLT", 50000], ["RVT", 40000], ["ARC", 30000], ["BLT", 25000], ["GUN", 20000],
            ["IRN", 15000], ["ZAP", 10000], ["MAX", 8000], ["DSK", 6000], ["AAA", 4000]]
@@ -17,12 +21,36 @@ def path(name="scores.json"):
     return os.path.join(folder(), name)
 
 
+def local():
+    """The browser's localStorage, or None (not a browser, or storage blocked)."""
+    if not WEB:
+        return None
+    try:
+        import platform
+        return platform.window.localStorage
+    except Exception:                            # a JS proxy raises its own error types
+        return None
+
+
+def _read(where):
+    store = local()
+    if store is not None:
+        try:
+            raw = store.getItem("ironvolt/" + os.path.basename(where))
+        except Exception:
+            raw = None
+        if raw is None:
+            raise OSError("not saved yet")
+        return json.loads(str(raw))
+    with open(where, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def load():
     try:
-        with open(path(), encoding="utf-8") as f:
-            table = json.load(f)
+        table = _read(path())
         if isinstance(table, list) and table and all(isinstance(r, list) and len(r) == 2 for r in table):
-            return [[str(n)[:3], int(s)] for n, s in table][:10]
+            return [[str(n).upper()[:3], max(0, min(int(s), 9999999))] for n, s in table][:10]   # 7 digits shown
     except (OSError, ValueError, TypeError, OverflowError, RecursionError):   # a planted or broken file
         pass
     return [row[:] for row in DEFAULT]
@@ -39,6 +67,13 @@ def insert(table, name, score):
 
 
 def _save(data, where):
+    store = local()
+    if store is not None:
+        try:
+            store.setItem("ironvolt/" + os.path.basename(where), json.dumps(data))
+        except Exception:                        # private browsing or a full quota: never crash over a save
+            pass
+        return
     try:
         os.makedirs(folder(), exist_ok=True)
         tmp = where + ".tmp"
@@ -72,8 +107,7 @@ DEFAULTS = {k: v[0] for k, v in OPTIONS.items()} | {"level": "NORMAL", "music": 
 def load_options():
     opts = dict(DEFAULTS)
     try:
-        with open(path("options.json"), encoding="utf-8") as f:
-            saved = json.load(f)
+        saved = _read(path("options.json"))
         if isinstance(saved, dict):
             opts.update({k: v for k, v in saved.items() if k in OPTIONS and v in OPTIONS[k]})
     except (OSError, ValueError, TypeError, RecursionError):

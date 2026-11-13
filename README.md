@@ -52,6 +52,7 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 </div>
 
 - **Two players on one machine**, keyboard or any gamepad (Xbox, PlayStation, Switch Pro), with rumble and light bar.
+- **Phones and tablets too:** in the browser, touch controls appear when you touch the screen.
 - **Smooth on any screen:** logic at a fixed 60 Hz, drawn blended at your refresh rate (144 Hz, 165 Hz...), scaled
   up in sharp whole steps inside a cabinet bezel (or to fit the window). Optional scanlines. Sharp on high-DPI
   screens too.
