@@ -403,6 +403,10 @@ class Storage(unittest.TestCase):
                 with open(storage.path(), "w") as f:
                     f.write("{broken")
                 self.assertEqual(storage.load(), storage.DEFAULT)
+                for bad in ("[]", '[["A", Infinity]]', "[" * 100000):
+                    with open(storage.path(), "w") as f:
+                        f.write(bad)
+                    self.assertEqual(storage.load(), storage.DEFAULT)
             finally:
                 del os.environ["IRONVOLT_HOME"]
 

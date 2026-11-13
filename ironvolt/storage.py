@@ -21,9 +21,9 @@ def load():
     try:
         with open(path(), encoding="utf-8") as f:
             table = json.load(f)
-        if isinstance(table, list) and all(isinstance(r, list) and len(r) == 2 for r in table):
+        if isinstance(table, list) and table and all(isinstance(r, list) and len(r) == 2 for r in table):
             return [[str(n)[:3], int(s)] for n, s in table][:10]
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError, OverflowError, RecursionError):   # a planted or broken file
         pass
     return [row[:] for row in DEFAULT]
 

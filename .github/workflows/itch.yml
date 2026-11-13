@@ -66,7 +66,9 @@ jobs:
 
       - name: Install butler
         run: |
-          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          # pinned and checked: this job later holds the itch key. To update, take the version and sha256 from broth.
+          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/15.32.0/archive/default
+          echo "2335971394ef6596f95ded0833e85ee28755e13761716ef4c91d6b11f69162f5  butler.zip" | sha256sum -c -
           unzip -q butler.zip -d butler && chmod +x butler/butler && butler/butler -V
 
       - name: Upload (only this step sees the key)
