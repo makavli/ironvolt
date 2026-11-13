@@ -7,6 +7,8 @@ import unittest
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+HOME = tempfile.mkdtemp()
+os.environ["IRONVOLT_HOME"] = HOME                 # never the player's own scores and options
 
 import pygame  # noqa: E402
 
@@ -14,7 +16,7 @@ pygame.init()
 
 from ironvolt import storage  # noqa: E402
 from ironvolt.actors import Foe, Hostage, Pickup  # noqa: E402
-from ironvolt.app import integer_fit, pace  # noqa: E402
+from ironvolt.app import fit, integer_fit, pace, scanlines  # noqa: E402
 from ironvolt.art import Atlas  # noqa: E402
 from ironvolt.autopilot import BotPad  # noqa: E402
 from ironvolt.controls import BUTTONS  # noqa: E402
@@ -392,6 +394,31 @@ class Flow(unittest.TestCase):
         self.assertEqual((k, r.size), (3, (960, 672)))
         self.assertEqual(r.topleft, (20, 14))
 
+    def test_every_screen_shape_fits(self):
+        shapes = [(320, 224), (640, 480), (800, 600), (1024, 768), (1280, 720), (1366, 768), (1440, 900),
+                  (1920, 1080), (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440), (3840, 2160), (5120, 1440),
+                  (1080, 1920), (1170, 2532), (2048, 1536), (500, 250), (321, 900), (2732, 2048)]
+        for size in shapes:
+            for whole in (True, False):
+                k, r = fit(size, whole)
+                msg = "%s %s" % (size, whole)
+                self.assertTrue(pygame.Rect((0, 0), size).contains(r), msg)
+                self.assertLessEqual(abs(r.centerx - size[0] / 2), 1, msg)
+                self.assertLessEqual(abs(r.centery - size[1] / 2), 1, msg)
+                if whole:
+                    self.assertEqual(r.size, (W * k, H * k), msg)
+                else:
+                    self.assertAlmostEqual(r.width / r.height, W / H, delta=0.02, msg=msg)
+                    self.assertTrue(r.width == size[0] or r.height == size[1], msg)     # fills one side
+        self.assertEqual(fit((3440, 1440), False)[1].height, 1440)
+
+    def test_scanlines_follow_the_pixel_rows(self):
+        k, r = fit((1920, 1080))
+        lines = scanlines(r)
+        self.assertEqual(lines.get_at((5, k - 1)).a, 70)
+        self.assertEqual(lines.get_at((5, 0)).a, 0)
+        self.assertEqual(scanlines(pygame.Rect(0, 0, W * 2, H * 2)).get_at((5, 1)).a, 0)   # too small: none
+
     def test_motion_is_even_at_any_refresh_rate(self):
         for hz in (60, 75, 144, 164, 240):
             acc, steps, seen = 0.0, 0, []
@@ -421,7 +448,19 @@ class Storage(unittest.TestCase):
                         f.write(bad)
                     self.assertEqual(storage.load(), storage.DEFAULT)
             finally:
-                del os.environ["IRONVOLT_HOME"]
+                os.environ["IRONVOLT_HOME"] = HOME
+
+    def test_options_keep_only_known_values(self):
+        o = storage.load_options()
+        self.assertEqual((o["level"], o["music"], o["speed"]), ("NORMAL", "8", "100%"))
+        storage.save_options(dict(o, music="3", crt="OFF"))
+        self.assertEqual(storage.load_options()["music"], "3")
+        for bad in ('{"music": "99", "evil": "x", "crt": 1}', "[1, 2]", "{broken", "[" * 100000):
+            with open(storage.path("options.json"), "w") as f:
+                f.write(bad)
+            o = storage.load_options()
+            self.assertEqual(o, storage.DEFAULTS)
+        os.remove(storage.path("options.json"))
 
 
 
@@ -512,6 +551,7 @@ class Ctl:
         return [i for i, p in enumerate(self.pads) if p.pressed("start")]
 
     def tap(self, game, frames=1, **held):
+        self.pads[0].press()                                    # let go first: two taps are two presses
         for _ in range(frames):
             self.pads[0].press(**held)
             game.step(self)
@@ -560,6 +600,105 @@ class Difficulty(unittest.TestCase):
         c.tap(g)
         self.assertIsNone(g.feeble)
         self.assertEqual(g.world.players[0].lives, 5)
+
+class Menus(unittest.TestCase):
+    def setUp(self):
+        if os.path.exists(storage.path("options.json")):
+            os.remove(storage.path("options.json"))
+
+    def test_main_menu_options_page_saves(self):
+        g, c = Game(ATLAS), Ctl()
+        changed = []
+        g.on_option = changed.append
+        c.tap(g, down=True)
+        c.tap(g, fire=True)                                     # OPTIONS
+        self.assertIsNotNone(g.sub)
+        g.draw(pygame.Surface((W, H)))
+        while g.sub.key != "music":
+            c.tap(g, down=True)
+        c.tap(g, left=True)
+        self.assertEqual((g.opts["music"], changed[-1]), ("7", "music"))
+        c.tap(g, bomb=True)
+        self.assertIsNone(g.sub)
+        self.assertEqual(storage.load_options()["music"], "7")
+        c.tap(g, down=True)
+        c.tap(g, jump=True)                                     # CONTROLS
+        g.draw(pygame.Surface((W, H)))
+        c.tap(g, right=True)
+        g.draw(pygame.Surface((W, H)))
+        c.tap(g, fire=True)
+        self.assertIsNone(g.sub)
+        c.tap(g, down=True)
+        c.tap(g, down=True)
+        c.tap(g, fire=True)                                     # QUIT
+        self.assertTrue(g.quit)
+
+    def test_idle_menu_runs_the_attract_loop_and_a_button_comes_back(self):
+        g, c = Game(ATLAS), Ctl()
+        c.tap(g, 601)
+        self.assertEqual(g.mode, "story")
+        c.tap(g, 40)
+        c.tap(g, fire=True)
+        self.assertEqual(g.mode, "title")
+
+    def test_start_pauses_and_the_pause_menu_quits_to_title(self):
+        g, c = Game(ATLAS), Ctl()
+        g.start([0])
+        c.tap(g, 5)
+        c.tap(g, start=True)
+        self.assertTrue(g.paused)
+        frame = g.world.frame
+        c.tap(g, 10)
+        self.assertEqual(g.world.frame, frame)
+        g.draw(pygame.Surface((W, H)))
+        c.tap(g, down=True)
+        c.tap(g, fire=True)                                     # OPTIONS over the frozen stage
+        g.draw(pygame.Surface((W, H)))
+        self.assertTrue(g.back())                               # Esc closes the page...
+        self.assertIsNone(g.sub)
+        self.assertTrue(g.back())                               # ...then resumes
+        self.assertFalse(g.paused)
+        c.tap(g, start=True)
+        for _ in range(3):
+            c.tap(g, down=True)
+        c.tap(g, fire=True)                                     # QUIT TO TITLE
+        self.assertEqual((g.mode, g.world), ("title", None))
+        self.assertFalse(g.back())                              # Esc on the title quits the desktop game
+
+    def test_lives_shake_and_flashes_options(self):
+        g = Game(ATLAS)
+        g.opts.update(lives="9", shake="OFF", flashes="REDUCED")
+        g.start([0], "HARD")
+        w = g.world
+        self.assertEqual(w.players[0].lives, 9)
+        w.shake = 10
+        w.flash(100, 100)
+        w.step([Pad(), Pad()])
+        self.assertEqual(w.jolt, (0, 0))
+        self.assertFalse(w.flashes_on)
+        g.opts["lives"] = "AUTO"
+        g.start([0], "HARD")
+        self.assertEqual(g.world.players[0].lives, 2)
+        self.assertEqual(storage.load_options()["level"], "HARD")    # offered first next time
+
+    def test_swap_trades_the_face_buttons_and_their_names(self):
+        from ironvolt.controls import Controls, _Device
+
+        class Joy:
+            def __init__(self, held):
+                self.held = held
+            get_numaxes = get_numhats = lambda self: 0
+            get_numbuttons = lambda self: 16
+            get_button = lambda self, n: n in self.held
+
+        dev = _Device.__new__(_Device)
+        dev.ctl, dev.joy, dev.web, dev.coin_was, dev.swap = None, Joy({0}), True, False, True
+        s, _, _ = dev.state()
+        self.assertEqual((s["fire"], s["jump"]), (True, False))
+        c = Controls()
+        c.device[0], c.swap = "xbox", True
+        self.assertEqual((c.prompt("fire"), c.prompt("jump")), ("A / RT", "X"))
+
 
 if __name__ == "__main__":
     unittest.main()

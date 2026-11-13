@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0
+
+A real menu, options for everyone, and clean sound in the browser.
+- **Main menu:** start, options, controls, high scores, quit. Left alone, it still runs the story, the scores and
+  the demo like a cabinet; any button brings it back.
+- **Options, saved between games:** difficulty, lives, the "too feeble" offer, free play; fullscreen, pixel-perfect
+  or fit-to-window scaling, scanlines; music and effects volume; rumble, swap fire and jump on pads; and for
+  accessibility, screen shake off, reduced flashes, and a game speed down to 70%.
+- **Controls page:** every key for both players, and a drawn pad with what each button does (Xbox or PlayStation
+  names, following the pad you use).
+- **Pause menu:** Start on a pad now pauses too. Resume, options, controls, or quit to the title.
+- **Sharp on high-DPI screens:** Windows no longer blurs the window at 125% or 150% display scaling.
+- **Fix:** the browser version ticked until all the music was built. The build now takes smaller slices of each
+  frame and the sound has a deeper buffer.
+- README: the gamepad buttons in the controls table were wrong; fixed.
+
 ## 0.3.0
 
 Choose your fight, and a new soundtrack.

@@ -53,10 +53,13 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 
 - **Two players on one machine**, keyboard or any gamepad (Xbox, PlayStation, Switch Pro), with rumble and light bar.
 - **Smooth on any screen:** logic at a fixed 60 Hz, drawn blended at your refresh rate (144 Hz, 165 Hz...), scaled
-  up in sharp whole steps inside a cabinet bezel. Optional scanlines.
+  up in sharp whole steps inside a cabinet bezel (or to fit the window). Optional scanlines. Sharp on high-DPI
+  screens too.
 - **Arcade to the bone:** hit-stop, screen shake, a kill-chain multiplier up to x8, continues, coins or free
   play, and a high-score table.
 - **Easy, Normal or Hard**, chosen before every game. Die too often and the game asks if you are too feeble.
+- **Options for everyone:** lives, music and effects volume, rumble, swapped fire and jump, screen shake, flashes
+  and a slower game speed, all saved. A controls page shows the keys and the pad.
 - **A synthesized stereo soundtrack:** a title theme, a stage theme and a boss theme that crossfades in when the
   gate locks.
 - **Zero asset files:** sprites, tiles, the font, every sound effect and the music are generated at start-up.
@@ -72,14 +75,14 @@ python -m venv .venv
 | | Player 1 | Player 2 | Gamepad |
 |---|---|---|---|
 | Move / aim | Arrows | WASD | Stick or D-pad |
-| Fire | Z | G | B or X |
+| Fire | Z | G | X or RT |
 | Jump | X | H | A |
-| Grenade | C | J | Y or RB |
-| Start / join | Enter or 1 | 2 | Start |
+| Grenade | C | J | B or RB |
+| Start / join / pause | Enter or 1 | 2 | Start |
 
 Down + jump drops through a catwalk. Up, diagonals, and down in the air aim your shot.
 Coin: 5 (or Back) when free play is off. F11 or Alt+Enter: fullscreen. F2: scanlines. F3: free play on/off.
-Esc: pause, then Esc again for the title.
+Esc: pause (or back out of a menu). The pause menu has the options and the way back to the title.
 
 Free the prisoners: each one drops a weapon (H heavy gun, S spread, R rockets, B grenades, 1 extra life).
 

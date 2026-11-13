@@ -3,6 +3,7 @@
 Usage: python tools/media.py
 """
 import os, shutil, subprocess, sys, tempfile
+os.environ["IRONVOLT_HOME"] = tempfile.mkdtemp()       # the default options and scores, not the player's
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy"); os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pygame

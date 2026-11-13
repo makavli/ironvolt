@@ -1,18 +1,24 @@
-"""The cabinet: attract mode, credits, play, continues, the stage-clear tally and name entry.
+"""The cabinet: the main menu and attract mode, credits, options, play and pause, continues, the stage-clear tally
+and name entry.
 
 Game.step(controls) runs one 60 Hz frame; Game.draw(surface) paints it at 320x224.
 """
 
 import math
+import sys
 
 import pygame
 
 from . import __version__, audio, font, storage
 from .autopilot import BotPad
+from .menu import Layout, Menu, Options
 from .settings import CHAIN_FRAMES, CHAIN_MAX, LEVELS, C, H, W
 from .world import World
 
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
+WEB = sys.platform == "emscripten"
+MAIN = ["START GAME", "OPTIONS", "CONTROLS", "HIGH SCORES"] + ([] if WEB else ["QUIT"])   # a tab cannot close
+PAUSE = ["RESUME", "OPTIONS", "CONTROLS", "QUIT TO TITLE"]
 
 # The attract-mode intro: the Long Dusk in five screens (the full story is docs/STORY.md).
 STORY = [
@@ -28,9 +34,10 @@ BRIEFING = ["MISSION 1", "SCRAPYARD DUSK", "", "FREE THE CAPTURED TECHNICIANS.",
 
 
 class Game:
-    def __init__(self, atlas, free_play=True):
+    def __init__(self, atlas):
         self.atlas = atlas
-        self.free_play = free_play
+        self.opts = storage.load_options()
+        self.free_play = self.opts["free_play"] == "ON"
         self.credits = 0
         self.scores = storage.load()
         self.mode = "title"
@@ -43,7 +50,11 @@ class Game:
         self.drift = 0.0
         self.logo = font.logo("IRONVOLT", 4, C["cream"], C["ember"], C["ink"])
         self.controls = None              # set by the app: the prompts follow the device in use
-        self.level = "NORMAL"             # the last difficulty chosen is offered first next time
+        self.level = self.opts["level"]   # the last difficulty chosen is offered first next time
+        self.on_option = lambda key: None  # set by the app: the options it applies (video, sound, pads)
+        self.menu, self.pause_menu = Menu(MAIN), Menu(PAUSE)
+        self.sub = None                    # the options or controls page, over the title or the pause
+        self.quit = False                  # QUIT chosen on the main menu
         self.pending = []                 # players who pressed start, while they choose the difficulty
         self.feeble = None                # the "too feeble?" offer on screen: 0 drop a level, 1 stay
 
@@ -66,11 +77,29 @@ class Game:
     def go(self, mode):
         self.mode, self.t = mode, 0
 
+    def set_option(self, key, value):
+        self.opts[key] = value
+        self.apply(key)
+        storage.save_options(self.opts)
+
+    def apply(self, key):
+        """An option just changed: the game's own take effect here, the app's in on_option."""
+        self.free_play = self.opts["free_play"] == "ON"
+        self.level = self.opts["level"]
+        for w in (self.world, self.demo):
+            if w:
+                w.shake_on, w.flashes_on = self.opts["shake"] == "ON", self.opts["flashes"] == "FULL"
+        self.on_option(key)
+
     def start(self, players, level=None):
-        self.world = World(players, level=level or self.level)
+        lives = None if self.opts["lives"] == "AUTO" else int(self.opts["lives"])
+        self.world = World(players, level=level or self.level, lives=lives)
+        if self.opts["level"] != self.world.level:
+            self.set_option("level", self.world.level)       # offered first next time
         self.demo = None
         self.paused = False
         self.feeble = None
+        self.apply("start")
         audio.play("start")
         self.go("play")
 
@@ -83,17 +112,20 @@ class Game:
             audio.music(True, "title")
         if self.mode in ("title", "story", "scores", "demo"):
             self.drift += 0.5
-            if starts and self.pay():
-                self.pending = sorted(set(starts))
-                self.demo = None
-                self.go("select")
+            if self.mode == "title":
+                self.title_step(ctl)
                 return
-            if self.mode == "title" and self.t > 600:
-                self.go("story")
-            elif self.mode == "story" and (self.t > 240 * len(STORY) or (self.t > 30 and self.skip(ctl))):
+            if starts and self.pay():
+                self.begin(starts)
+                return
+            if self.t > 30 and (self.skip(ctl) or any(p.pressed("bomb") for p in ctl.pads)):
+                self.demo = None
+                self.go("title")                             # any button brings the menu back
+            elif self.mode == "story" and self.t > 240 * len(STORY):
                 self.go("scores")
             elif self.mode == "scores" and self.t > 360:
                 self.demo = World((0,), seed=7, god=True)
+                self.apply("demo")
                 self.go("demo")
             elif self.mode == "demo":
                 self.bots[0].think(self.demo, self.demo.players[0])
@@ -111,6 +143,65 @@ class Game:
                 self.begin_entry()
         elif self.mode == "entry":
             self.entry_step(ctl)
+
+    def begin(self, who):
+        self.pending = sorted(set(who))
+        self.demo = None
+        self.go("select")
+
+    def title_step(self, ctl):
+        if any(p.pressed(b) for p in ctl.pads for b in ("up", "down", "left", "right", "fire", "jump", "bomb",
+                                                         "start")):
+            self.t = 1                                       # the attract loop waits for an idle menu
+        if self.sub:
+            self.sub_step(ctl)
+            return
+        choice = self.menu.step(ctl)
+        if choice == "START GAME":
+            if self.pay():
+                self.begin([i for i, p in enumerate(ctl.pads)
+                            if p.pressed("fire") or p.pressed("jump") or p.pressed("start")] or [0])
+            else:
+                audio.play("clank")
+        elif choice in ("OPTIONS", "CONTROLS"):
+            self.open(choice)
+        elif choice == "HIGH SCORES":
+            self.go("scores")
+        elif choice == "QUIT":
+            self.quit = True
+        elif self.t > 600:
+            self.go("story")
+
+    def open(self, page):
+        if page == "OPTIONS":
+            self.sub = Options(self.opts, self.apply)
+        else:
+            dev = self.controls.device[0] if self.controls else "keyboard"
+            self.sub = Layout(dev, self.opts["swap"] == "ON")
+
+    def sub_step(self, ctl):
+        if self.sub.step(ctl) == "back":
+            self.close_sub()
+
+    def close_sub(self):
+        if isinstance(self.sub, Options):
+            storage.save_options(self.opts)
+        self.sub = None
+
+    def back(self):
+        """Esc: closes a page, resumes from pause, pauses play. Returns False when the game should quit."""
+        if self.sub:
+            self.close_sub()
+        elif self.mode == "play" and self.feeble is None:
+            self.toggle_pause()
+        elif self.mode in ("story", "scores", "demo", "select"):
+            if self.mode == "select" and not self.free_play:
+                self.credits = min(9, self.credits + 1)     # the credit paid for this start comes back
+            self.demo = None
+            self.go("title")
+        elif self.mode == "title":
+            return WEB                                      # a browser tab cannot close itself
+        return True
 
     def skip(self, ctl):
         return any(p.pressed("fire") or p.pressed("jump") for p in ctl.pads)
@@ -141,6 +232,7 @@ class Game:
     def play_step(self, ctl, starts):
         w = self.world
         if self.paused:
+            self.pause_step(ctl)
             return
         if self.feeble is not None:
             self.feeble_step(ctl, starts)
@@ -152,6 +244,9 @@ class Game:
             return
         for i in starts:
             p = w.players[i]
+            if p and not p.out:
+                self.toggle_pause()                         # start on a pad pauses, like a console
+                return
             if p is None and self.pay():
                 w.join(i)
                 audio.play("start")
@@ -173,6 +268,18 @@ class Game:
         elif all(p is None or (p.out and getattr(p, "continue_t", 0) <= 0) for p in w.players):
             audio.music(False)
             self.go("over")
+
+    def pause_step(self, ctl):
+        if self.sub:
+            self.sub_step(ctl)
+            return
+        choice = self.pause_menu.step(ctl)
+        if choice in ("RESUME", "back"):
+            self.toggle_pause()
+        elif choice in ("OPTIONS", "CONTROLS"):
+            self.open(choice)
+        elif choice == "QUIT TO TITLE":
+            self.to_title()
 
     def begin_entry(self):
         self.entry = [[p.index, "AAA", 0] for p in self.world.players
@@ -208,13 +315,16 @@ class Game:
     def toggle_pause(self):
         if self.mode == "play":
             self.paused = not self.paused
+            self.pause_menu.i = 0
             if self.paused:
                 audio.music(False)                  # play_step brings the right song back
+                audio.play("clank")
 
     def to_title(self):
         audio.music(False)
         self.world = None
         self.paused = False
+        self.sub = None
         self.go("title")
 
     # ---------------------------------------------------------- drawing
@@ -225,10 +335,13 @@ class Game:
             self.hud(surf, self.world)
             if self.mode == "play" and self.feeble is None:
                 self.banners(surf)
-            if self.paused:
-                self.shade(surf)
-                font.draw(surf, "PAUSE", (W // 2, 96), C["cream"], 2, center=True)
-                font.draw(surf, "ENTER RESUME   ESC TITLE", (W // 2, 120), C["steel_l"], center=True)
+            if self.paused and self.sub:
+                self.shade(surf, 220)
+                self.sub.draw(surf, self.t)
+            elif self.paused:
+                self.shade(surf, 190)
+                font.draw(surf, "PAUSE", (W // 2, 70), C["cream"], 2, center=True)
+                self.pause_menu.draw(surf, 100, self.t)
             if self.mode == "over":
                 self.shade(surf)
                 font.draw(surf, "GAME OVER", (W // 2, 100), C["red"], 3, center=True)
@@ -291,15 +404,21 @@ class Game:
                 font.draw(surf, name, (116, y), col)
                 font.draw(surf, "%07d" % score, (170, y), col)
             self.prompt(surf, 190)
+        elif self.sub:
+            self.backdrop(surf)
+            self.shade(surf, 210)
+            self.sub.draw(surf, self.t)
         else:
             self.backdrop(surf)
             bob = round(math.sin(self.t * 0.05) * 2)
-            surf.blit(self.logo, (W // 2 - self.logo.get_width() // 2, 44 + bob))
-            font.draw(surf, "ARCADE RUN AND GUN", (W // 2, 90), C["sun"], center=True)
+            surf.blit(self.logo, (W // 2 - self.logo.get_width() // 2, 36 + bob))
+            font.draw(surf, "ARCADE RUN AND GUN", (W // 2, 82), C["sun"], center=True)
             font.draw(surf, "HI %07d" % self.scores[0][1], (W // 2, 8), C["cream"], center=True)
-            for k, line in enumerate(self.help_lines()):
-                font.draw(surf, line, (W // 2, 148 + k * 10), C["steel_l"], center=True)
-            self.prompt(surf, 120)
+            self.menu.draw(surf, 106, self.t)
+            if not (self.free_play or self.credits) and self.t % 60 < 40:
+                font.draw(surf, "INSERT COIN", (W // 2, 180), C["cream"], center=True)
+            label = "FREE PLAY" if self.free_play else "CREDIT %d" % self.credits
+            font.draw(surf, label, (W // 2, H - 10), C["steel_l"], center=True)
             font.draw(surf, "V" + __version__, (W - 4 - font.width("V" + __version__), H - 10), C["steel"])
 
     def feeble_offer(self, surf):
@@ -317,17 +436,6 @@ class Game:
                 half = font.width(label) // 2 + 4
                 pygame.draw.line(surf, C["ember"], (x - half, 134), (x + half, 134), 1)
         font.draw(surf, "LEFT RIGHT CHOOSE   FIRE CONFIRM", (W // 2, 160), C["steel_l"], center=True)
-
-    def help_lines(self):
-        c = self.controls
-        if c is None:
-            return ["MOVE ARROWS  FIRE Z  JUMP X  GRENADE C", "FULLSCREEN F11"]
-        say = lambda a: c.prompt(a, 0)
-        lines = ["FIRE %s  JUMP %s  GRENADE %s" % (say("fire"), say("jump"), say("bomb")),
-                 "MOVE %s" % say("move")]
-        if c.device[0] == "keyboard":
-            lines[1] += "   P2 WASD G H J   F11 FULLSCREEN"
-        return lines
 
     def prompt(self, surf, y):
         if self.free_play or self.credits:
