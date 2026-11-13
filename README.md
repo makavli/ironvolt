@@ -19,14 +19,15 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 <img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
 
 [![Download for Windows](https://img.shields.io/badge/Download-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/makavli/ironvolt/releases/latest/download/Ironvolt.exe)
-[![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/makavli/ironvolt/releases/latest/download/Ironvolt-macos.zip)
-[![Download for Linux](https://img.shields.io/badge/Download-Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/makavli/ironvolt/releases/latest/download/Ironvolt-linux.tar.gz)
 
 </div>
 
 **Windows:** double-click `Ironvolt.exe`. It is not code-signed, so the first time Windows says "Windows protected your
-PC": click **More info**, then **Run anyway**. **macOS:** unzip, then right-click `Ironvolt.app` and choose **Open**
-the first time. **Linux:** unpack and run `Ironvolt/Ironvolt`.
+PC": click **More info**, then **Run anyway**.
+
+**Other systems:** from 0.7.1 the releases ship a Windows build only. The macOS and Linux downloads are discontinued:
+GitHub's hosted Mac machines kept a release waiting in the queue, and the game is tested on Windows. On macOS or
+Linux, play from the source (below); the last macOS and Linux builds are in the 0.6.0 release.
 
 ## The Long Dusk
 

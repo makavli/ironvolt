@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1
+
+The first release with mission 2 (all of 0.7.0 below: its own release run was cancelled).
+- **Windows only:** the releases now ship `Ironvolt.exe` alone. The macOS and Linux builds are discontinued: GitHub's
+  hosted Mac machines kept a release waiting in the queue, and the game is tested on Windows. On macOS or Linux, play
+  from the source (`python run.py`); the last macOS and Linux builds are in the 0.6.0 release.
+
 ## 0.7.0
 
 Mission 2, and a game that goes on after the first boss.
