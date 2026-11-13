@@ -1,3 +1,3 @@
 """IRONVOLT - an arcade run-and-gun, drawn one pixel at a time. See LICENSE for the terms."""
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
