@@ -465,7 +465,7 @@ class Foe(Body):
             self.timer -= 1
             if on_screen and self.timer <= 0 and not far:
                 if not self.aiming:
-                    self.aiming = 24                  # a visible wind-up before every shot
+                    self.aiming = world.windup        # a visible wind-up before every shot
                 self.timer = random.randint(70, 120)
             if self.aiming:
                 self.aiming -= 1
@@ -486,7 +486,7 @@ class Foe(Body):
             vx = max(-3.2, min(3.2, (target.x - mx) / t))
             world.bolts.append(Bolt(mx, my - 4, vx, -0.5 * 0.16 * t, 0.16, "shell"))
         else:
-            world.bolts.append(Bolt(mx, my, self.facing * ENEMY_BULLET_V, 0))
+            world.bolts.append(Bolt(mx, my, self.facing * ENEMY_BULLET_V * world.fire, 0))
         world.flash(mx, my, small=True)
         audio.play("enemy_shot")
 
@@ -604,7 +604,7 @@ class Turret(Body):
             world.flash(self.x + c * 12, self.y - 10 + s * 12, small=True)
         if self.timer <= 0:
             self.timer = 80
-            world.bolts.append(Bolt(self.x + c * 12, self.y - 10 + s * 12, c * 1.7, s * 1.7))
+            world.bolts.append(Bolt(self.x + c * 12, self.y - 10 + s * 12, c * 1.7 * world.fire, s * 1.7 * world.fire))
             world.flash(self.x + c * 12, self.y - 10 + s * 12, small=True)
             audio.play("enemy_shot")
         if self.x < world.cam_x - 40:
@@ -783,7 +783,7 @@ class Bastion(Body):
             self.burst -= 1
             c, s = math.cos(self.gun_angle), math.sin(self.gun_angle)
             gx, gy = self.x - 40 + c * 12, self.y - 18 + s * 12
-            world.bolts.append(Bolt(gx, gy, c * 2.2, s * 2.2))
+            world.bolts.append(Bolt(gx, gy, c * 2.2 * world.fire, s * 2.2 * world.fire))
             world.flash(gx, gy, small=True)
             audio.play("enemy_shot")
         if self.angry and self.t % 150 == 40:

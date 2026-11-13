@@ -363,7 +363,7 @@ class Flow(unittest.TestCase):
     def test_every_scene_draws(self):
         g = Game(ATLAS)
         s = pygame.Surface((W, H))
-        for mode in ("title", "scores"):
+        for mode in ("title", "scores", "select"):
             g.mode = mode
             g.draw(s)
         g.start([0, 1])
@@ -468,10 +468,85 @@ class BrowserPad(unittest.TestCase):
 
 
 class Music(unittest.TestCase):
-    def test_loop_never_clips(self):
-        from ironvolt import audio
-        data = audio._track()
+    def test_song_never_clips(self):
+        from ironvolt import music
+        data = music.render("title")
+        self.assertEqual(len(data) % 2, 0)                     # stereo, interleaved
         self.assertLess(max(map(abs, data)), 30000)
+        self.assertGreater(max(map(abs, data[1::2])), 10000)    # the right side is not silent
+
+    def test_every_lead_bar_is_sixteen_steps_of_real_notes(self):
+        from ironvolt import music
+        for name, (bpm, sections) in music.SONGS.items():
+            for chords, style, lead in sections:
+                self.assertIn(style, music.STYLES)
+                for c in chords.split():
+                    self.assertIn(c, music.CHORDS)
+                if lead:
+                    self.assertEqual(len(lead[0]), len(chords.split()), name)
+                    for bar in lead[0]:
+                        self.assertEqual(len(bar.split()), 16, bar)
+                        for tok in bar.split():
+                            if tok not in "-.":
+                                music.midi(tok)
+
+
+class Ctl:
+    def __init__(self):
+        self.pads, self.coin = [Pad(), Pad()], False
+
+    def any_start(self):
+        return [i for i, p in enumerate(self.pads) if p.pressed("start")]
+
+    def tap(self, game, frames=1, **held):
+        for _ in range(frames):
+            self.pads[0].press(**held)
+            game.step(self)
+            held = {}
+
+
+class Difficulty(unittest.TestCase):
+    def test_chosen_before_play(self):
+        g, c = Game(ATLAS), Ctl()
+        c.tap(g, start=True)
+        self.assertEqual(g.mode, "select")
+        c.tap(g, down=True)
+        c.tap(g, down=True)
+        c.tap(g, down=True)                                     # past the end: stays on HARD
+        self.assertEqual(g.level, "HARD")
+        c.tap(g, 20)
+        c.tap(g, fire=True)
+        self.assertEqual(g.mode, "play")
+        self.assertEqual((g.world.level, g.world.players[0].lives), ("HARD", 2))
+
+    def test_too_feeble_offers_a_lower_level(self):
+        g, c = Game(ATLAS), Ctl()
+        g.start([0], "HARD")
+        g.world.deaths = 3
+        c.tap(g)
+        self.assertEqual(g.feeble, 0)
+        frame = g.world.frame
+        c.tap(g, 50)
+        self.assertEqual(g.world.frame, frame)                  # the game waits for an answer
+        g.draw(pygame.Surface((W, H)))
+        c.tap(g, fire=True)
+        self.assertIsNone(g.feeble)
+        self.assertEqual((g.world.level, g.world.windup), ("NORMAL", 24))
+        g.world.deaths = 7                                      # NORMAL asks after 4 more
+        c.tap(g)
+        self.assertEqual(g.feeble, 0)                           # asked again after as many deaths
+        c.tap(g, 50)
+        c.tap(g, right=True)
+        c.tap(g, fire=True)
+        self.assertEqual(g.world.level, "NORMAL")               # "I can take it"
+
+    def test_easy_never_asks(self):
+        g, c = Game(ATLAS), Ctl()
+        g.start([0], "EASY")
+        g.world.deaths = 20
+        c.tap(g)
+        self.assertIsNone(g.feeble)
+        self.assertEqual(g.world.players[0].lives, 5)
 
 if __name__ == "__main__":
     unittest.main()

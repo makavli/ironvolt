@@ -9,7 +9,7 @@ import pygame
 
 from . import __version__, audio, font, storage
 from .autopilot import BotPad
-from .settings import C, H, W
+from .settings import LEVELS, C, H, W
 from .world import World
 
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
@@ -22,6 +22,8 @@ STORY = [
     ["THE LEGION TAKES THE PEOPLE", "WHO CAN KEEP THE CRADLE ALIVE:", "", "TECHNICIANS. LINEMEN.", "IN CHAINS."],
     ["THE OLD REPAIR CREWS FIGHT BACK.", "", "KES ADEYEMI.  JUNO VARGA.", "", "THE IRONVOLT BRIGADE."],
 ]
+LEVEL_LINES = {"EASY": "FIVE LIVES. SLOWER SHOTS.", "NORMAL": "THE CABINET AS IT WAS.",
+               "HARD": "TWO LIVES. NO MERCY."}
 BRIEFING = ["MISSION 1", "SCRAPYARD DUSK", "", "FREE THE CAPTURED TECHNICIANS.", "BREAK THE LEGION GATE."]
 
 
@@ -41,6 +43,9 @@ class Game:
         self.drift = 0.0
         self.logo = font.logo("IRONVOLT", 4, C["cream"], C["ember"], C["ink"])
         self.controls = None              # set by the app: the prompts follow the device in use
+        self.level = "NORMAL"             # the last difficulty chosen is offered first next time
+        self.pending = []                 # players who pressed start, while they choose the difficulty
+        self.feeble = None                # the "too feeble?" offer on screen: 0 drop a level, 1 stay
 
     # ---------------------------------------------------------- credits
 
@@ -61,12 +66,12 @@ class Game:
     def go(self, mode):
         self.mode, self.t = mode, 0
 
-    def start(self, players):
-        self.world = World(players)
+    def start(self, players, level=None):
+        self.world = World(players, level=level or self.level)
         self.demo = None
         self.paused = False
+        self.feeble = None
         audio.play("start")
-        audio.music(True)
         self.go("play")
 
     def step(self, ctl):
@@ -74,10 +79,14 @@ class Game:
         if ctl.coin:
             self.coin()
         starts = ctl.any_start()
+        if self.mode in ("title", "story", "scores", "demo", "select"):
+            audio.music(True, "title")
         if self.mode in ("title", "story", "scores", "demo"):
             self.drift += 0.5
             if starts and self.pay():
-                self.start(sorted(set(starts)))
+                self.pending = sorted(set(starts))
+                self.demo = None
+                self.go("select")
                 return
             if self.mode == "title" and self.t > 600:
                 self.go("story")
@@ -92,6 +101,9 @@ class Game:
                 if self.t > 1500 or self.demo.locked:
                     self.demo = None
                     self.go("title")
+        elif self.mode == "select":
+            self.drift += 0.5
+            self.select_step(ctl, starts)
         elif self.mode == "play":
             self.play_step(ctl, starts)
         elif self.mode in ("over", "clear"):
@@ -103,9 +115,40 @@ class Game:
     def skip(self, ctl):
         return any(p.pressed("fire") or p.pressed("jump") for p in ctl.pads)
 
+    def select_step(self, ctl, starts):
+        i = LEVELS.index(self.level)
+        for pad in ctl.pads:
+            i += pad.pressed("down") - pad.pressed("up")
+        if LEVELS[max(0, min(2, i))] != self.level:
+            self.level = LEVELS[max(0, min(2, i))]
+            audio.play("clank")
+        if (self.t > 15 and (starts or self.skip(ctl))) or self.t > 900:
+            self.start(self.pending)
+
+    def feeble_step(self, ctl, starts):
+        w = self.world
+        for pad in ctl.pads:
+            if pad.pressed("left") or pad.pressed("right") or pad.pressed("up") or pad.pressed("down"):
+                self.feeble = 1 - self.feeble
+                audio.play("clank")
+        if self.t > 40 and (starts or self.skip(ctl)):
+            if self.feeble == 0:
+                w.set_level(LEVELS[LEVELS.index(w.level) - 1])
+                w.popups.append([w.cam_x + W // 2, 90, w.level + " NOW", 90])
+                audio.play("pickup")
+            self.feeble = None
+
     def play_step(self, ctl, starts):
         w = self.world
         if self.paused:
+            return
+        if self.feeble is not None:
+            self.feeble_step(ctl, starts)
+            return
+        if (w.feeble_at and w.deaths - w.offered >= w.feeble_at and not w.cleared
+                and not any(p and p.dying for p in w.players)):
+            w.offered, self.feeble, self.t = w.deaths, 0, 0       # the offer comes back after as many deaths again
+            audio.play("alarm")
             return
         for i in starts:
             p = w.players[i]
@@ -116,6 +159,10 @@ class Game:
                 w.carry_on(i)
                 audio.play("start")
         w.step(ctl.pads)
+        if w.cleared:
+            audio.music(False)                      # the boss is down: silence, then the tally
+        else:
+            audio.music(True, "boss" if w.locked else "stage")
         if w.cleared > 180:
             audio.music(False)
             self.bonus = w.hostages_freed * 1000
@@ -161,7 +208,8 @@ class Game:
     def toggle_pause(self):
         if self.mode == "play":
             self.paused = not self.paused
-            audio.music(not self.paused)
+            if self.paused:
+                audio.music(False)                  # play_step brings the right song back
 
     def to_title(self):
         audio.music(False)
@@ -175,7 +223,7 @@ class Game:
         if self.mode == "play" or (self.mode in ("over", "clear") and self.world):
             self.world.draw(surf, self.atlas)
             self.hud(surf, self.world)
-            if self.mode == "play":
+            if self.mode == "play" and self.feeble is None:
                 self.banners(surf)
             if self.paused:
                 self.shade(surf)
@@ -186,11 +234,25 @@ class Game:
                 font.draw(surf, "GAME OVER", (W // 2, 100), C["red"], 3, center=True)
             if self.mode == "clear":
                 self.tally(surf)
+            if self.feeble is not None and self.mode == "play":
+                self.feeble_offer(surf)
         elif self.mode == "demo" and self.demo:
             self.demo.draw(surf, self.atlas)
             self.hud(surf, self.demo)
             font.draw(surf, "DEMO PLAY", (W // 2, 40), C["cream"], center=True)
             self.prompt(surf, 190)
+        elif self.mode == "select":
+            self.backdrop(surf)
+            font.draw(surf, "CHOOSE YOUR FIGHT", (W // 2, 44), C["sun"], 2, center=True)
+            for k, name in enumerate(LEVELS):
+                on = name == self.level
+                y = 74 + k * 26
+                font.draw(surf, name, (W // 2, y), C["cream"] if on else C["steel"], 2, center=True)
+                if on:
+                    x = W // 2 - font.width(name, 2) // 2 - 18
+                    font.draw(surf, ">", (x + (self.t // 8) % 3, y), C["ember"], 2)
+            font.draw(surf, LEVEL_LINES[self.level], (W // 2, 158), C["sun"], center=True)
+            font.draw(surf, "UP DOWN CHOOSE   FIRE OR START GO", (W // 2, 184), C["steel_l"], center=True)
         elif self.mode == "story":
             self.backdrop(surf)
             self.shade(surf, 60)
@@ -240,6 +302,22 @@ class Game:
             self.prompt(surf, 120)
             font.draw(surf, "V" + __version__, (W - 4 - font.width("V" + __version__), H - 10), C["steel"])
 
+    def feeble_offer(self, surf):
+        w = self.world
+        self.shade(surf, 170)
+        shake = 1 if self.t < 20 and self.t % 4 < 2 else 0
+        font.draw(surf, "TOO FEEBLE, SOLDIER?", (W // 2 + shake, 64), C["red"], 2, center=True)
+        font.draw(surf, "%d DEATHS. THE LEGION IS LAUGHING." % w.deaths, (W // 2, 92), C["cream"], center=True)
+        lower = LEVELS[LEVELS.index(w.level) - 1]
+        for k, label in enumerate(("DROP TO " + lower, "I CAN TAKE IT")):
+            on = k == self.feeble
+            x = W // 2 + (-64 if k == 0 else 64)
+            font.draw(surf, label, (x, 124), C["sun"] if on else C["steel"], center=True)
+            if on:
+                half = font.width(label) // 2 + 4
+                pygame.draw.line(surf, C["ember"], (x - half, 134), (x + half, 134), 1)
+        font.draw(surf, "LEFT RIGHT CHOOSE   FIRE CONFIRM", (W // 2, 160), C["steel_l"], center=True)
+
     def help_lines(self):
         c = self.controls
         if c is None:
@@ -277,6 +355,8 @@ class Game:
     def hud(self, surf, w):
         font.draw(surf, "HI %07d" % max(self.scores[0][1], *(p.score for p in w.players if p)),
                   (W // 2, 4), C["cream"], center=True)
+        if w is self.world:
+            font.draw(surf, w.level, (W // 2, 14), C["steel"], center=True)
         for i in (0, 1):
             p = w.players[i]
             x = 6 if i == 0 else W - 96

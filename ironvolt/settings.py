@@ -15,6 +15,15 @@ LIVES = 3
 GRENADES = 10
 RESPAWN_SAFE = 120         # frames of blinking safety after a respawn
 
+# Chosen before a game starts. lives, enemy wind-up before a shot (frames), enemy bullet speed (x),
+# boss armour, respawn safety (frames), deaths before the game asks if you are too feeble
+LEVELS = ("EASY", "NORMAL", "HARD")
+DIFFICULTY = {
+    "EASY": (5, 36, 0.8, 100, 180, None),
+    "NORMAL": (3, 24, 1.0, 150, 120, 4),
+    "HARD": (2, 16, 1.25, 200, 90, 3),
+}
+
 BULLET_V = 6.5             # a pistol shot crosses the screen in under a second
 ENEMY_BULLET_V = 1.9
 
