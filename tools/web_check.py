@@ -112,6 +112,8 @@ def main():
         pump(1.5)
         shot("web_touch.png")
         call("Input.dispatchTouchEvent", type="touchEnd", touchPoints=[])
+        pump(1)
+        full = call("Runtime.evaluate", returnByValue=True, expression="!!document.fullscreenElement")["result"]["value"]
     finally:
         proc.terminate()
         proc.wait(timeout=10)
@@ -121,6 +123,9 @@ def main():
     bad = [l for l in lines if "Traceback" in l or "Error" in l.split(":")[0] or l.startswith("EXCEPTION")]
     print("\n".join(lines[-25:]))
     print("screenshots: shots/web_title.png shots/web_play.png shots/web_touch.png")
+    # headless Chrome never grants fullscreen ("not granted"); without the touch's gesture it says "Permissions check failed"
+    if not full and "fullscreen: TypeError: not granted" not in text:
+        bad.append("a touch did not ask for fullscreen inside its gesture")
     if "music: baked" not in text:
         bad.append("the page built its music instead of loading the baked songs")
     if bad or "Traceback" in text:

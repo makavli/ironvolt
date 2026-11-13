@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+Fullscreen on phones and tablets.
+- **Fullscreen:** in the browser, the first touch puts the game in fullscreen and turns it to landscape (Android and
+  iPad; iPhone Safari allows neither, so there it stays in the page). Leave fullscreen and the next touch comes back.
+- `tools/web_check.py` checks that a touch asks for fullscreen inside its gesture (headless Chrome itself never grants it).
+
 ## 0.5.0
 
 Play on a phone or a tablet, in the browser.

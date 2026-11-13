@@ -21,6 +21,13 @@ from .settings import C, H, MAX_DT, STEP, W
 
 WEB = sys.platform == "emscripten"
 WEB_SCALE = 3                                     # the canvas is 960x672; the page fits it to the browser window
+# In the browser, a lifted finger asks for fullscreen, then landscape. Only touchend counts as a user gesture (touchstart
+# does not), so it is a page listener, not the game's finger events. iPhone Safari has neither (iPad and Android do).
+FULL_JS = ("document.addEventListener('touchend',()=>{const d=document.documentElement;"
+           "if(document.fullscreenElement||!d.requestFullscreen)return;"
+           "d.requestFullscreen({navigationUI:'hide'})"
+           ".then(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape'))"
+           ".catch(e=>console.log('fullscreen: '+e));},true)")
 
 
 def pace(acc, dt):
@@ -79,6 +86,11 @@ class App:
         if WEB:
             self.canvas = pygame.display.set_mode((W * WEB_SCALE, H * WEB_SCALE))
             self.texture = lambda surf: surf             # the browser path draws surfaces as they are
+            try:
+                import platform
+                platform.window.eval(FULL_JS)
+            except Exception as err:                     # a JS proxy raises its own error types
+                print("fullscreen:", err)
         else:
             from pygame._sdl2.video import Renderer, Texture
             desk = pygame.display.get_desktop_sizes()[0]
