@@ -1,8 +1,9 @@
 name: CI
 
-# Pull request: tests, and the version must be new.
-# Merge to main: tests, then Windows / macOS / Linux builds, then a GitHub release of that version
-# (notes = its CHANGELOG entry). itch.io is separate and manual: see itch.yml.
+# Pull request: tests, the bot clears the stage, the version is new, and a Linux build starts and quits on its own.
+# Merge to main: the same, then Windows / macOS / Linux builds that each start once, then a GitHub release of that
+# version (notes = its CHANGELOG entry plus the builds' SHA-256). itch.io is separate and manual: see itch.yml.
+# Red checks open an issue (one per pull request, one for main); the next green run closes it.
 on:
   pull_request:
   push:
@@ -15,17 +16,20 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # never cancel a release on main
 
+env:
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      SDL_VIDEODRIVER: dummy
-      SDL_AUDIODRIVER: dummy
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
+          fetch-depth: 0               # the version check reads the tags
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
       - run: pip install -r requirements.txt
@@ -37,48 +41,130 @@ jobs:
         if: github.event_name == 'pull_request'
         run: python tools/version_check.py
 
+  # Pull requests build Linux only (the packaging check); main builds all three for the release.
   build:
-    if: github.event_name == 'push'
     needs: test
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: ${{ github.event_name == 'push' && fromJSON('["windows-latest","macos-latest","ubuntu-latest"]') || fromJSON('["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.13"
       - run: pip install -r requirements.txt pyinstaller==6.22.3
       - name: Build
         shell: bash
+        run: python -m PyInstaller --noconfirm --clean --windowed --name Ironvolt run.py
+      - name: The build starts, plays 120 frames and quits
+        shell: bash
+        env:
+          IRONVOLT_FRAMES: "120"
+          OS: ${{ runner.os }}
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed --name Ironvolt run.py
+          case "$OS" in
+            Windows) exe=dist/Ironvolt/Ironvolt.exe ;;
+            macOS)   exe=dist/Ironvolt.app/Contents/MacOS/Ironvolt ;;
+            Linux)   exe=dist/Ironvolt/Ironvolt ;;
+          esac
+          timeout 120 "$exe"
+      - name: Pack
+        shell: bash
+        env:
+          OS: ${{ runner.os }}
+        run: |
           mkdir out
-          case "${{ runner.os }}" in
+          case "$OS" in
             Windows) (cd dist && 7z a -tzip ../out/Ironvolt-windows.zip Ironvolt > /dev/null) ;;
             macOS)   (cd dist && ditto -c -k --keepParent Ironvolt.app ../out/Ironvolt-macos.zip) ;;
             Linux)   tar czf out/Ironvolt-linux.tar.gz -C dist Ironvolt ;;
           esac
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: build-${{ runner.os }}
           path: out/*
           retention-days: 3
 
-  release:
-    if: github.event_name == 'push'
-    needs: build
+  # One name for the rule on main to require, whatever the jobs above hold.
+  passed:
+    if: always()
+    needs: [test, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every test and build job succeeded
+        env:
+          TEST: ${{ needs.test.result }}
+          BUILD: ${{ needs.build.result }}
+        run: test "$TEST" = success && test "$BUILD" = success
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: passed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: out
           merge-multiple: true
       - name: Release this version
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: python3 tools/release_notes.py > notes.md && bash tools/release.sh
+
+  # The notice, not the gate (the gate is `passed`): red checks open an issue, linked from the pull request; the next
+  # green run closes it, and so does closing the pull request (close-issue.yml). A fork's token cannot write issues.
+  issue:
+    if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    needs: [passed, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Open, update or close the issue of this pull request or of main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          PASSED: ${{ needs.passed.result }}
+          RELEASE: ${{ needs.release.result }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # The title holds only a number, so it is safe inside the jq string below.
+          if [ -n "$PR" ]; then title="Checks failed on pull request #$PR"; else title="Checks failed on main"; fi
+          issue="$(gh api "repos/$GH_REPO/issues?state=open&labels=ci-failure&per_page=100" --jq ".[] | select(.pull_request == null and .title == \"$title\") | .number" | head -n 1)"
+          if [ "$PASSED" = success ] && [ "$RELEASE" != failure ]; then
+            if [ -n "$issue" ]; then gh issue close "$issue" --comment "Fixed: the checks on ${SHA:0:7} are green. $RUN"; fi
+            exit 0
+          fi
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "Still red on ${SHA:0:7}: $RUN"
+            exit 0
+          fi
+          # A pull request closed while this run went on gets no issue: close-issue.yml has already run for it.
+          if [ -n "$PR" ] && [ "$(gh pr view "$PR" --json state --jq .state)" != "OPEN" ]; then exit 0; fi
+          gh label create ci-failure --force --color B60205 --description "The checks of a pull request or of main are red"
+          if [ -z "$PR" ]; then
+            gh issue create --title "$title" --label ci-failure --body "The checks or the release on main failed on ${SHA:0:7}: $RUN
+
+          The next green run on main closes this issue."
+            exit 0
+          fi
+          url="$(gh issue create --title "$title" --label ci-failure --body "The checks of #$PR failed on ${SHA:0:7}: $RUN
+
+          #$PR cannot merge until its checks are green. The next green run closes this issue.")"
+          gh pr comment "$PR" --body "Blocked by #${url##*/}: the checks are red. $RUN"

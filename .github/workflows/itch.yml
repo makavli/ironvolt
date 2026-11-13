@@ -34,6 +34,7 @@ concurrency:
 jobs:
   upload:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       ITCH_GAME: ${{ vars.ITCH_GAME }}
       HAS_KEY: ${{ secrets.BUTLER_API_KEY != '' }}
