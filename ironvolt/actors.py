@@ -16,9 +16,11 @@ from .stage import WALK
 
 class Body:
     w, h = 10, 20
+    lip = 0                                 # px the feet may be under a ledge's top and still make it (players)
 
     def __init__(self, x, y):
         self.x, self.y = float(x), float(y)
+        self.ox, self.oy = self.x, self.y   # where it was a step ago: the picture blends between the two
         self.vx = self.vy = 0.0
         self.on_ground = False
         self.drop = 0                       # frames left falling through catwalks
@@ -27,20 +29,24 @@ class Body:
     def rect(self):
         return pygame.Rect(round(self.x - self.w / 2), round(self.y - self.h), self.w, self.h)
 
+    def blocked(self, stage, y):
+        """Would the body overlap a solid tile with its feet at y?"""
+        return any(stage.solid(tx, ty)
+                   for tx in range(int((self.x - self.w / 2) // TILE), int((self.x + self.w / 2 - 0.01) // TILE) + 1)
+                   for ty in range(int((y - self.h) // TILE), int((y - 0.01) // TILE) + 1))
+
     def move(self, stage):
         """Moves by (vx, vy) and resolves tile collisions. Returns True if it landed this step."""
         self.x += self.vx
-        left, right = self.x - self.w / 2, self.x + self.w / 2 - 0.01
-        top, bottom = self.y - self.h, self.y - 0.01
-        for ty in range(int(top // TILE), int(bottom // TILE) + 1):
-            if self.vx > 0 and stage.solid(int(right // TILE), ty):
-                self.x = (right // TILE) * TILE - self.w / 2
-                self.vx = 0
-                break
-            if self.vx < 0 and stage.solid(int(left // TILE), ty):
-                self.x = (left // TILE + 1) * TILE + self.w / 2
-                self.vx = 0
-                break
+        if self.vx:
+            tx = int((self.x + (self.w / 2 - 0.01 if self.vx > 0 else -self.w / 2)) // TILE)     # the leading edge
+            feet = int((self.y - 0.01) // TILE)
+            if any(stage.solid(tx, ty) for ty in range(int((self.y - self.h) // TILE), feet + 1)):
+                if self.y - feet * TILE <= self.lip and not self.blocked(stage, feet * TILE):
+                    self.y = float(feet * TILE)         # a toe on the ledge counts: up and over, speed kept
+                else:
+                    self.x = tx * TILE - self.w / 2 if self.vx > 0 else (tx + 1) * TILE + self.w / 2
+                    self.vx = 0
         prev = self.y
         self.y += self.vy
         landed, was = False, self.on_ground
@@ -71,14 +77,19 @@ class Body:
 
 # ------------------------------------------------------------------ player
 
-ACCEL, AIR_ACCEL, FRICTION = 0.32, 0.22, 0.42
-FALL_GRAVITY = 0.36            # falling is heavier than rising: snappy arcs
-JUMP_CUT = 0.45                # let go early, jump lower
-COYOTE, BUFFER = 6, 6          # frames of forgiveness at ledges and before landing
+ACCEL, FRICTION, TURN = 0.5, 0.5, 1.0      # on the ground: full speed in 3 frames, a stop in 3, a turn-about in 4
+AIR_ACCEL, AIR_DRAG = 0.3, 0.15            # in the air: steering, yes, but a jump keeps some of its momentum
+JUMP_GRAVITY, FALL_GRAVITY = 0.36, 0.5     # falling is heavier than rising: snappy arcs
+HANG_V, HANG = 1.0, 0.5                    # a held jump floats at its top (half gravity): room to aim and to land
+JUMP_CUT = 0.4                             # let go early, jump lower
+COYOTE, BUFFER = 6, 6                      # frames of forgiveness at ledges and before landing
+FIRE_BUFFER = 8                            # a tap between two shots still fires, as soon as the gun allows
+STAND, DUCK = 21, 12                       # body heights: rifle fire flies 15 px up, over a crouch
 
 
 class Player(Body):
-    w, h = 10, 21
+    w, h = 10, STAND
+    lip = 4
 
     def __init__(self, index, x, y):
         super().__init__(x, y)
@@ -95,6 +106,7 @@ class Player(Body):
         self.dying = 0
         self.out = False               # no lives left (may continue)
         self.coyote = self.buffer = 0
+        self.trigger, self.lob = 0, False      # a fire press and a grenade press, waiting their turn
         self.run_t = 0.0
         self.recoil = 0
         self.god = False               # tests and the attract demo
@@ -103,16 +115,33 @@ class Player(Body):
     def active(self):
         return not self.out and not self.dying
 
+    def listen(self, pad):
+        """Presses are kept for a few frames, and through a hit-stop: none is ever swallowed."""
+        if pad.pressed("jump"):
+            self.buffer = BUFFER
+        if pad.pressed("fire"):
+            self.trigger = FIRE_BUFFER
+        self.lob = self.lob or pad.pressed("bomb")
+
+    def on_catwalk(self, stage):
+        """Catwalk under the feet, anywhere across them, and nothing solid to catch a drop."""
+        ty = int(self.y // TILE)
+        cols = range(int((self.x - self.w / 2) // TILE), int((self.x + self.w / 2 - 0.01) // TILE) + 1)
+        return any(stage.tile(tx, ty) == WALK for tx in cols) and not any(stage.solid(tx, ty) for tx in cols)
+
     def step(self, pad, world):
         if self.out:
             return
         if self.dying:
             self.dying -= 1
             self.vy = min(MAX_FALL, self.vy + GRAVITY)
+            if self.on_ground:
+                self.vx *= 0.8                          # the body skids to a stop: it does not glide
             self.move(world.stage)
             if self.dying == 0:
                 world.respawn(self)
             return
+        self.listen(pad)
         if self.safe:
             self.safe -= 1
         dx, dy = pad.axis()
@@ -120,11 +149,15 @@ class Player(Body):
         if dx:
             self.facing = dx
         target = 0 if self.crouch else dx * RUN
-        accel = (ACCEL if dx else FRICTION) if self.on_ground else AIR_ACCEL
-        if self.vx < target:
-            self.vx = min(target, self.vx + accel)
-        elif self.vx > target:
-            self.vx = max(target, self.vx - accel)
+        if not self.on_ground:
+            accel = AIR_ACCEL if dx else AIR_DRAG
+        elif not target:
+            accel = FRICTION
+        else:
+            accel = TURN if self.vx * dx < 0 else ACCEL
+            if self.vx * dx <= -RUN:
+                world.dust(self.x, self.y)              # boots dig in on a full turn-about
+        self.vx += max(-accel, min(accel, target - self.vx))
         # aim: up, diagonals, down only in the air
         if dy < 0:
             self.aim = (dx, -1) if dx else (0, -1)
@@ -133,40 +166,48 @@ class Player(Body):
         else:
             self.aim = (self.facing, 0)
 
-        # jumping: buffered presses, coyote time, a cut when the button is let go
+        # jumping: buffered presses, coyote time, a cut when the button is let go, a float at the top while held
         self.coyote = COYOTE if self.on_ground else max(0, self.coyote - 1)
-        self.buffer = BUFFER if pad.pressed("jump") else max(0, self.buffer - 1)
-        if self.buffer and self.crouch and world.stage.tile(int(self.x // TILE), int(self.y // TILE)) == WALK:
-            self.drop, self.buffer, self.on_ground = 10, 0, False     # down + jump: drop through a catwalk
+        if self.buffer and self.crouch and self.on_catwalk(world.stage):
+            self.drop, self.buffer, self.coyote, self.on_ground = 10, 0, 0, False   # down + jump: through a catwalk
         elif self.buffer and self.coyote:
             self.vy = JUMP_V
             self.buffer = self.coyote = 0
+            if self.on_ground:
+                world.dust(self.x, self.y)              # kicked up at take-off (a coyote jump has left the ground)
             self.on_ground = False
             audio.play("jump")
-        if not pad.held("jump") and self.vy < JUMP_V * JUMP_CUT:
+        self.buffer = max(0, self.buffer - 1)
+        held = pad.held("jump")
+        if not held and self.vy < JUMP_V * JUMP_CUT:
             self.vy = JUMP_V * JUMP_CUT
-        self.vy = min(MAX_FALL, self.vy + (GRAVITY if self.vy < 0 else FALL_GRAVITY))
+        gravity = JUMP_GRAVITY if self.vy < 0 else FALL_GRAVITY
+        # the float is for a jump only: a step off a ledge, or a drop through a catwalk, just falls
+        if held and not self.coyote and not self.drop and abs(self.vy) < HANG_V:
+            gravity *= HANG
+        self.vy = min(MAX_FALL, self.vy + gravity)
 
-        self.h = 14 if self.crouch else 21
+        self.h = DUCK if self.crouch else STAND
         if self.move(world.stage):
             world.dust(self.x, self.y)
+            world.feel(self, "land")
             audio.play("land")
         self.x = max(world.cam_x + 6, min(world.cam_x + W - 6, self.x))
         self.run_t = self.run_t + abs(self.vx) * 0.12 if self.on_ground and abs(self.vx) > 0.2 else 0
 
-        if self.cooldown:
-            self.cooldown -= 1
-        if self.recoil:
-            self.recoil -= 1
+        self.cooldown, self.recoil = max(0, self.cooldown - 1), max(0, self.recoil - 1)
         rate = WEAPONS[self.weapon][0]
-        if pad.pressed("fire") or (pad.held("fire") and self.cooldown == 0):
-            if self.cooldown <= rate // 2 if pad.pressed("fire") else True:   # mashing beats holding a little
-                self.shoot(world)
-                self.cooldown = rate
-        if pad.pressed("bomb") and self.grenades:
+        # a tap fires once half the wait is over (mashing beats holding); a held button keeps the weapon's beat
+        if (self.trigger and self.cooldown <= rate // 2) or (pad.held("fire") and not self.cooldown):
+            self.trigger = 0
+            self.shoot(world)
+            self.cooldown = rate
+        self.trigger = max(0, self.trigger - 1)
+        if self.lob and self.grenades:
             self.grenades -= 1
             world.thrown.append(Grenade(self.x + self.facing * 4, self.y - 16,
                                         self.facing * 2.4 + self.vx * 0.5, -3.4, self))
+        self.lob = False
 
         if self.y > H + 40:
             world.kill_player(self)
@@ -185,9 +226,11 @@ class Player(Body):
                 c, s = math.cos(a), math.sin(a)
                 world.shots.append(Shot(mx, my, (ux * c - uy * s) * 4.5, (ux * s + uy * c) * 4.5, dmg, self, "pellet"))
             audio.play("spread")
+            world.shake = max(world.shake, 3)           # the big guns kick the screen
         elif self.weapon == "R":
             world.shots.append(Shot(mx, my, ux * 2.5, uy * 2.5, dmg, self, "rocket"))
             audio.play("rocket")
+            world.shake = max(world.shake, 3)
         else:
             jitter = random.uniform(-0.25, 0.25) if self.weapon == "H" else 0
             world.shots.append(Shot(mx, my, (ux - uy * jitter) * BULLET_V, (uy + ux * jitter) * BULLET_V, dmg, self,
@@ -196,6 +239,7 @@ class Player(Body):
         world.flash(mx, my, small=True)
         world.casing(self.x, self.y - 14, -self.facing)
         self.recoil = 3
+        world.feel(self, "shot" if self.weapon == "P" else "heavy")
         if self.weapon != "P":
             self.ammo -= 1
             if self.ammo <= 0:
@@ -244,6 +288,7 @@ class Shot:
 
     def __init__(self, x, y, vx, vy, dmg, owner, kind):
         self.x, self.y, self.vx, self.vy = x, y, vx, vy
+        self.ox, self.oy = x, y
         self.dmg, self.owner, self.kind = dmg, owner, kind
         self.dead = False
         self.life = 90 if kind == "pellet" else 160
@@ -297,6 +342,7 @@ class Bolt:
 
     def __init__(self, x, y, vx, vy, gravity=0.0, kind="bolt"):
         self.x, self.y, self.vx, self.vy, self.g, self.kind = x, y, vx, vy, gravity, kind
+        self.ox, self.oy = x, y
         self.dead = False
         self.t = 0
 
@@ -315,7 +361,7 @@ class Bolt:
                 world.sparks(self.x, self.y, 2)
 
     def rect(self):
-        r = 4 if self.kind in ("shell", "missile") else 3
+        r = 3 if self.kind in ("shell", "missile") else 2      # a pixel inside the picture: a graze is a miss
         return pygame.Rect(round(self.x) - r, round(self.y) - r, r * 2, r * 2)
 
     def draw(self, surf, cam, frame):
@@ -354,8 +400,11 @@ class Grenade(Body):
             self.vx = -hit_wall * 0.5
         self.fuse -= 1
         if self.fuse <= 0 or self.bounces >= 3 or self.y > H:
-            self.dead = True
-            world.explode(self.x, self.y - 4, 30, 8, self.owner)
+            self.blow(world)
+
+    def blow(self, world):
+        self.dead = True
+        world.explode(self.x, self.y - 4, 30, 8, self.owner)
 
     def draw(self, surf, cam):
         x, y = round(self.x - cam), round(self.y - 2)
@@ -381,6 +430,7 @@ class Foe(Body):
         self.dying = 0
         self.run_t = 0.0
         self.aiming = 0
+        self.stun = 0
 
     def step(self, world):
         if self.dying:
@@ -394,7 +444,10 @@ class Foe(Body):
         if self.hurt:
             self.hurt -= 1
         target = world.nearest(self.x)
-        if target is None:
+        if self.stun:                                     # staggered by a hit: it slides back, and does nothing else
+            self.stun -= 1
+            self.vx *= 0.7
+        elif target is None:
             self.vx = 0
         else:
             dx = target.x - self.x
@@ -416,11 +469,13 @@ class Foe(Body):
                 self.timer = random.randint(70, 120)
             if self.aiming:
                 self.aiming -= 1
+                if self.aiming % 8 == 4:                  # the muzzle glints: a shot is coming
+                    world.flash(self.x + self.facing * 10, self.y - (19 if self.kind == "lobber" else 15), small=True)
                 if self.aiming == 0:
                     self.fire(world, target)
         self.vy = min(MAX_FALL, self.vy + GRAVITY)
         self.move(world.stage)
-        self.run_t = self.run_t + 0.11 if abs(self.vx) > 0 else 0
+        self.run_t = self.run_t + 0.11 if self.vx and not self.stun else 0
         if self.y > H + 20 or self.x < world.cam_x - 40:
             self.dead = True
 
@@ -446,7 +501,10 @@ class Foe(Body):
             self.vy = -3.0
             world.award(owner, SCORE[self.kind], self.x, self.y - 24)
             world.sparks(self.x, self.y - 12, 6)
+            world.hitstop(1)                              # a common kill: one frame, or a firefight stutters
             audio.play("hurt")
+        else:
+            self.stun, self.aiming, self.vx = 8, 0, push * 1.5     # a hit staggers: knocked back, the wind-up lost
         return True
 
     def draw(self, surf, atlas, cam):
@@ -511,6 +569,7 @@ class Drone(Body):
             self.dead = True
             world.award(owner, SCORE["drone"], self.x, self.y - 10)
             world.explode(self.x, self.y - 4, 14, 0, owner)
+            world.hitstop(1)
         return True
 
     def draw(self, surf, atlas, cam):
@@ -540,9 +599,11 @@ class Turret(Body):
         diff = (want - self.angle + math.pi) % (2 * math.pi) - math.pi
         self.angle += max(-0.03, min(0.03, diff))
         self.timer -= 1
+        c, s = math.cos(self.angle), math.sin(self.angle)
+        if self.timer in (18, 12, 6):                     # the barrel glints before it fires
+            world.flash(self.x + c * 12, self.y - 10 + s * 12, small=True)
         if self.timer <= 0:
             self.timer = 80
-            c, s = math.cos(self.angle), math.sin(self.angle)
             world.bolts.append(Bolt(self.x + c * 12, self.y - 10 + s * 12, c * 1.7, s * 1.7))
             world.flash(self.x + c * 12, self.y - 10 + s * 12, small=True)
             audio.play("enemy_shot")
@@ -556,6 +617,7 @@ class Turret(Body):
             self.dead = True
             world.award(owner, SCORE["turret"], self.x, self.y - 20)
             world.explode(self.x, self.y - 8, 24, 0, owner)
+            world.hitstop(5)
         return True
 
     def draw(self, surf, atlas, cam):
@@ -692,8 +754,8 @@ class Bastion(Body):
                 self.state = "fight"
                 self.t = 0
             return
-        if abs(self.goal - self.x) < 2:
-            self.goal = random.uniform(self.left + 60, self.right - 50)
+        if abs(self.goal - self.x) < 2:                  # it roams its own side: the player always keeps room to dodge
+            self.goal = random.uniform(self.left + (130 if self.angry else 160), self.right - 50)
         step = max(-speed, min(speed, self.goal - self.x))
         self.x += step
         self.tread += step
@@ -702,8 +764,8 @@ class Bastion(Body):
             return
         want = math.atan2((target.y - 10) - (self.y - 18), target.x - (self.x - 40))
         self.gun_angle += max(-0.04, min(0.04, (want - self.gun_angle + math.pi) % (2 * math.pi) - math.pi))
-        period = 110 if not self.angry else 80
-        if self.t % period == 0:                         # mortar
+        # mortar; once angry it alternates with the missiles, so that one blast lands at a time
+        if self.t % 150 == 110 if self.angry else self.t % 110 == 0:
             for spread in ((0,) if not self.angry else (-30, 0, 30)):
                 t = 60.0
                 vx = (target.x + spread - (self.x + 10)) / t
@@ -711,7 +773,11 @@ class Bastion(Body):
             world.flash(self.x + 10, self.y - 58)
             audio.play("rocket")
             world.shake = max(world.shake, 4)
-        if self.t % 190 == 95:
+        beat = self.t % 190
+        if 65 <= beat < 95 and beat % 6 == 5:            # the chin gun glints for half a second before a burst
+            world.flash(self.x - 40 + math.cos(self.gun_angle) * 12, self.y - 18 + math.sin(self.gun_angle) * 12,
+                        small=True)
+        if beat == 95:
             self.burst = 8
         if self.burst and self.t % 6 == 0:                # chin gun burst
             self.burst -= 1
@@ -721,24 +787,31 @@ class Bastion(Body):
             world.flash(gx, gy, small=True)
             audio.play("enemy_shot")
         if self.angry and self.t % 150 == 40:
-            for off in (-36, 0, 36):
+            for off in (-48, 0, 48):                     # far enough apart to stand between two
                 self.marks.append([target.x + off, 50])
             audio.play("alarm")
         for m in self.marks:
             m[1] -= 1
             if m[1] == 0:
                 world.bolts.append(Bolt(m[0], -10, 0, 4.0, 0.0, "missile"))
-        self.marks = [m for m in self.marks if m[1] > 0]
+        self.marks = [m for m in self.marks if m[1] > -47]     # a mark stays lit until its missile lands
 
     def damage(self, dmg, world, owner, push=0.0):
         if self.dying or self.state == "enter":
             return True
+        calm = not self.angry
         self.hp -= dmg
         self.hurt = 3
         if self.hp <= 0:
             self.dying = 150
             world.award(owner, SCORE["boss"], self.x, self.y - 60)
             world.boss_down()
+        elif calm and self.angry:                        # it breaks: a beat to see that the fight has changed
+            self.t = self.burst = 0
+            world.explode(self.x, self.y - 30, 20, 0, None)
+            world.hitstop(8)
+            world.shake = max(world.shake, 10)
+            audio.play("alarm")
         return True
 
     def hitbox(self):
@@ -789,8 +862,8 @@ class Bastion(Body):
         core = C["cyan"] if (self.t // rate) % 2 else C["white"]
         pygame.draw.circle(surf, ink, (x + 34, y - 30), 5)
         pygame.draw.circle(surf, core, (x + 34, y - 30), 4)
-        for mx, frames in self.marks:                    # missile warnings
-            if frames % 8 < 5:
+        for mx, frames in self.marks:                    # missile warnings: a slow blink, a fast one as it falls
+            if frames % 8 < 5 if frames > 0 else frames % 4 < 2:
                 px = round(mx - cam)
                 pygame.draw.line(surf, C["red"], (px - 4, y - 2), (px + 4, y - 2))
                 pygame.draw.polygon(surf, C["red"], [(px, y - 4), (px - 3, y - 9), (px + 3, y - 9)])

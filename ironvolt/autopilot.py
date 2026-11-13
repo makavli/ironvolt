@@ -2,7 +2,7 @@
 
 import math
 
-from .settings import TILE
+from .settings import RESPAWN_SAFE, TILE
 from .controls import BUTTONS
 
 
@@ -32,6 +32,8 @@ class BotPad:
         dx = 1
         if boss and not boss.dying:
             dx = -1 if p.x > boss.x - 100 else (1 if p.x < boss.x - 150 else 0)
+        if p.safe > RESPAWN_SAFE - 40 and not p.on_ground:     # dropping back in: straight down, onto the ground
+            dx = 0
         ahead = p.x + 12 * (dx or 1)
         wall = any(st.solid(int(ahead // TILE), int((p.y - k) // TILE)) for k in (4, 18))
         pit = dx and st.floor_y(p.x + 10 * dx, p.y - 2) is None
@@ -41,11 +43,12 @@ class BotPad:
             self.jump_hold = 22
         if self.jump_hold:
             s["jump"] = True
-            self.jump_hold -= 1
+            if not world.freeze:                       # a hit-stop must not cut the jump short
+                self.jump_hold -= 1
         air = [f for f in world.foes if f.__class__.__name__ == "Drone" and abs(f.x - p.x) < 50 and f.y < p.y - 30]
         if air:
             s["up"] = True
-            dx = 0 if abs(air[0].x - p.x) < 20 else dx
+            dx = 0 if p.on_ground and abs(air[0].x - p.x) < 20 else dx     # never in mid-air: a pit may be below
         elif boss and not boss.dying and boss.state == "fight":
             s["up"] = (world.frame // 60) % 3 == 0     # mix diagonal shots in
         s["right"], s["left"] = dx > 0, dx < 0

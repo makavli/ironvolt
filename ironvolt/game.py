@@ -10,10 +10,19 @@ import pygame
 from . import __version__, audio, font, storage
 from .autopilot import BotPad
 from .settings import C, H, W
-from .stage import NAME
 from .world import World
 
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
+
+# The attract-mode intro: the Long Dusk in five screens (the full story is docs/STORY.md).
+STORY = [
+    ["2079. THE VOLTLINE BURNED", "IN A SINGLE NIGHT.", "", "THE ASH NEVER SETTLED.", "THE SUN NEVER ROSE AGAIN."],
+    ["SEVENTEEN YEARS OF DUSK.", "", "POWER IS THE ONLY MONEY LEFT,", "AND ONE TOWER STILL TURNS:", "THE CRADLE."],
+    ["WARLORD OTTAR GRAIVE", "AND HIS RUST LEGION HOLD IT.", "", "TOWNS THAT KNEEL GET LIGHT.", "THE REST STAY DARK."],
+    ["THE LEGION TAKES THE PEOPLE", "WHO CAN KEEP THE CRADLE ALIVE:", "", "TECHNICIANS. LINEMEN.", "IN CHAINS."],
+    ["THE OLD REPAIR CREWS FIGHT BACK.", "", "KES ADEYEMI.  JUNO VARGA.", "", "THE IRONVOLT BRIGADE."],
+]
+BRIEFING = ["MISSION 1", "SCRAPYARD DUSK", "", "FREE THE CAPTURED TECHNICIANS.", "BREAK THE LEGION GATE."]
 
 
 class Game:
@@ -31,6 +40,7 @@ class Game:
         self.entry = []                    # players waiting to enter initials: [index, letters, cursor]
         self.drift = 0.0
         self.logo = font.logo("IRONVOLT", 4, C["cream"], C["ember"], C["ink"])
+        self.controls = None              # set by the app: the prompts follow the device in use
 
     # ---------------------------------------------------------- credits
 
@@ -64,12 +74,14 @@ class Game:
         if ctl.coin:
             self.coin()
         starts = ctl.any_start()
-        if self.mode in ("title", "scores", "demo"):
+        if self.mode in ("title", "story", "scores", "demo"):
             self.drift += 0.5
             if starts and self.pay():
                 self.start(sorted(set(starts)))
                 return
             if self.mode == "title" and self.t > 600:
+                self.go("story")
+            elif self.mode == "story" and (self.t > 240 * len(STORY) or (self.t > 30 and self.skip(ctl))):
                 self.go("scores")
             elif self.mode == "scores" and self.t > 360:
                 self.demo = World((0,), seed=7, god=True)
@@ -87,6 +99,9 @@ class Game:
                 self.begin_entry()
         elif self.mode == "entry":
             self.entry_step(ctl)
+
+    def skip(self, ctl):
+        return any(p.pressed("fire") or p.pressed("jump") for p in ctl.pads)
 
     def play_step(self, ctl, starts):
         w = self.world
@@ -175,7 +190,21 @@ class Game:
             self.demo.draw(surf, self.atlas)
             self.hud(surf, self.demo)
             font.draw(surf, "DEMO PLAY", (W // 2, 40), C["cream"], center=True)
-            self.prompt(surf, 196)
+            self.prompt(surf, 190)
+        elif self.mode == "story":
+            self.backdrop(surf)
+            self.shade(surf, 60)
+            page, t = divmod(self.t, 240)
+            lines = STORY[min(page, len(STORY) - 1)]
+            shown = t // 2                                   # typed out, two frames a letter
+            y = 72
+            for line in lines:
+                if shown <= 0:
+                    break
+                font.draw(surf, line[:shown], (W // 2 - font.width(line) // 2, y), C["cream"])
+                shown -= len(line) + 4
+                y += 14
+            self.prompt(surf, 190)
         elif self.mode == "entry":
             self.backdrop(surf)
             e = self.entry[0] if self.entry else None
@@ -199,17 +228,28 @@ class Game:
                 font.draw(surf, "%2d" % (k + 1), (88, y), C["ember"])
                 font.draw(surf, name, (116, y), col)
                 font.draw(surf, "%07d" % score, (170, y), col)
-            self.prompt(surf, 200)
+            self.prompt(surf, 190)
         else:
             self.backdrop(surf)
             bob = round(math.sin(self.t * 0.05) * 2)
             surf.blit(self.logo, (W // 2 - self.logo.get_width() // 2, 44 + bob))
             font.draw(surf, "ARCADE RUN AND GUN", (W // 2, 90), C["sun"], center=True)
             font.draw(surf, "HI %07d" % self.scores[0][1], (W // 2, 8), C["cream"], center=True)
-            font.draw(surf, "MOVE ARROWS  FIRE Z  JUMP X  GRENADE C", (W // 2, 150), C["steel_l"], center=True)
-            font.draw(surf, "P2  WASD  G  H  J      FULLSCREEN F11", (W // 2, 160), C["steel_l"], center=True)
+            for k, line in enumerate(self.help_lines()):
+                font.draw(surf, line, (W // 2, 148 + k * 10), C["steel_l"], center=True)
             self.prompt(surf, 120)
             font.draw(surf, "V" + __version__, (W - 4 - font.width("V" + __version__), H - 10), C["steel"])
+
+    def help_lines(self):
+        c = self.controls
+        if c is None:
+            return ["MOVE ARROWS  FIRE Z  JUMP X  GRENADE C", "FULLSCREEN F11"]
+        say = lambda a: c.prompt(a, 0)
+        lines = ["FIRE %s  JUMP %s  GRENADE %s" % (say("fire"), say("jump"), say("bomb")),
+                 "MOVE %s" % say("move")]
+        if c.device[0] == "keyboard":
+            lines[1] += "   P2 WASD G H J   F11 FULLSCREEN"
+        return lines
 
     def prompt(self, surf, y):
         if self.free_play or self.credits:
@@ -267,13 +307,17 @@ class Game:
 
     def banners(self, surf):
         w = self.world
-        if w.frame < 180:
-            if w.frame < 120:
-                font.draw(surf, NAME, (W // 2, 80), C["cream"], center=True)
-            if 60 < w.frame and w.frame % 20 < 14:
-                font.draw(surf, "GO!", (W // 2, 96), C["sun"], 3, center=True)
+        if w.frame < 240:
+            if w.frame < 170:
+                for k, line in enumerate(BRIEFING):
+                    if w.frame > k * 12:
+                        font.draw(surf, line, (W // 2, 60 + k * 12), C["sun"] if k < 2 else C["cream"],
+                                  center=True)
+            elif w.frame % 20 < 14:
+                font.draw(surf, "GO!", (W // 2, 90), C["sun"], 3, center=True)
         elif w.locked and w.boss and w.boss.state == "enter" and w.frame % 30 < 20:
-            font.draw(surf, "WARNING", (W // 2, 90), C["red"], 3, center=True)
+            font.draw(surf, "WARNING", (W // 2, 80), C["red"], 3, center=True)
+            font.draw(surf, "BASTION  LEGION GATE CRAWLER", (W // 2, 110), C["cream"], center=True)
         elif not w.locked and not any(0 < f.x - w.cam_x < W for f in w.foes) and (w.frame // 30) % 2:
             font.draw(surf, "GO >", (W - 50, 100), C["sun"], 2)
 

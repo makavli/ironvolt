@@ -18,7 +18,11 @@ class World:
         if seed is not None:
             random.seed(seed)
         self.stage = Stage()
-        self.cam_x = 0.0
+        self.cam_x = self.cam_ox = 0.0    # the camera now, and a step ago
+        self.blend = 1.0                  # how far from the step before to this one the picture is drawn (app.py)
+        self.still = False                # a hit-stop holds the picture
+        self.jolt = (0, 0)                # this step's screen shake
+        self.felt = []                    # this step's (player index, moment): the app turns them into rumble
         self.players = [None, None]
         self.god = god
         self.frame = 0
@@ -38,7 +42,7 @@ class World:
     # ---------------------------------------------------------- players
 
     def join(self, i):
-        p = Player(i, self.cam_x + 40 + 16 * i, -10 if self.frame else 176)
+        p = Player(i, self.drop_x(16 * i), -10 if self.frame else 176)
         p.god = self.god
         self.players[i] = p
         return p
@@ -53,7 +57,7 @@ class World:
     def kill_player(self, p):
         if p.god or p.dying or p.out:
             if p.god and p.y > H + 40:                 # the demo falls in a pit: put it back
-                p.x, p.y, p.vy = self.cam_x + 40, -10.0, 0.0
+                p.x, p.y, p.vy = self.drop_x(), -10.0, 0.0
             return
         if p.safe and p.y <= H:
             return
@@ -61,19 +65,28 @@ class World:
         p.vy, p.vx = -3.6, -p.facing * 1.2
         p.on_ground = False
         self.sparks(p.x, p.y - 12, 10)
-        self.freeze = 6
+        self.hitstop(8)
+        self.feel(p, "hurt")
         self.shake = 6
         audio.play("hurt")
 
     def respawn(self, p):
         if p.lives > 0:
             p.lives -= 1
-            p.x, p.y, p.vx, p.vy = self.cam_x + 40, -10.0, 0.0, 0.0
+            p.x, p.y, p.vx, p.vy = self.drop_x(), -10.0, 0.0, 0.0
+            p.buffer = p.trigger = 0
             p.safe, p.weapon, p.ammo = RESPAWN_SAFE, "P", 0
             p.grenades = max(p.grenades, GRENADES)
         else:
             p.out = True
             p.continue_t = CONTINUE_FRAMES
+
+    def drop_x(self, off=0):
+        """Where a player drops back in: near the left of the screen, and never over a pit."""
+        for x in range(int(self.cam_x) + 40 + off, int(self.cam_x) + W - 40, 8):
+            if self.stage.floor_y(x - 5) is not None and self.stage.floor_y(x + 5) is not None:
+                return float(x)
+        return self.cam_x + 40 + off
 
     def carry_on(self, i):
         """A continue: the score keeps counting, and the player drops back in."""
@@ -84,6 +97,15 @@ class World:
         p.lives = 2
 
     # ---------------------------------------------------------- effects
+
+    def feel(self, p, moment):
+        """A moment for a player's hands (see controls.FEEL)."""
+        if isinstance(p, Player):
+            self.felt.append((p.index, moment))
+
+    def hitstop(self, frames):
+        """Holds the action for a few frames: the weight of a hit, scaled to what was hit."""
+        self.freeze = max(self.freeze, frames)
 
     def award(self, owner, points, x, y, text=None):
         if isinstance(owner, Player):
@@ -115,8 +137,9 @@ class World:
     def explode(self, x, y, radius, dmg, owner, hurts_players=False, big=False):
         audio.play("big_boom" if big else "boom")
         self.shake = max(self.shake, 14 if big else 5)
-        if big:
-            self.freeze = 10
+        self.hitstop(10 if big else 3 if dmg else 0)
+        for p in self.players if big else [owner] if dmg else []:     # your own blast kicks; a big one shakes everyone
+            self.feel(p, "big_boom" if big else "boom")
         n = 40 if big else 10 + radius // 2
         for _ in range(n):
             a = random.uniform(0, math.tau)
@@ -145,7 +168,7 @@ class World:
                     self.kill_player(p)
 
     def boss_down(self):
-        self.freeze = 20
+        self.hitstop(20)
         self.bolts.clear()
         self.boss.marks.clear()
 
@@ -167,16 +190,33 @@ class World:
         else:
             self.foes.append(Foe(x, y, kind))
 
+    def actors(self):
+        """Everything with a position of its own."""
+        return [p for p in self.players if p] + self.foes + self.shots + self.bolts + self.thrown + self.pickups + \
+            self.hostages + ([self.boss] if self.boss else [])
+
     def step(self, pads):
         self.frame += 1
-        if self.shake:
-            self.shake -= 1
+        self.felt.clear()
+        self.cam_ox = self.cam_x
+        for a in self.actors():
+            a.ox, a.oy = a.x, a.y
+        self.jolt = (0, 0)
+        if self.shake:                                            # rolled here, not in draw(): once a step,
+            self.shake -= 1                                       # whatever the screen's refresh rate
+            self.jolt = (round(random.uniform(-1, 1) * min(self.shake, 4)),
+                         round(random.uniform(-1, 1) * min(self.shake, 3)))
         for p in self.players:
             if p and p.out and getattr(p, "continue_t", 0):
                 p.continue_t -= 1
+        self.still = self.freeze > 0
         if self.freeze:
             self.freeze -= 1
+            for i, p in enumerate(self.players):
+                if p and p.active:
+                    p.listen(pads[i])                             # a press during a hit-stop still counts
             return
+        self.flashes.clear()                                      # a flash lasts one step, not one screen refresh
         for i, p in enumerate(self.players):
             if p:
                 p.step(pads[i], self)
@@ -203,9 +243,9 @@ class World:
         live = self.live_players()
         if self.locked:
             return
-        if live:
-            lead = max(p.x for p in live)
-            self.cam_x = max(self.cam_x, min(lead - 130, self.stage.width - W))
+        if live:                                     # follow the leader, but never past the slowest player:
+            xs = [p.x for p in live]                 # the screen edge must not shove anyone into a wall
+            self.cam_x = max(self.cam_x, min(max(xs) - 130, min(xs) - 6, self.stage.width - W))
         if self.cam_x >= self.stage.boss_x:
             self.cam_x = float(self.stage.boss_x)
             self.locked = True
@@ -236,6 +276,11 @@ class World:
                 for h in self.hostages:
                     if not h.freed and r.colliderect(h.rect()):
                         h.free(self, s.owner)
+        for g in self.thrown:                                     # a grenade bursts on the first enemy it touches
+            r = g.rect()
+            if not g.dead and (any(not getattr(e, "dying", 0) and r.colliderect(e.rect()) for e in self.foes)
+                               or self.boss and r.colliderect(self.boss.hitbox())):
+                g.blow(self)
         for p in self.live_players():
             pr = p.rect()
             for b in self.bolts:
@@ -245,6 +290,7 @@ class World:
             for k in self.pickups:
                 if pr.colliderect(k.rect()):
                     k.apply(p)
+                    self.feel(p, "pickup")
             for h in self.hostages:
                 if not h.freed and pr.colliderect(h.rect()):
                     h.free(self, p)
@@ -281,13 +327,23 @@ class World:
     # ---------------------------------------------------------- drawing
 
     def draw(self, surf, atlas):
-        sx = round(random.uniform(-1, 1) * min(self.shake, 4)) if self.shake else 0
-        sy = round(random.uniform(-1, 1) * min(self.shake, 3)) if self.shake else 0
-        cam = self.cam_x - sx
+        """Paints the moment `blend` of the way from the step before to this one: even motion at any refresh rate."""
+        b = self.blend
+        slid = [(a, a.x, a.y) for a in self.actors()] if b < 1 else ()
+        for a, x, y in slid:                                      # actors are slid back for the painting only
+            if abs(x - a.ox) < 24 and abs(y - a.oy) < 24:         # (a longer hop is a respawn: a cut, not a slide)
+                a.x, a.y = a.ox + (x - a.ox) * b, a.oy + (y - a.oy) * b
+        self.paint(surf, atlas, self.cam_ox + (self.cam_x - self.cam_ox) * b, 0 if self.still else 1 - b)
+        for a, x, y in slid:
+            a.x, a.y = x, y
+
+    def paint(self, surf, atlas, view, back):
+        sx, sy = self.jolt
+        cam = round(view) - sx              # whole pixels: the tiles and all that stands on them move as one
         surf.blit(atlas.sky, (0, 0))
         for layer, factor, yoff in atlas.layers:
             lw = layer.get_width()
-            ox = -int(cam * factor) % lw
+            ox = -int((view - sx) * factor) % lw
             surf.blit(layer, (ox - lw, yoff + sy))
             surf.blit(layer, (ox, yoff + sy))
         game = surf.subsurface(pygame.Rect(0, 0, W, H))
@@ -308,16 +364,16 @@ class World:
             s.draw(game, cam)
         for b in self.bolts:
             b.draw(game, cam, self.frame)
-        self.draw_parts(game, atlas, cam)
+        self.draw_parts(game, atlas, cam, back)
         for x, y, small in self.flashes:
             img = atlas.glow_s if small else atlas.glow_l
             game.blit(img, (round(x - cam) - img.get_width() // 2, round(y) - img.get_height() // 2),
                       special_flags=pygame.BLEND_ADD)
             pygame.draw.circle(game, C["white"], (round(x - cam), round(y)), 2 if small else 3)
-        self.flashes.clear()
         if cam < self.stage.boss_x - W:                           # foreground girders sweep past
-            for i in range(int(cam * 1.4 // 420), int((cam * 1.4 + W) // 420) + 2):
-                px = round(i * 420 + 200 - cam * 1.4)
+            near = (view - sx) * 1.4
+            for i in range(int(near // 420), int((near + W) // 420) + 2):
+                px = round(i * 420 + 200 - near)
                 if -30 < px < W + 30:
                     game.blit(atlas.pillar, (px, 0))
         from . import font
@@ -343,9 +399,9 @@ class World:
                     if ty + 1 < len(self.stage.grid) and self.stage.tile(tx, ty + 1) == AIR and tx % 3 == 0:
                         pygame.draw.line(surf, C["ink"], (px + 8, y + 6), (px + 8, y + 22))   # hangers
 
-    def draw_parts(self, surf, atlas, cam):
+    def draw_parts(self, surf, atlas, cam, back=0.0):
         for x, y, vx, vy, life, full, kind, size, colour in self.parts:
-            px, py = round(x - cam), round(y)
+            px, py = round(x - vx * back - cam), round(y - vy * back)
             t = life / full
             if kind == "fire":
                 col = C["white"] if t > 0.8 else C["sun"] if t > 0.55 else C["ember"] if t > 0.3 else C["rose"]

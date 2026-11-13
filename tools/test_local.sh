@@ -25,7 +25,7 @@ IRONVOLT_FRAMES=180 "$PY" run.py >/dev/null 2>&1 || fail "real window"
 
 if [[ "${1:-}" == "--exe" ]]; then
     step "5. Windows exe (PyInstaller, one folder)"
-    "$PY" -m pip install --quiet pyinstaller
+    "$PY" -m pip install --quiet pyinstaller==6.22.3
     "$PY" -m PyInstaller --noconfirm --clean --windowed --name Ironvolt --distpath dist --workpath build/pyi \
         run.py >/dev/null 2>&1 || fail "exe build"
     IRONVOLT_FRAMES=120 ./dist/Ironvolt/Ironvolt.exe || fail "exe run"

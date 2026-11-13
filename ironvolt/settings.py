@@ -7,15 +7,15 @@ STEP = 1 / FPS
 MAX_DT = 1 / 30            # a long hitch never runs more than two steps at once
 
 GROUND_Y = 176             # top of the main floor
-GRAVITY = 0.28
-MAX_FALL = 6.0
+GRAVITY = 0.28             # for everything but the player, whose jump arc is tuned in actors.py
+MAX_FALL = 6.0             # well under a tile a frame: nothing falls through a floor
 RUN = 1.5
-JUMP_V = -5.6
+JUMP_V = -6.6              # a held jump tops out 58 px up: the stage's 3-tile (48 px) slabs, with room to spare
 LIVES = 3
 GRENADES = 10
 RESPAWN_SAFE = 120         # frames of blinking safety after a respawn
 
-BULLET_V = 5.0
+BULLET_V = 6.5             # a pistol shot crosses the screen in under a second
 ENEMY_BULLET_V = 1.9
 
 # weapon: (frames between shots when held, ammo given by the pickup, damage)

@@ -2,11 +2,12 @@
 
 The game draws into a 320x224 surface. The GPU scales it by the largest whole number that fits (sharp pixels,
 no shimmer), centres it, frames it with a cabinet bezel, and lays optional scanlines over it. Logic steps at a
-fixed 60 Hz; presentation is vsynced.
+fixed 60 Hz; every refresh of the screen paints the blend of the last two steps, so motion is even at any rate.
 """
 
 import os
 import sys
+import time
 
 import pygame
 
@@ -15,6 +16,13 @@ from .art import Atlas
 from .controls import Controls
 from .game import Game
 from .settings import C, H, MAX_DT, STEP, W
+
+
+def pace(acc, dt):
+    """Banks one screen refresh's time. Returns (logic steps now due, time left over): the rest is the blend."""
+    acc += min(dt, MAX_DT)
+    steps = int(acc / STEP)
+    return steps, max(0.0, acc - steps * STEP)
 
 
 def integer_fit(window, game=(W, H)):
@@ -63,6 +71,7 @@ class App:
         self.window.set_icon(self.atlas.players[0]["stand"])
         self.game = Game(self.atlas)
         self.controls = Controls()
+        self.game.controls = self.controls              # the prompts follow the device in use
         self.crt = True
         self.full = False
         self.frame_cache = None
@@ -87,8 +96,7 @@ class App:
     def handle(self, e):
         if e.type == pygame.QUIT:
             return False
-        if e.type in (pygame.JOYDEVICEADDED, pygame.JOYDEVICEREMOVED):
-            self.controls.refresh()
+        self.controls.handle(e)                             # pads plugged in or pulled out
         if e.type == pygame.KEYDOWN:
             alt_enter = e.key == pygame.K_RETURN and e.mod & pygame.KMOD_ALT
             if e.key == pygame.K_F11 or alt_enter:
@@ -111,25 +119,36 @@ class App:
 
     def run(self):
         clock = pygame.time.Clock()
+        last = time.perf_counter()                 # pygame's clock counts whole milliseconds: too coarse to blend by
         acc = 0.0
+        moving = False                             # did the world step on the latest tick?
+        waiting = []                               # events no step has read yet: a fast screen refreshes between steps
         running = True
         limit = int(os.environ.get("IRONVOLT_FRAMES", "0"))    # the local smoke test quits by itself
         shown = 0
         while running and not (limit and shown >= limit):
-            acc += min(clock.tick() / 1000, MAX_DT)
-            events = pygame.event.get()
-            for e in events:
+            clock.tick(400)                        # a brake, for a driver that ignores vsync
+            now = time.perf_counter()
+            steps, acc = pace(acc, now - last)
+            last = now
+            for e in pygame.event.get():
                 running = self.handle(e) and running
-            stepped = False
-            while acc >= STEP:
-                self.controls.read(events)
-                events = ()                                  # a coin or button event counts once
+                waiting.append(e)
+            for _ in range(steps):
+                self.controls.read(waiting)
+                waiting = []                                 # a coin event counts once, and none is dropped
+                world = self.game.world or self.game.demo
+                seen = world and world.frame
                 self.game.step(self.controls)
-                acc -= STEP
-                stepped = True
-            if stepped:
-                self.game.draw(self.screen)
-                self.tex.update(self.screen)
+                moving = bool(world) and world.frame != seen
+                if moving and world is self.game.world:      # a played world shakes the pads; the demo does not
+                    for i, moment in world.felt:
+                        self.controls.feel(i, moment)
+            world = self.game.world or self.game.demo
+            if world:                              # a world that did not step (pause, game over) holds its picture
+                world.blend = acc / STEP if moving else 1.0
+            self.game.draw(self.screen)
+            self.tex.update(self.screen)
             k, rect, frame, lines = self.layout()
             self.renderer.clear()
             frame.draw()
@@ -138,6 +157,7 @@ class App:
                 lines.draw(dstrect=rect)
             self.renderer.present()
             shown += 1
+        self.controls.close()
         pygame.quit()
 
 
