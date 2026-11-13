@@ -13,7 +13,7 @@ import time
 
 import pygame
 
-from . import __version__, audio
+from . import __version__, audio, font
 from .art import Atlas
 from .controls import Controls
 from .game import Game
@@ -96,6 +96,8 @@ class App:
         self.speed = 1.0
         self.frame_cache = None
         self.game.on_option = self.option
+        self.controls.touch.to_game = self.touch_map
+        self.portrait = False
         for key in ("fullscreen", "music", "sfx", "rumble", "swap", "speed"):
             self.option(key)
 
@@ -118,6 +120,24 @@ class App:
     @property
     def crt(self):
         return self.game.opts["crt"] == "ON"
+
+    def touch_map(self, nx, ny):
+        """A finger's 0..1 position on the window or canvas -> game pixels."""
+        size = self.canvas.get_size() if WEB else self.window.size
+        rect = self.layout()[1]
+        return (nx * size[0] - rect.x) * W / rect.w, (ny * size[1] - rect.y) * H / rect.h
+
+    def turned(self):
+        """In a browser held upright, the game is a strip: ask for landscape."""
+        if WEB and self.shown % 30 == 0:
+            try:
+                import platform
+                self.portrait = platform.window.innerHeight > platform.window.innerWidth
+            except Exception:                    # a JS proxy raises its own error types
+                self.portrait = False
+        if self.portrait and self.controls.touch.used:
+            self.screen.fill(C["black"], (0, 96, W, 30))
+            font.draw(self.screen, "TURN YOUR PHONE SIDEWAYS", (W // 2, 107), C["sun"], center=True)
 
     def layout(self):
         size = self.canvas.get_size() if WEB else self.window.size
@@ -191,6 +211,8 @@ class App:
         if world:                                  # a world that did not step (pause, game over) holds its picture
             world.blend = self.acc / STEP if self.moving else 1.0
         self.game.draw(self.screen)
+        self.controls.touch.draw(self.screen)
+        self.turned()
         self.present()
         audio.tick()
         self.shown += 1

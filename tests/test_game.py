@@ -443,6 +443,12 @@ class Storage(unittest.TestCase):
                 with open(storage.path(), "w") as f:
                     f.write("{broken")
                 self.assertEqual(storage.load(), storage.DEFAULT)
+                with open(storage.path(), "w") as f:
+                    f.write('[["ss", 1e400], ["abcdef", -5], ["Q", 12345678901234567890]]')
+                self.assertEqual(storage.load(), storage.DEFAULT)              # 1e400 is infinity: refused
+                with open(storage.path(), "w") as f:
+                    f.write('[["ss", 10], ["abcdef", -5], ["Q", 12345678901234567890]]')
+                self.assertEqual(storage.load(), [["SS", 10], ["ABC", 0], ["Q", 9999999]])
                 for bad in ("[]", '[["A", Infinity]]', "[" * 100000):
                     with open(storage.path(), "w") as f:
                         f.write(bad)
@@ -698,6 +704,63 @@ class Menus(unittest.TestCase):
         c = Controls()
         c.device[0], c.swap = "xbox", True
         self.assertEqual((c.prompt("fire"), c.prompt("jump")), ("A / RT", "X"))
+
+
+class TouchControls(unittest.TestCase):
+    def finger(self, t, kind, x, y, fid=1):
+        ev = {"down": pygame.FINGERDOWN, "move": pygame.FINGERMOTION, "up": pygame.FINGERUP}[kind]
+        t.handle(pygame.event.Event(ev, x=x / W, y=y / H, dx=0, dy=0, touch_id=0, finger_id=fid))
+
+    def test_stick_and_buttons_drive_player_one(self):
+        from ironvolt.touch import KEYS, Touch
+        t = Touch()
+        self.assertFalse(t.used)
+        self.finger(t, "down", 60, 150)                          # the stick appears under the thumb
+        self.finger(t, "move", 80, 136)                          # right and up
+        s = t.state()
+        self.assertEqual((s["right"], s["up"], s["left"], s["down"]), (True, True, False, False))
+        self.finger(t, "move", 140, 150)                         # far past the rim: the base follows
+        self.finger(t, "move", 110, 150)
+        self.assertTrue(t.state()["left"])                       # so turning back answers at once
+        jx, jy = KEYS["jump"][0]
+        fx, fy = KEYS["fire"][0]
+        self.finger(t, "down", fx, fy, 2)
+        self.assertTrue(t.state()["fire"])
+        self.finger(t, "move", jx, jy, 2)                        # slide from fire to jump
+        self.assertEqual((t.state()["fire"], t.state()["jump"]), (False, True))
+        self.finger(t, "up", jx, jy, 2)
+        self.finger(t, "up", 0, 0, 1)
+        self.assertFalse(any(t.state().values()))
+        surf = pygame.Surface((W, H))
+        t.draw(surf)
+        self.assertTrue(t.used)
+
+    def test_a_tap_on_pause_pauses_through_the_controls(self):
+        from ironvolt.controls import Controls
+        from ironvolt.touch import KEYS
+        c = Controls()
+        x, y = KEYS["start"][0]
+        c.handle(pygame.event.Event(pygame.FINGERDOWN, x=x / W, y=y / H, dx=0, dy=0, touch_id=0, finger_id=5))
+        c.read()
+        self.assertEqual((c.pads[0].pressed("start"), c.device[0], c.prompt("fire")), (True, "touch", "FIRE"))
+
+    def test_browser_saves_go_to_local_storage(self):
+        class Store(dict):
+            getItem = dict.get
+            setItem = dict.__setitem__
+
+        store, real = Store(), storage.local
+        storage.local = lambda: store
+        try:
+            self.assertEqual(storage.load(), storage.DEFAULT)
+            storage.insert(storage.load(), "WEB", 999999)
+            storage.save_options(dict(storage.DEFAULTS, music="2"))
+            self.assertEqual((storage.load()[0], storage.load_options()["music"]), (["WEB", 999999], "2"))
+            self.assertEqual(sorted(store), ["ironvolt/options.json", "ironvolt/scores.json"])
+            store["ironvolt/options.json"] = '{"music": "eleven"}'
+            self.assertEqual(storage.load_options()["music"], "8")
+        finally:
+            storage.local = real
 
 
 if __name__ == "__main__":

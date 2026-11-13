@@ -16,7 +16,7 @@ import pygame
 
 WEB = sys.platform == "emscripten"
 
-KEYBOARD, XBOX, PLAYSTATION = "keyboard", "xbox", "playstation"
+KEYBOARD, XBOX, PLAYSTATION, TOUCH = "keyboard", "xbox", "playstation", "touch"
 BUTTONS = ("left", "right", "up", "down", "fire", "jump", "bomb", "start")
 DEADZONE = 0.25
 TRIGGER = 0.4
@@ -39,6 +39,7 @@ PROMPTS = {
     "coin": ("5", "VIEW", "CREATE"),
 }
 SWAPPED = {"fire": ("A / RT", "CROSS / R2"), "jump": ("X", "SQUARE")}
+TOUCH_NAMES = {"move": "LEFT THUMB", "fire": "FIRE", "jump": "JUMP", "bomb": "GR", "start": "II", "coin": "5"}
 KEYS_P2 = {"move": "WASD", "fire": "G", "jump": "H", "bomb": "J", "start": "2", "coin": "5"}
 
 # Rumble (low, high, ms) for game moments.
@@ -167,6 +168,8 @@ class Controls:
         self.rumble_on = True
         self.swap = False                     # pads: fire and jump trade face buttons
         self.use_controller = False
+        from .touch import Touch                 # here, not at the top: touch.py reads this module
+        self.touch = Touch()                  # on-screen controls for player 1 on a phone or tablet
         try:
             if not WEB:
                 from pygame._sdl2 import controller
@@ -197,7 +200,9 @@ class Controls:
             d.light(LIGHTS[i])
 
     def handle(self, e):
-        """Hot-plug. Call with every event."""
+        """Hot-plug and touches. Call with every event."""
+        if self.touch.handle(e):
+            return
         if e.type in (pygame.JOYDEVICEADDED, getattr(pygame, "CONTROLLERDEVICEADDED", -1)):
             self._open(e.device_index)
         elif e.type in (pygame.JOYDEVICEREMOVED, getattr(pygame, "CONTROLLERDEVICEREMOVED", -1)):
@@ -211,6 +216,9 @@ class Controls:
             state = {b: any(keys[k] for k in KEYS[i][b]) for b in BUTTONS}
             if any(state.values()):
                 self.device[i] = KEYBOARD
+            if i == 0 and self.touch.fingers:
+                state = {b: v or self.touch.state()[b] for b, v in state.items()}
+                self.device[0] = TOUCH
             if i < len(self.devices):
                 self.devices[i].swap = self.swap
                 try:
@@ -228,6 +236,8 @@ class Controls:
         return [i for i, p in enumerate(self.pads) if p.pressed("start")]
 
     def prompt(self, action, player=0):
+        if self.device[player] == TOUCH:
+            return TOUCH_NAMES[action]
         if self.device[player] == KEYBOARD:
             return PROMPTS[action][0] if player == 0 else KEYS_P2[action]
         kind = 1 if self.device[player] == XBOX else 2
