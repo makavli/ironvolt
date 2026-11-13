@@ -67,6 +67,18 @@ def _zeros(n):
     return array("f", bytes(4 * n))
 
 
+def _blep(p, dt):
+    """PolyBLEP: rounds a saw or square edge over one sample, so its harmonics stop folding back as
+    metallic noise (aliasing) at this low sample rate."""
+    if p < dt:
+        p /= dt
+        return p + p - p * p - 1
+    if p > 1 - dt:
+        p = (p - 1) / dt
+        return p * p + p + p + 1
+    return 0.0
+
+
 def _lp(fc):
     """One-pole low-pass coefficient for a cutoff in Hz."""
     return 1 - math.exp(-2 * math.pi * fc / RATE)
@@ -139,9 +151,19 @@ def _make_drums():
             out[i] = (x - lo) * 0.3 * math.exp(-i / RATE / 0.45) * min(1.0, i / 30)
         return out
 
+    def fade(out):                                        # every hit ends at zero: a cut-off tail clicks
+        k = min(len(out), 200)
+        for i in range(k):
+            out[len(out) - k + i] *= 1 - (i + 1) / k
+        return out
+
     sn, tails = snare()
-    return {"kick": kick(), "snare": sn, "tails": tails, "hat": hat(0.03, 0.008, 0.16, 100),
+    kit = {"kick": kick(), "snare": sn, "tails": tails, "hat": hat(0.03, 0.008, 0.16, 100),
             "ohat": hat(0.16, 0.05, 0.11, 2000, fc=3500), "crash": (crash(0), crash(11000))}
+    for v in kit.values():
+        for out in (v if isinstance(v, (tuple, list)) else (v,)):
+            fade(out)
+    return kit
 
 
 PATTERNS = {   # drums: kicks, snares, open hats (16th steps), closed hats every n steps (0: none)
@@ -183,7 +205,7 @@ def _bed(chord, style, per, kit):
             for j in range(4):
                 p = (phs[j] + incs[j]) % 1.0
                 phs[j] = p
-                s += 2 * p - 1
+                s += 2 * p - 1 - _blep(p, incs[j])
             y1 += a * (s - y1)
             y2 += a * (y1 - y2)
             env = min(1.0, i / (0.05 * RATE), (n - i) / (0.02 * RATE))
@@ -203,7 +225,7 @@ def _bed(chord, style, per, kit):
                     yield
                 t = i / RATE
                 ph = (ph + f / RATE) % 1.0
-                y += _lp(160 + 650 * math.exp(-t / 0.08)) * ((2 * ph - 1) - y)
+                y += _lp(160 + 650 * math.exp(-t / 0.08)) * ((2 * ph - 1 - _blep(ph, f / RATE)) - y)
                 j = s * per + i
                 v = y * 0.32 * min(1.0, i / 40, (m - i) / 60) * duck[j]
                 L[j] += v
@@ -221,7 +243,7 @@ def _bed(chord, style, per, kit):
                 if i % CHUNK == 0:
                     yield
                 ph = (ph + f / RATE) % 1.0
-                v = (4 * abs(ph - 0.5) - 1) * 0.05 * math.exp(-i / (0.12 * RATE)) * min(1.0, i / 150)
+                v = (4 * abs(ph - 0.5) - 1) * 0.05 * math.exp(-i / (0.12 * RATE)) * min(1.0, i / 150, (per - i) / 200)
                 v *= 0.6 + 0.4 * duck[s * per + i]
                 j = s * per + i
                 L[j] += v * (1 - pan)
@@ -305,7 +327,9 @@ def _lead(bars, at, per, L, R, S, up=0, vol=0.11, pan=0.0, t0=0, bell=False):
             ph1 = (ph1 + f / RATE) % 1.0
             ph2 = (ph2 + f * 1.007 / RATE) % 1.0
             duty = 0.5 + 0.22 * math.sin(2 * math.pi * 0.6 * (t0 + s * per + i) / RATE)   # slow PWM
-            x = (1.0 if ph1 < duty else -1.0) * 0.55 + (2 * ph2 - 1) * 0.45
+            d1, d2 = f / RATE, f * 1.007 / RATE
+            sq = (1.0 if ph1 < duty else -1.0) + _blep(ph1, d1) - _blep((ph1 - duty) % 1.0, d1)
+            x = sq * 0.55 + (2 * ph2 - 1 - _blep(ph2, d2)) * 0.45
             y1 += a * (x - y1)
             y2 += a * (y1 - y2)
             env = min(1.0, i / 120 if frm is None else 1.0, (n - i) / 300)
