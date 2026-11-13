@@ -326,6 +326,11 @@ class World:
             for h in self.hostages:
                 if not h.freed and pr.colliderect(h.rect()):
                     h.free(self, p)
+            if p.vy > 0:                                          # falling onto a head: feet were above it a step ago
+                for e in self.foes:
+                    if not getattr(e, "dying", 0) and pr.colliderect(e.rect()) and p.oy <= e.rect().top + 3:
+                        p.stomp(e, self)
+                        break
             if self.boss and not self.boss.dying and pr.colliderect(self.boss.hitbox()):
                 p.x = self.boss.hitbox().left - p.w / 2 - 1
                 self.kill_player(p)

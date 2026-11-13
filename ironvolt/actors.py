@@ -85,6 +85,9 @@ JUMP_CUT = 0.4                             # let go early, jump lower
 COYOTE, BUFFER = 6, 6                      # frames of forgiveness at ledges and before landing
 FIRE_BUFFER = 8                            # a tap between two shots still fires, as soon as the gun allows
 STAND, DUCK = 21, 12                       # body heights: rifle fire flies 15 px up, over a crouch
+SLIDE, SLIDE_V, SLIDE_DRAG = 22, 3.2, 0.95  # down + jump on solid ground: a low dash under rifle fire
+KNIFE_REACH, KNIFE_DMG, KNIFE_RATE = 18, 3, 14   # fire with a foe this close: a stab that downs any trooper
+STOMP_DMG, STOMP_BOUNCE = 2, -4.6          # landing on a foe's head; hold jump to bounce high
 
 
 class Player(Body):
@@ -110,6 +113,7 @@ class Player(Body):
         self.trigger, self.lob = 0, False      # a fire press and a grenade press, waiting their turn
         self.run_t = 0.0
         self.recoil = 0
+        self.slide = self.slash = 0    # frames left in a slide, and of the knife's swipe on screen
         self.god = False               # tests and the attract demo
 
     @property
@@ -147,7 +151,15 @@ class Player(Body):
             self.safe -= 1
         dx, dy = pad.axis()
         self.crouch = dy > 0 and self.on_ground
-        if dx:
+        if self.slide:
+            self.slide -= 1
+            self.vx *= SLIDE_DRAG
+            if not self.on_ground or not self.vx:      # off a ledge or into a wall: over
+                self.slide = 0
+            elif not self.slide and not self.room_to_stand(world.stage):
+                self.slide = 1                          # never stand up under a ceiling too low for it
+            self.crouch = self.crouch or bool(self.slide)
+        if dx and not self.slide:
             self.facing = dx
         target = 0 if self.crouch else dx * RUN
         if not self.on_ground:
@@ -158,7 +170,8 @@ class Player(Body):
             accel = TURN if self.vx * dx < 0 else ACCEL
             if self.vx * dx <= -RUN:
                 world.dust(self.x, self.y)              # boots dig in on a full turn-about
-        self.vx += max(-accel, min(accel, target - self.vx))
+        if not self.slide:
+            self.vx += max(-accel, min(accel, target - self.vx))
         # aim: up, diagonals, down only in the air
         if dy < 0:
             self.aim = (dx, -1) if dx else (0, -1)
@@ -169,9 +182,14 @@ class Player(Body):
 
         # jumping: buffered presses, coyote time, a cut when the button is let go, a float at the top while held
         self.coyote = COYOTE if self.on_ground else max(0, self.coyote - 1)
-        if self.buffer and self.crouch and self.on_catwalk(world.stage):
+        if self.buffer and self.crouch and not self.slide and self.on_catwalk(world.stage):
             self.drop, self.buffer, self.coyote, self.on_ground = 10, 0, 0, False   # down + jump: through a catwalk
+        elif self.buffer and self.crouch and not self.slide and self.on_ground:
+            self.slide, self.vx, self.buffer = SLIDE, self.facing * SLIDE_V, 0      # down + jump on solid ground
+            world.dust(self.x, self.y)
+            audio.play("land")
         elif self.buffer and self.coyote:
+            self.slide = 0                              # a jump out of a slide keeps its speed
             self.vy = JUMP_V
             self.buffer = self.coyote = 0
             if self.on_ground:
@@ -197,11 +215,17 @@ class Player(Body):
         self.run_t = self.run_t + abs(self.vx) * 0.12 if self.on_ground and abs(self.vx) > 0.2 else 0
 
         self.cooldown, self.recoil = max(0, self.cooldown - 1), max(0, self.recoil - 1)
+        self.slash = max(0, self.slash - 1)
         rate = WEAPONS[self.weapon][0]
         # a tap fires once half the wait is over (mashing beats holding); a held button keeps the weapon's beat
         if (self.trigger and self.cooldown <= rate // 2) or (pad.held("fire") and not self.cooldown):
             self.trigger = 0
-            self.shoot(world)
+            foe = self.in_reach(world)
+            if foe:
+                self.stab(foe, world)
+                rate = KNIFE_RATE
+            else:
+                self.shoot(world)
             self.cooldown = rate
         self.trigger = max(0, self.trigger - 1)
         if self.lob and self.grenades:
@@ -212,6 +236,34 @@ class Player(Body):
 
         if self.y > H + 40:
             world.kill_player(self)
+
+    def room_to_stand(self, stage):
+        h, self.h = self.h, STAND
+        free = not self.blocked(stage, self.y)
+        self.h = h
+        return free
+
+    def in_reach(self, world):
+        """The foe a knife would reach: in front, at body height. Not the boss: a blade is no answer to a tank."""
+        x0 = self.x if self.facing > 0 else self.x - KNIFE_REACH
+        box = pygame.Rect(round(x0), round(self.y - STAND), KNIFE_REACH, STAND)
+        return next((e for e in world.foes if not getattr(e, "dying", 0) and box.colliderect(e.rect())), None)
+
+    def stab(self, foe, world):
+        foe.damage(KNIFE_DMG, world, self, push=self.facing)
+        self.slash = 8
+        world.sparks(foe.x - self.facing * 3, self.y - 13, 5)
+        world.hitstop(3)                                # a blow that lands: the world holds its breath
+        world.feel(self, "heavy")
+        audio.play("slash")
+
+    def stomp(self, foe, world):
+        foe.damage(STOMP_DMG, world, self)
+        self.vy, self.coyote, self.slide = STOMP_BOUNCE, 0, 0
+        world.dust(self.x, self.y)
+        world.hitstop(2)
+        world.feel(self, "land")
+        audio.play("hit")
 
     def muzzle(self):
         ax, ay = self.aim
@@ -266,6 +318,13 @@ class Player(Body):
         surf.blit(img, (x, y - bob))
         if self.dying:
             return
+        if self.slash:                                  # the knife's swipe: a bright arc that fades
+            cx, cy = round(self.x - cam + self.facing * 6), round(self.y - 13)
+            r = pygame.Rect(cx - 10, cy - 10, 20, 20)
+            a = 0 if self.facing > 0 else math.pi
+            sweep = 1.4 * (8 - self.slash) / 8 + 0.4
+            colour = C["white"] if self.slash > 4 else C["steel_l"]
+            pygame.draw.arc(surf, colour, r, a - sweep / 2, a + sweep / 2, 2)
         # arm and gun, drawn toward the aim so all 8 directions read clearly
         ax, ay = self.aim
         n = math.hypot(ax, ay) or 1

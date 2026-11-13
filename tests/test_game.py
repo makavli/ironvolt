@@ -225,6 +225,59 @@ class Feel(unittest.TestCase):
             run(w, pads, 150, down=crouch)
             self.assertEqual(p.lives == 3 and not p.dying, crouch)
 
+    def test_fire_up_close_is_a_knife(self):
+        run(self.w, self.pads, 5)
+        foe = Foe(self.p.x + 12, GROUND_Y)
+        foe.timer = 10_000
+        self.w.foes.append(foe)
+        self.pads[0].press(fire=True)
+        self.w.step(self.pads)
+        self.assertTrue(foe.dying)                    # one stab downs a trooper...
+        self.assertFalse(self.w.shots)                # ...and no bullet left the gun
+        self.assertEqual(self.p.score, 100)
+
+    def test_down_and_jump_on_the_ground_slides_low_and_fast(self):
+        run(self.w, self.pads, 30, right=True)
+        x = self.p.x
+        self.pads[0].press(down=True, jump=True)
+        self.w.step(self.pads)
+        run(self.w, self.pads, 15)
+        self.assertGreater(self.p.x - x, 16 * RUN)    # farther than 16 frames of running
+        self.assertEqual(self.p.h, 12)                # low enough to pass under rifle fire
+        run(self.w, self.pads, 30)
+        self.assertFalse(self.p.slide)
+        self.assertEqual(self.p.h, 21)
+
+    def test_landing_on_a_head_stomps_and_bounces(self):
+        run(self.w, self.pads, 5)
+        foe = Foe(self.p.x + 30, GROUND_Y)
+        foe.timer, foe.hp = 10_000, 2
+        self.w.foes.append(foe)
+        self.p.x, self.p.y, self.p.vy = foe.x, GROUND_Y - 40, 0.0
+        self.p.on_ground, self.p.coyote = False, 0           # dropped from above, not standing
+        bounced = False
+        for _ in range(30):
+            self.pads[0].press(jump=True)
+            self.w.step(self.pads)
+            bounced = bounced or (foe.dying and self.p.vy < 0)
+        self.assertTrue(bounced)
+
+    def test_every_hostage_appears_ahead_of_the_player(self):
+        from ironvolt.stage import SPAWNS
+        self.assertEqual([c for c, *_ in SPAWNS], sorted(c for c, *_ in SPAWNS))   # the spawner reads them in order
+        for cam, kind, x, _ in SPAWNS:
+            if kind == "hostage":
+                self.assertGreater(x - cam, 200, x)  # the player runs ~130 px into the screen
+
+    def test_the_first_hostage_is_reached_on_foot(self):
+        self.p.god = True
+        for i in range(600):
+            self.pads[0].press(right=True, jump=i % 40 < 20)    # hops the crates on the way
+            self.w.step(self.pads)
+            if any(h.freed for h in self.w.hostages):
+                break
+        self.assertTrue(any(h.freed for h in self.w.hostages))
+
     def test_a_hit_staggers_a_soldier_out_of_its_shot(self):
         foe = Foe(self.p.x + 60, GROUND_Y)
         foe.timer = 1
