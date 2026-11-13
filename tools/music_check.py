@@ -6,10 +6,12 @@ import sys
 import time
 import wave
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+sys.path.insert(0, ROOT)
 from ironvolt import music  # noqa: E402
 
-os.makedirs("shots", exist_ok=True)
+SHOTS = os.path.join(ROOT, "shots")
+os.makedirs(SHOTS, exist_ok=True)
 for name in music.SONGS:
     t, worst, gen = time.perf_counter(), 0.0, music.build(name)
     while True:
@@ -24,7 +26,7 @@ for name in music.SONGS:
     rms = math.sqrt(sum(x * x for x in left) / len(left))
     print("%-6s %5.2f s build, longest step %4.1f ms, %4.1f s of music, rms %5d, peak %5d"
           % (name, time.perf_counter() - t, worst * 1000, len(left) / music.RATE, rms, max(map(abs, data))))
-    with wave.open(os.path.join("shots", "music_%s.wav" % name), "wb") as w:
+    with wave.open(os.path.join(SHOTS, "music_%s.wav" % name), "wb") as w:
         w.setnchannels(2)
         w.setsampwidth(2)
         w.setframerate(music.RATE)
