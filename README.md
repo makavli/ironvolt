@@ -54,7 +54,8 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 - **Two players on one machine**, keyboard or any gamepad (Xbox, PlayStation, Switch Pro), with rumble and light bar.
 - **Smooth on any screen:** logic at a fixed 60 Hz, drawn blended at your refresh rate (144 Hz, 165 Hz...), scaled
   up in sharp whole steps inside a cabinet bezel. Optional scanlines.
-- **Arcade to the bone:** hit-stop, screen shake, continues, coins or free play, and a high-score table.
+- **Arcade to the bone:** hit-stop, screen shake, a kill-chain multiplier up to x8, continues, coins or free
+  play, and a high-score table.
 - **Easy, Normal or Hard**, chosen before every game. Die too often and the game asks if you are too feeble.
 - **A synthesized stereo soundtrack:** a title theme, a stage theme and a boss theme that crossfades in when the
   gate locks.

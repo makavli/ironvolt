@@ -10,6 +10,8 @@ Choose your fight, and a new soundtrack.
 - **New music, in stereo:** a title theme, a stage theme with a full song structure (intro, hook, lift, breakdown,
   final chorus) and a boss theme that crossfades in when the gate locks. Every song is still made in code. The
   browser builds it a few milliseconds a frame, so the page never stalls.
+- **Kill chain:** kills less than 2.5 seconds apart chain up. Each one scores x2, x3... up to x8, shown under
+  your score with the time left to keep it going. Dying breaks the chain.
 - `tools/music_check.py` renders every song to `shots/` and reports build time, loudness and peak.
 
 ## 0.2.1

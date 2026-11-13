@@ -14,6 +14,8 @@ JUMP_V = -6.6              # a held jump tops out 58 px up: the stage's 3-tile (
 LIVES = 3
 GRENADES = 10
 RESPAWN_SAFE = 120         # frames of blinking safety after a respawn
+CHAIN_FRAMES = 150         # a kill within this many frames of the last one grows the chain
+CHAIN_MAX = 8              # the score multiplier tops out here
 
 # Chosen before a game starts. lives, enemy wind-up before a shot (frames), enemy bullet speed (x),
 # boss armour, respawn safety (frames), deaths before the game asks if you are too feeble

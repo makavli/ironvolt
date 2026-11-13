@@ -9,7 +9,7 @@ import pygame
 
 from . import __version__, audio, font, storage
 from .autopilot import BotPad
-from .settings import LEVELS, C, H, W
+from .settings import CHAIN_FRAMES, CHAIN_MAX, LEVELS, C, H, W
 from .world import World
 
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
@@ -379,6 +379,12 @@ class Game:
             ammo = "--" if p.weapon == "P" else str(p.ammo)
             font.draw(surf, "%s %s" % (p.weapon, ammo), (x + 40, 14), C["sun"])
             font.draw(surf, "B%d" % p.grenades, (x + 76, 14), C["steel_l"])
+            if p.chain > 1:                                   # the kill chain: multiplier, and the time left
+                mult = min(CHAIN_MAX, p.chain)
+                col = C["red"] if mult == CHAIN_MAX and self.t % 8 < 4 else C["gold"]
+                font.draw(surf, "CHAIN X%d" % mult, (x, 24), col)
+                pygame.draw.rect(surf, C["ink"], (x + 52, 26, 32, 3))
+                pygame.draw.rect(surf, col, (x + 52, 26, round(32 * p.chain_t / CHAIN_FRAMES), 3))
         if w.boss and w.boss.state == "fight":
             frac = max(0, w.boss.hp) / w.boss.HP
             pygame.draw.rect(surf, C["ink"], (W // 2 - 61, 26, 122, 6))

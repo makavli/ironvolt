@@ -313,6 +313,19 @@ class Combat(unittest.TestCase):
         self.assertTrue(foe.dying or foe.dead)
         self.assertEqual(self.p.score, 100)
 
+    def test_kill_chain_multiplies_then_expires(self):
+        from ironvolt.settings import CHAIN_FRAMES
+        for _ in range(3):
+            self.w.award(self.p, 100, 0, 0)
+        self.assertEqual((self.p.score, self.p.chain), (100 + 200 + 300, 3))
+        self.w.award(self.p, 1000, 0, 0, "THANK YOU!")        # a rescue scores plain and keeps the chain
+        self.assertEqual((self.p.score, self.p.chain), (1600, 3))
+        run(self.w, self.pads, CHAIN_FRAMES + 5)
+        self.assertEqual(self.p.chain, 0)
+        for _ in range(12):
+            self.w.award(self.p, 10, 0, 0)
+        self.assertEqual(self.p.score, 1600 + 10 * (1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 * 5))   # capped at x8
+
     def test_hostage_gives_a_weapon(self):
         h = Hostage(self.p.x + 20, GROUND_Y, "H")
         self.w.hostages.append(h)

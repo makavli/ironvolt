@@ -7,7 +7,7 @@ import pygame
 
 from . import audio
 from .actors import Bastion, Drone, Foe, Hostage, Pickup, Player, Turret
-from .settings import DIFFICULTY, GRENADES, TILE, C, H, W
+from .settings import CHAIN_FRAMES, CHAIN_MAX, DIFFICULTY, GRENADES, TILE, C, H, W
 from .stage import AIR, CRATE, GROUND, WALK, Stage
 
 CONTINUE_FRAMES = 600
@@ -76,6 +76,7 @@ class World:
         if p.safe and p.y <= H:
             return
         p.dying = 70
+        p.chain = p.chain_t = 0
         self.deaths += 1
         p.vy, p.vx = -3.6, -p.facing * 1.2
         p.on_ground = False
@@ -122,7 +123,15 @@ class World:
         self.freeze = max(self.freeze, frames)
 
     def award(self, owner, points, x, y, text=None):
+        """Points for a player. A kill (no text) inside the chain window multiplies them: x2, x3... up to x8."""
         if isinstance(owner, Player):
+            if text is None:
+                owner.chain = owner.chain + 1 if owner.chain_t else 1
+                owner.chain_t = CHAIN_FRAMES
+                mult = min(CHAIN_MAX, owner.chain)
+                points *= mult
+                if mult > 1:
+                    text = "%d X%d" % (points, mult)
             owner.score += points
         self.popups.append([x, y, text or str(points), 50])
 
@@ -223,6 +232,10 @@ class World:
         for p in self.players:
             if p and p.out and getattr(p, "continue_t", 0):
                 p.continue_t -= 1
+            if p and p.chain_t and not self.freeze:              # a hit-stop does not eat the chain's time
+                p.chain_t -= 1
+                if not p.chain_t:
+                    p.chain = 0
         self.still = self.freeze > 0
         if self.freeze:
             self.freeze -= 1

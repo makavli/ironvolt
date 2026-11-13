@@ -102,6 +102,7 @@ class Player(Body):
         self.grenades = GRENADES
         self.lives = LIVES
         self.score = 0
+        self.chain, self.chain_t = 0, 0    # kills in a row, and frames left to add the next
         self.safe = RESPAWN_SAFE
         self.dying = 0
         self.out = False               # no lives left (may continue)
