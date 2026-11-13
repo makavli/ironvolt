@@ -1,10 +1,11 @@
 """Synthesized sound: every effect and the songs (music.py) are computed at start-up (no audio files).
 
-The songs are built in a background thread (a slice a frame in the browser) so the title appears at
-once. Without an audio device (tests, a PC with no sound), every call is a silent no-op.
+The songs are built in a background thread so the title appears at once. The browser build ships them baked
+(tools/music_bake.py): a browser runs the sound on the game's own thread, and building there made it tick. Without an audio device (tests, a PC with no sound), every call is a silent no-op.
 """
 
 import math
+import os
 import random
 import sys
 import threading
@@ -96,9 +97,8 @@ def init():
     """Starts the mixer and the sound build. Returns False with no audio device."""
     global _on, _building
     try:
-        size = 1024 if sys.platform == "emscripten" else 512    # the browser mixes on the game's own thread
-        pygame.mixer.pre_init(RATE, -16, 2, size)
-        pygame.mixer.init(RATE, -16, 2, size)
+        pygame.mixer.pre_init(RATE, -16, 2, 512)
+        pygame.mixer.init(RATE, -16, 2, 512)
         pygame.mixer.set_num_channels(24)
         pygame.mixer.set_reserved(2)               # channels 0 and 1 are the music's: one fades out as the other comes in
     except pygame.error:
@@ -107,6 +107,14 @@ def init():
     for name, data in _effects().items():
         _sounds[name] = pygame.mixer.Sound(buffer=_stereo(data).tobytes())
     set_volume()
+    baked = os.path.join(os.path.dirname(__file__), "baked")
+    if os.path.isdir(baked):
+        for name in ORDER:
+            _tracks[name] = pygame.mixer.Sound(os.path.join(baked, name + ".ogg"))
+        if sys.platform == "emscripten":
+            import platform
+            platform.window.console.log("music: baked")       # tools/web_check.py looks for this
+        return True
     _building = _build_all()
     if sys.platform != "emscripten":               # a browser has no threads: tick() builds there, a slice a frame
         threading.Thread(target=lambda: all(True for _ in _building), daemon=True).start()
@@ -119,9 +127,8 @@ def _build_all():
         _tracks[name] = pygame.mixer.Sound(buffer=data.tobytes())
 
 
-def tick(budget=0.002):
-    """Browser only: builds the music for a few milliseconds of this frame. The browser's sound runs on this same
-    thread: a longer slice made frames late enough to starve it, and it ticked until the build was done."""
+def tick(budget=0.006):
+    """Browser without baked songs only: builds the music for a few milliseconds of this frame."""
     global _building
     if sys.platform != "emscripten" or _building is None:
         return

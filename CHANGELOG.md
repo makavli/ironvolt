@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+Clean music in the browser, for real this time.
+- **Fix:** 0.4.0's smaller build slices did not stop the browser's ticking. A browser runs the sound on the game's
+  own thread, and one step of the title song's build alone takes longer than a frame. The browser build now ships
+  the songs baked to Ogg at build time, made by the same code (`tools/music_bake.py`, needs ffmpeg), and builds
+  nothing while you play. The desktop game is unchanged.
+- `tools/web_check.py` fails if the page builds its music instead of loading the baked songs.
+
 ## 0.4.0
 
 A real menu, options for everyone, and clean sound in the browser.
