@@ -6,11 +6,15 @@
 - Stick: radial dead zone, then 8 clean directions for aiming.
 - Rumble on pads that have it; the PlayStation light bar shows the player's colour.
 - Without the controller layer (rare builds), plain joysticks are read with the usual XInput layout.
+- In the browser SDL knows no pad mappings, so pads are plain joysticks in the W3C "standard" button order.
 """
 
 import math
+import sys
 
 import pygame
+
+WEB = sys.platform == "emscripten"
 
 KEYBOARD, XBOX, PLAYSTATION = "keyboard", "xbox", "playstation"
 BUTTONS = ("left", "right", "up", "down", "fire", "jump", "bomb", "start")
@@ -87,6 +91,7 @@ class _Device:
             self.name = self.joy.get_name() or ""
             self.id = self.joy.get_instance_id()
         self.kind = PLAYSTATION if any(w in self.name.lower() for w in PLAYSTATION_WORDS) else XBOX
+        self.web = WEB
         self.coin_was = False
 
     def state(self):
@@ -111,13 +116,22 @@ class _Device:
             hx, hy = j.get_hat(0) if j.get_numhats() else (0, 0)
             b = lambda n: j.get_numbuttons() > n and j.get_button(n)
             dx, dy = eight_way(ax, ay)
-            dx += hx
-            dy -= hy
-            s["jump"] = bool(b(0))
-            s["fire"] = bool(b(2) or b(1))
-            s["bomb"] = bool(b(3) or b(5))
-            s["start"] = bool(b(7))
-            coin = bool(b(6))
+            if self.web:                       # W3C standard: A B X Y LB RB LT RT BACK START LS RS UP DOWN LEFT RIGHT
+                dx += b(15) - b(14)
+                dy += b(13) - b(12)
+                s["jump"] = bool(b(0))
+                s["fire"] = bool(b(2) or b(7))
+                s["bomb"] = bool(b(1) or b(5))
+                s["start"] = bool(b(9))
+                coin = bool(b(8))
+            else:
+                dx += hx
+                dy -= hy
+                s["jump"] = bool(b(0))
+                s["fire"] = bool(b(2) or b(1))
+                s["bomb"] = bool(b(3) or b(5))
+                s["start"] = bool(b(7))
+                coin = bool(b(6))
         s["left"], s["right"], s["up"], s["down"] = dx < 0, dx > 0, dy < 0, dy > 0
         coin_pressed = coin and not self.coin_was
         self.coin_was = coin
@@ -147,9 +161,10 @@ class Controls:
         self.rumble_on = True
         self.use_controller = False
         try:
-            from pygame._sdl2 import controller
-            controller.init()
-            self.use_controller = True
+            if not WEB:
+                from pygame._sdl2 import controller
+                controller.init()
+                self.use_controller = True
         except (ImportError, pygame.error):
             pass
         if not pygame.joystick.get_init():
