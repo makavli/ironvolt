@@ -1,8 +1,8 @@
 name: CI
 
-# Pull request: tests, the bot clears the stage, the version is new, and Windows / macOS / Linux builds that each
-# start and quit on their own. Merge to main: the same, then a GitHub release of that
-# version (notes = its CHANGELOG entry plus the builds' SHA-256). itch.io is separate and manual: see itch.yml.
+# Pull request: tests, the bot clears the stage, the version is new, Windows (one Ironvolt.exe) / macOS / Linux builds
+# that each start and quit on their own, and the browser build played in headless Chrome. Merge to main: the same,
+# then a GitHub release of that version (notes = its CHANGELOG entry plus the builds' SHA-256). itch.io is separate and manual: see itch.yml.
 # Red checks open an issue (one per pull request, one for main); the next green run closes it.
 on:
   pull_request:
@@ -61,7 +61,11 @@ jobs:
       - run: pip install -r requirements.txt pyinstaller==6.22.3
       - name: Build
         shell: bash
-        run: python -m PyInstaller --noconfirm --clean --windowed --name Ironvolt run.py
+        env:
+          OS: ${{ runner.os }}
+        run: |
+          one=""; [ "$OS" = Windows ] && one="--onefile"        # Windows ships one Ironvolt.exe to double-click
+          python -m PyInstaller --noconfirm --clean --windowed $one --name Ironvolt run.py
       - name: The build starts, plays 120 frames and quits
         timeout-minutes: 3             # the game quits itself after IRONVOLT_FRAMES; macOS has no `timeout`
         shell: bash
@@ -70,7 +74,7 @@ jobs:
           OS: ${{ runner.os }}
         run: |
           case "$OS" in
-            Windows) exe=dist/Ironvolt/Ironvolt.exe ;;
+            Windows) exe=dist/Ironvolt.exe ;;
             macOS)   exe=dist/Ironvolt.app/Contents/MacOS/Ironvolt ;;
             Linux)   exe=dist/Ironvolt/Ironvolt ;;
           esac
@@ -82,7 +86,7 @@ jobs:
         run: |
           mkdir out
           case "$OS" in
-            Windows) (cd dist && 7z a -tzip ../out/Ironvolt-windows.zip Ironvolt > /dev/null) ;;
+            Windows) cp dist/Ironvolt.exe out/Ironvolt.exe ;;
             macOS)   (cd dist && ditto -c -k --keepParent Ironvolt.app ../out/Ironvolt-macos.zip) ;;
             Linux)   tar czf out/Ironvolt-linux.tar.gz -C dist Ironvolt ;;
           esac
@@ -92,10 +96,35 @@ jobs:
           path: out/*
           retention-days: 3
 
+  # The browser version (pygbag), played in headless Chrome: it must load, run and start a game without a traceback.
+  web:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt pygbag==0.9.3 websocket-client==1.8.0
+      - name: Build
+        run: bash tools/web_build.sh
+      - name: Play it in Chrome
+        env:
+          SDL_VIDEODRIVER: ""                 # the page draws for real; only the runner's Python was headless
+        run: python tools/web_check.py 60
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: build-Web
+          path: out/Ironvolt-web.zip
+          retention-days: 3
+
   # One name for the rule on main to require, whatever the jobs above hold.
   passed:
     if: always()
-    needs: [test, build]
+    needs: [test, build, web]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -103,7 +132,8 @@ jobs:
         env:
           TEST: ${{ needs.test.result }}
           BUILD: ${{ needs.build.result }}
-        run: test "$TEST" = success && test "$BUILD" = success
+          WEB: ${{ needs.web.result }}
+        run: test "$TEST" = success && test "$BUILD" = success && test "$WEB" = success
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

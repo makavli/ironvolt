@@ -18,7 +18,15 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 
 <img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
 
+[![Download for Windows](https://img.shields.io/badge/Download-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/makavli/ironvolt/releases/latest/download/Ironvolt.exe)
+[![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/makavli/ironvolt/releases/latest/download/Ironvolt-macos.zip)
+[![Download for Linux](https://img.shields.io/badge/Download-Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/makavli/ironvolt/releases/latest/download/Ironvolt-linux.tar.gz)
+
 </div>
+
+**Windows:** double-click `Ironvolt.exe`. It is not code-signed, so the first time Windows says "Windows protected your
+PC": click **More info**, then **Run anyway**. **macOS:** unzip, then right-click `Ironvolt.app` and choose **Open**
+the first time. **Linux:** unpack and run `Ironvolt/Ironvolt`.
 
 ## The Long Dusk
 
@@ -49,7 +57,7 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 - **Arcade to the bone:** hit-stop, screen shake, continues, coins or free play, and a high-score table.
 - **Zero asset files:** sprites, tiles, the font, every sound effect and the music are generated at start-up.
 
-## Play
+## Play from the source
 
 ```bash
 python -m venv .venv
@@ -74,7 +82,8 @@ Free the prisoners: each one drops a weapon (H heavy gun, S spread, R rockets, B
 ## Develop
 
 `bash tools/test_local.sh` runs every check on your machine: unit tests, a bot that plays the stage to the end,
-screenshots in `shots/`, and a real window for a few seconds (`--exe` also builds the Windows app).
+screenshots in `shots/`, and a real window for a few seconds. `--exe` also builds `Ironvolt.exe`; `--web` builds
+the browser version and plays it in headless Chrome (`bash tools/web_build.sh --serve` to play it yourself).
 
 `python tools/media.py` re-records the GIFs and pictures in this README (needs ffmpeg).
 

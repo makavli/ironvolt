@@ -24,10 +24,16 @@ step "4. A real window, vsync and GPU scaling, 180 frames"
 IRONVOLT_FRAMES=180 "$PY" run.py >/dev/null 2>&1 || fail "real window"
 
 if [[ "${1:-}" == "--exe" ]]; then
-    step "5. Windows exe (PyInstaller, one folder)"
+    step "5. Windows exe (PyInstaller, one file, as released)"
     "$PY" -m pip install --quiet pyinstaller==6.22.3
-    "$PY" -m PyInstaller --noconfirm --clean --windowed --name Ironvolt --distpath dist --workpath build/pyi \
+    "$PY" -m PyInstaller --noconfirm --clean --windowed --onefile --name Ironvolt --distpath dist --workpath build/pyi \
         run.py >/dev/null 2>&1 || fail "exe build"
-    IRONVOLT_FRAMES=120 ./dist/Ironvolt/Ironvolt.exe || fail "exe run"
+    IRONVOLT_FRAMES=120 ./dist/Ironvolt.exe || fail "exe run"
+fi
+if [[ "${1:-}" == "--web" ]]; then
+    step "5. Browser build (pygbag), played in headless Chrome"
+    "$PY" -m pip install --quiet pygbag==0.9.3 websocket-client==1.8.0
+    bash tools/web_build.sh >/dev/null 2>&1 || fail "web build"
+    "$PY" tools/web_check.py 45 || fail "web check"
 fi
 echo; echo "All local checks passed."
