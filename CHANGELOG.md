@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+Choose your fight, and a new soundtrack.
+- **Difficulty:** Easy, Normal or Hard, picked after Start and before play. It sets lives (5, 3, 2), how long
+  enemies take to aim, how fast their shots fly, the boss's armour and the safety after a respawn.
+- **"Too feeble, soldier?"** Die often on Normal or Hard and the game stops to offer one level lower. Refuse, and
+  it asks again later.
+- **New music, in stereo:** a title theme, a stage theme with a full song structure (intro, hook, lift, breakdown,
+  final chorus) and a boss theme that crossfades in when the gate locks. Every song is still made in code. The
+  browser builds it a few milliseconds a frame, so the page never stalls.
+- **Kill chain:** kills less than 2.5 seconds apart chain up. Each one scores x2, x3... up to x8, shown under
+  your score with the time left to keep it going. Dying breaks the chain.
+- `tools/music_check.py` renders every song to `shots/` and reports build time, loudness and peak.
+
 ## 0.2.1
 
 Smoother sound, pads in the browser.

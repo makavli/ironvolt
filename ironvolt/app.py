@@ -163,6 +163,7 @@ class App:
             world.blend = self.acc / STEP if self.moving else 1.0
         self.game.draw(self.screen)
         self.present()
+        audio.tick()
         self.shown += 1
         return self.running and not (self.limit and self.shown >= self.limit)
 

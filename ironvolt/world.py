@@ -7,16 +7,19 @@ import pygame
 
 from . import audio
 from .actors import Bastion, Drone, Foe, Hostage, Pickup, Player, Turret
-from .settings import GRENADES, RESPAWN_SAFE, TILE, C, H, W
+from .settings import CHAIN_FRAMES, CHAIN_MAX, DIFFICULTY, GRENADES, TILE, C, H, W
 from .stage import AIR, CRATE, GROUND, WALK, Stage
 
 CONTINUE_FRAMES = 600
 
 
 class World:
-    def __init__(self, players=(0,), seed=None, god=False):
+    def __init__(self, players=(0,), seed=None, god=False, level="NORMAL"):
         if seed is not None:
             random.seed(seed)
+        self.set_level(level)
+        self.deaths = 0                   # the team's, for the "too feeble?" offer
+        self.offered = 0                  # deaths when it was last offered
         self.stage = Stage()
         self.cam_x = self.cam_ox = 0.0    # the camera now, and a step ago
         self.blend = 1.0                  # how far from the step before to this one the picture is drawn (app.py)
@@ -39,11 +42,22 @@ class World:
         self.cleared = 0                  # frames since the boss fell
         self.locked = False
 
+    def set_level(self, level):
+        self.level = level
+        self.lives, self.windup, self.fire, self.boss_hp, self.safe, self.feeble_at = DIFFICULTY[level]
+        if getattr(self, "boss", None) and self.boss.hp > 0:            # a change mid-fight keeps the damage done
+            self.boss.hp = max(1, round(self.boss.hp * self.boss_hp / self.boss.HP))
+            self.boss.HP = self.boss_hp
+        for p in getattr(self, "players", ()):
+            if p and not p.out:
+                p.lives = max(p.lives, self.lives - 1)
+
     # ---------------------------------------------------------- players
 
     def join(self, i):
         p = Player(i, self.drop_x(16 * i), -10 if self.frame else 176)
         p.god = self.god
+        p.lives = self.lives
         self.players[i] = p
         return p
 
@@ -62,6 +76,8 @@ class World:
         if p.safe and p.y <= H:
             return
         p.dying = 70
+        p.chain = p.chain_t = 0
+        self.deaths += 1
         p.vy, p.vx = -3.6, -p.facing * 1.2
         p.on_ground = False
         self.sparks(p.x, p.y - 12, 10)
@@ -75,7 +91,7 @@ class World:
             p.lives -= 1
             p.x, p.y, p.vx, p.vy = self.drop_x(), -10.0, 0.0, 0.0
             p.buffer = p.trigger = 0
-            p.safe, p.weapon, p.ammo = RESPAWN_SAFE, "P", 0
+            p.safe, p.weapon, p.ammo = self.safe, "P", 0
             p.grenades = max(p.grenades, GRENADES)
         else:
             p.out = True
@@ -91,10 +107,9 @@ class World:
     def carry_on(self, i):
         """A continue: the score keeps counting, and the player drops back in."""
         p = self.players[i]
-        p.out, p.lives, p.dying = False, 3, 0
+        p.out, p.lives, p.dying = False, self.lives, 0
         p.score = p.score // 10 * 10 + 1               # arcade habit: the last digit counts continues
         self.respawn(p)
-        p.lives = 2
 
     # ---------------------------------------------------------- effects
 
@@ -108,7 +123,15 @@ class World:
         self.freeze = max(self.freeze, frames)
 
     def award(self, owner, points, x, y, text=None):
+        """Points for a player. A kill (no text) inside the chain window multiplies them: x2, x3... up to x8."""
         if isinstance(owner, Player):
+            if text is None:
+                owner.chain = owner.chain + 1 if owner.chain_t else 1
+                owner.chain_t = CHAIN_FRAMES
+                mult = min(CHAIN_MAX, owner.chain)
+                points *= mult
+                if mult > 1:
+                    text = "%d X%d" % (points, mult)
             owner.score += points
         self.popups.append([x, y, text or str(points), 50])
 
@@ -209,6 +232,10 @@ class World:
         for p in self.players:
             if p and p.out and getattr(p, "continue_t", 0):
                 p.continue_t -= 1
+            if p and p.chain_t and not self.freeze:              # a hit-stop does not eat the chain's time
+                p.chain_t -= 1
+                if not p.chain_t:
+                    p.chain = 0
         self.still = self.freeze > 0
         if self.freeze:
             self.freeze -= 1
@@ -251,6 +278,7 @@ class World:
             self.locked = True
             self.foes = [f for f in self.foes if f.x > self.cam_x]
             self.boss = Bastion(self.cam_x + W + 60, 176, self.cam_x, self.cam_x + W)
+            self.boss.HP = self.boss.hp = self.boss_hp
             audio.play("alarm")
         while self.spawn_i < len(self.stage.spawns) and self.stage.spawns[self.spawn_i][0] <= self.cam_x:
             _, kind, x, extra = self.stage.spawns[self.spawn_i]
