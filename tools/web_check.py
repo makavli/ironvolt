@@ -104,6 +104,8 @@ def main():
     bad = [l for l in lines if "Traceback" in l or "Error" in l.split(":")[0] or l.startswith("EXCEPTION")]
     print("\n".join(lines[-25:]))
     print("screenshots: shots/web_title.png shots/web_play.png")
+    if "music: baked" not in text:
+        bad.append("the page built its music instead of loading the baked songs")
     if bad or "Traceback" in text:
         print("FAIL:", *bad[:5], sep="\n  ")
         sys.exit(1)

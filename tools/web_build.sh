@@ -9,6 +9,7 @@ src=build/web-src
 rm -rf "$src" && mkdir -p "$src" out
 cp web/main.py "$src/"
 cp -r ironvolt "$src/"
+"$PY" tools/music_bake.py "$src/ironvolt/baked"          # the browser plays the songs baked (see the tool)
 find "$src" -name __pycache__ -prune -exec rm -rf {} +
 "$PY" -m pygbag --build --ume_block 0 --title IRONVOLT --app_name ironvolt "$src"
 (cd "$src/build/web" && rm -f ../../../../out/Ironvolt-web.zip && "$PY" -c "

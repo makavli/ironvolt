@@ -109,6 +109,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -r requirements.txt pygbag==0.9.3 websocket-client==1.8.0
+      - run: sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends ffmpeg   # tools/music_bake.py
       - name: Build
         run: bash tools/web_build.sh
       - name: Play it in Chrome
