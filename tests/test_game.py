@@ -816,5 +816,50 @@ class TouchControls(unittest.TestCase):
             storage.local = real
 
 
+class Art(unittest.TestCase):
+    """What the actors' drawing is promised by the atlas."""
+
+    def test_every_pose_has_a_picture_standing_on_its_feet(self):
+        s = pygame.Surface((W, H))
+        states = [dict(run_t=i / 2.4) for i in range(1, 9)] + [
+            {}, dict(crouch=True), dict(crouch=True, slide=5), dict(slash=8), dict(crouch=True, slash=1),
+            dict(dying=9), dict(on_ground=False, vy=-2.0), dict(on_ground=False, vy=2.0),
+            dict(on_ground=False, dying=9)]
+        for p in World((0, 1), seed=1).players:
+            for state in states:
+                for facing in (1, -1):
+                    for aim in ((facing, 0), (facing, -1), (0, -1), (facing, 1), (0, 1)):
+                        vars(p).update(dict(run_t=0.0, crouch=False, slide=0, slash=0, dying=0, on_ground=True, vy=0.0,
+                                            safe=0, facing=facing, aim=aim), **state)
+                        img = p.frame(ATLAS)
+                        if p.on_ground:                 # nothing under the boots but the ground
+                            self.assertEqual(img.get_bounding_rect().bottom, img.get_height(), state)
+                        p.draw(s, ATLAS, 0)
+        for kind in ("soldier", "lobber"):
+            for state in ({}, dict(run_t=1.3), dict(aiming=4), dict(stun=5), dict(dying=3), dict(hurt=2)):
+                for facing in (1, -1):
+                    foe = Foe(100, GROUND_Y, kind)
+                    vars(foe).update(state, facing=facing)
+                    foe.draw(s, ATLAS, 0)
+
+    def test_the_gun_is_drawn_out_to_the_muzzle(self):
+        p = World((0,), seed=1).players[0]
+        p.safe, p.x, p.y = 0, 40.0, 60.0
+        bare = pygame.Surface(ATLAS.players[0]["stand"].get_size(), pygame.SRCALPHA)
+        p.frame = lambda atlas: bare                    # no body: only what the hand holds is painted
+        for weapon in ATLAS.guns:
+            for facing in (1, -1):
+                for aim in ((facing, 0), (facing, -1), (0, -1), (facing, 1), (0, 1), "crouch"):
+                    p.crouch = aim == "crouch"
+                    p.weapon, p.facing, p.aim = weapon, facing, (facing, 0) if p.crouch else aim
+                    s = pygame.Surface((80, 80), pygame.SRCALPHA)
+                    p.draw(s, ATLAS, 0)
+                    mx, my, ux, uy = p.muzzle()
+                    past = [(x + 0.5 - mx) * ux + (y + 0.5 - my) * uy       # how far past the muzzle, on the aim's line
+                            for x in range(round(mx) - 5, round(mx) + 6) for y in range(round(my) - 5, round(my) + 6)
+                            if s.get_at((x, y)).a and abs((x + 0.5 - mx) * uy - (y + 0.5 - my) * ux) < 1.5]
+                    self.assertTrue(past and -1 <= max(past) <= 3, (weapon, facing, aim, past and max(past)))
+
+
 if __name__ == "__main__":
     unittest.main()

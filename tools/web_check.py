@@ -35,7 +35,7 @@ def main():
     port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     profile = tempfile.mkdtemp()
-    proc = subprocess.Popen([chrome(), "--headless=new", "--remote-debugging-port=0", "--user-data-dir=" + profile,
+    proc = subprocess.Popen([chrome(), "--headless=new", "--mute-audio", "--remote-debugging-port=0", "--user-data-dir=" + profile,
                              "--autoplay-policy=no-user-gesture-required", "--window-size=1000,720",
                              "--no-first-run", "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     lines, n = [], [0]

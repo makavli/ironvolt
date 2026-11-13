@@ -385,9 +385,10 @@ class World:
             surf.blit(layer, (ox, yoff + sy))
         game = surf.subsurface(pygame.Rect(0, 0, W, H))
         self.draw_tiles(game, atlas, cam, sy)
-        for group in (self.hostages, self.pickups):
-            for a in group:
-                a.draw(game, atlas, cam)
+        for a in self.hostages:
+            a.draw(game, atlas, cam, self.frame)
+        for a in self.pickups:
+            a.draw(game, atlas, cam)
         if self.boss:
             self.boss.draw(game, atlas, cam)
         for e in self.foes:
@@ -419,22 +420,24 @@ class World:
                 font.draw(game, text, (round(x - cam), round(y)), C["cream"], center=True)
 
     def draw_tiles(self, surf, atlas, cam, sy):
+        tile = self.stage.tile
         c0 = int(cam // TILE)
         for tx in range(c0, c0 + W // TILE + 2):
             px = round(tx * TILE - cam)
             for ty in range(len(self.stage.grid)):
-                t = self.stage.tile(tx, ty)
+                t = tile(tx, ty)
                 if t == AIR:
                     continue
                 y = ty * TILE + sy
-                if t == GROUND:
-                    surf.blit(atlas.ground_at(tx, ty, self.stage.tile(tx, ty - 1) in (AIR, WALK)), (px, y))
+                if t == GROUND:                                   # a deck where it is open above, an edge at a drop
+                    surf.blit(atlas.ground_at(tx, ty, tile(tx, ty - 1) != GROUND, tile(tx - 1, ty) in (AIR, WALK),
+                                              tile(tx + 1, ty) in (AIR, WALK)), (px, y))
                 elif t == CRATE:
-                    surf.blit(atlas.crate, (px, y))
+                    surf.blit(atlas.crates[(tx * 7 + ty * 3) % len(atlas.crates)], (px, y))
                 elif t == WALK:
-                    surf.blit(atlas.girder, (px, y))
-                    if ty + 1 < len(self.stage.grid) and self.stage.tile(tx, ty + 1) == AIR and tx % 3 == 0:
-                        pygame.draw.line(surf, C["ink"], (px + 8, y + 6), (px + 8, y + 22))   # hangers
+                    surf.blit(atlas.girders[tile(tx - 1, ty) != WALK, tile(tx + 1, ty) != WALK], (px, y))
+                    if ty + 1 < len(self.stage.grid) and tile(tx, ty + 1) == AIR and tx % 3 == 0:
+                        pygame.draw.line(surf, C["ink"], (px + 8, y + 8), (px + 8, y + 22))   # hangers
 
     def draw_parts(self, surf, atlas, cam, back=0.0):
         for x, y, vx, vy, life, full, kind, size, colour in self.parts:
