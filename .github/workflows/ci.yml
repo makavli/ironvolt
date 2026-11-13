@@ -1,0 +1,84 @@
+name: CI
+
+# Pull request: tests, and the version must be new.
+# Merge to main: tests, then Windows / macOS / Linux builds, then a GitHub release of that version
+# (notes = its CHANGELOG entry). itch.io is separate and manual: see itch.yml.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # never cancel a release on main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - name: Unit tests
+        run: python -m unittest -v
+      - name: The bot clears the stage
+        run: python tools/sim.py god | tee sim.log && grep -q "cleared True" sim.log
+      - name: The version is new
+        if: github.event_name == 'pull_request'
+        run: python tools/version_check.py
+
+  build:
+    if: github.event_name == 'push'
+    needs: test
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt pyinstaller==6.22.3
+      - name: Build
+        shell: bash
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed --name Ironvolt run.py
+          mkdir out
+          case "${{ runner.os }}" in
+            Windows) (cd dist && 7z a -tzip ../out/Ironvolt-windows.zip Ironvolt > /dev/null) ;;
+            macOS)   (cd dist && ditto -c -k --keepParent Ironvolt.app ../out/Ironvolt-macos.zip) ;;
+            Linux)   tar czf out/Ironvolt-linux.tar.gz -C dist Ironvolt ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ runner.os }}
+          path: out/*
+          retention-days: 3
+
+  release:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Release this version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/release_notes.py > notes.md && bash tools/release.sh

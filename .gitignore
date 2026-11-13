@@ -5,3 +5,10 @@ build/
 dist/
 *.spec
 shots/
+out/
+notes.md
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
