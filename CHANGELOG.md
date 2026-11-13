@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+Smoother sound, pads in the browser.
+- **Music:** a calmer 120 bpm loop, quieter, easing in over four seconds when a game starts; a cleaner mix that never
+  distorts.
+- **Gamepads in the browser:** Start, the d-pad and every button now work in the web version (press any button once
+  so the browser shows the pad to the game).
+- Store art: `tools/cover.py` draws the itch.io cover and page banner from the game's own frames.
+
 ## 0.2.0
 
 IRONVOLT on every desk and in the browser.

@@ -431,5 +431,47 @@ class Rumble(unittest.TestCase):
         c.feel(0, "hurt")          # 1.6 < 1.9: the boom still wins
         self.assertEqual(len(c.devices[0].calls), 1)
 
+
+class BrowserPad(unittest.TestCase):
+    def test_standard_order_start_dpad_and_buttons(self):
+        from ironvolt.controls import _Device
+
+        class Joy:                  # a browser pad: 17 buttons, 4 axes, no hat
+            def __init__(self, *down):
+                self.down = down
+
+            def get_numaxes(self):
+                return 4
+
+            def get_axis(self, n):
+                return 0.0
+
+            def get_numhats(self):
+                return 0
+
+            def get_numbuttons(self):
+                return 17
+
+            def get_button(self, n):
+                return n in self.down
+
+        d = _Device.__new__(_Device)
+        d.ctl, d.web, d.coin_was = None, True, False
+        for down, want in (((9,), "start"), ((0,), "jump"), ((2,), "fire"), ((7,), "fire"), ((1,), "bomb"),
+                           ((12,), "up"), ((15,), "right")):
+            d.joy = Joy(*down)
+            s, touched, _ = d.state()
+            self.assertTrue(s[want] and touched, (down, want))
+            self.assertEqual(sum(s.values()), 1, (down, s))
+        d.joy = Joy(8)
+        self.assertTrue(d.state()[2])          # BACK is the coin
+
+
+class Music(unittest.TestCase):
+    def test_loop_never_clips(self):
+        from ironvolt import audio
+        data = audio._track()
+        self.assertLess(max(map(abs, data)), 30000)
+
 if __name__ == "__main__":
     unittest.main()

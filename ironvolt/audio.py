@@ -86,8 +86,8 @@ def _freq(name):
 
 
 def _track():
-    """A driving loop in A minor: bass, a pulse lead, a counter line and noise drums, 16 bars at 150 bpm."""
-    step = 60 / 150 / 4                            # one 16th note
+    """A driving loop in A minor: bass, a pulse lead and noise drums, 16 bars at 120 bpm."""
+    step = 60 / 120 / 4                            # one 16th note
     roots = ["A2", "A2", "F2", "G2", "A2", "A2", "C3", "E2"] * 2
     lead = ("E5 - E5 G5 A5 - G5 E5 D5 - E5 - C5 - D5 - "
             "E5 - E5 G5 A5 - C6 B5 A5 - G5 - E5 - - - "
@@ -120,12 +120,11 @@ def _track():
     for s in range(n_steps):
         bar, beat = divmod(s, 16)
         root = _freq(roots[bar])
-        octave = root * (2 if s % 2 else 1)       # octave-hopping bass
-        add(s * per, 0.9, octave, 0.22, "tri")
+        if s % 2 == 0:                             # octave-hopping bass on the 8ths, room between notes
+            add(s * per, 1.6, root * (2 if s % 4 else 1), 0.20, "tri")
         note = lead[s % len(lead)]
         if note != "-":
-            add(s * per, 1.8, _freq(note), 0.10, "square", 0.25)
-            add(s * per + per // 2, 1.6, _freq(note) * 0.5, 0.04, "square", 0.5)   # echo below
+            add(s * per, 1.8, _freq(note), 0.09, "square", 0.25)
         if beat in (0, 8) or (beat == 10 and bar % 2):  # kick
             for i in range(int(0.12 * RATE)):
                 j = s * per + i
@@ -140,8 +139,9 @@ def _track():
             for i in range(int(0.02 * RATE)):
                 j = s * per + i
                 if j < length:
-                    mix[j] += rnd.uniform(-1, 1) * 0.06 * math.exp(-i / 120)
-    return array("h", (int(max(-1.0, min(1.0, v)) * 30000) for v in mix))
+                    mix[j] += rnd.uniform(-1, 1) * 0.035 * math.exp(-i / 120)
+    gain = 0.9 / max(1.0, max(map(abs, mix)))      # scaled under full scale, never clipped
+    return array("h", (int(v * gain * 30000) for v in mix))
 
 
 def init():
@@ -175,13 +175,13 @@ def play(name):
         _sounds[name].play()
 
 
-def music(on=True, volume=0.55):
+def music(on=True, volume=0.3):
     if not _on or _music is None:
         return
     ch = pygame.mixer.Channel(0)
     if on and not ch.get_busy():
         ch.set_volume(volume)
-        ch.play(_music, loops=-1)
+        ch.play(_music, loops=-1, fade_ms=4000)      # eases in under the start jingle
     elif not on:
         ch.fadeout(600)
 
