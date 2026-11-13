@@ -1,7 +1,7 @@
 """The window and the loop.
 
 The game draws into a 320x224 surface. The GPU scales it by the largest whole number that fits (sharp pixels,
-no shimmer), centres it, frames it with a cabinet bezel, and lays optional scanlines over it. Logic steps at a
+no shimmer; or, with the FIT option, as large as the window allows), centres it, frames it with a cabinet bezel, and lays optional scanlines over it. Logic steps at a
 fixed 60 Hz; every refresh of the screen paints the blend of the last two steps, so motion is even at any rate.
 In a browser (pygbag) there is no GPU renderer: the same picture is scaled on the CPU into the page's canvas, and
 the loop hands the browser back control once per frame.
@@ -37,6 +37,15 @@ def integer_fit(window, game=(W, H)):
     return k, pygame.Rect((window[0] - gw) // 2, (window[1] - gh) // 2, gw, gh)
 
 
+def fit(window, whole=True, game=(W, H)):
+    """The scale and centred rectangle for the game: whole steps (pixel perfect), or as big as fits (FIT)."""
+    if whole:
+        return integer_fit(window, game)
+    s = min(window[0] / game[0], window[1] / game[1])
+    gw, gh = max(1, round(game[0] * s)), max(1, round(game[1] * s))
+    return max(1, int(s)), pygame.Rect((window[0] - gw) // 2, (window[1] - gh) // 2, gw, gh)
+
+
 def bezel(size, rect):
     """Side panels like a cabinet's: dark metal, a lit trim around the screen."""
     s = pygame.Surface(size)
@@ -49,11 +58,12 @@ def bezel(size, rect):
     return s
 
 
-def scanlines(k, rect):
+def scanlines(rect, rows=H):
     """A dark line under every scaled pixel row (only when pixels are big enough for it to read as CRT)."""
     s = pygame.Surface(rect.size, pygame.SRCALPHA)
-    if k >= 3:
-        for y in range(k - 1, rect.height, k):
+    if rect.height >= 3 * rows:
+        for row in range(rows):
+            y = (row + 1) * rect.height // rows - 1
             pygame.draw.line(s, (0, 0, 0, 70), (0, y), (rect.width, y))
     return s
 
@@ -61,6 +71,7 @@ def scanlines(k, rect):
 class App:
     def __init__(self):
         os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "0")      # nearest: crisp pixels
+        os.environ.setdefault("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2")   # real pixels at 125%, 150%...
         pygame.init()
         audio.init()
         self.screen = pygame.Surface((W, H))
@@ -81,23 +92,49 @@ class App:
         self.game = Game(self.atlas)
         self.controls = Controls()
         self.game.controls = self.controls              # the prompts follow the device in use
-        self.crt = True
         self.full = False
+        self.speed = 1.0
         self.frame_cache = None
+        self.game.on_option = self.option
+        for key in ("fullscreen", "music", "sfx", "rumble", "swap", "speed"):
+            self.option(key)
+
+    def option(self, key):
+        """The options the app applies, as soon as they change."""
+        o = self.game.opts
+        if key == "fullscreen" and (o["fullscreen"] == "ON") != self.full:
+            self.toggle_full()
+        elif key in ("crt", "scale"):
+            self.frame_cache = None
+        elif key in ("music", "sfx"):
+            audio.set_volume(int(o["music"]) / 10, int(o["sfx"]) / 10)
+        elif key == "rumble":
+            self.controls.rumble_on = o["rumble"] == "ON"
+        elif key == "swap":
+            self.controls.swap = o["swap"] == "ON"
+        elif key == "speed":
+            self.speed = int(o["speed"].rstrip("%")) / 100      # slower logic for players who need it
+
+    @property
+    def crt(self):
+        return self.game.opts["crt"] == "ON"
 
     def layout(self):
         size = self.canvas.get_size() if WEB else self.window.size
-        k, rect = integer_fit(size)
-        key = (size, self.crt)
+        whole = self.game.opts["scale"] == "PIXEL PERFECT"
+        key = (size, self.crt, whole)
         if self.frame_cache is None or self.frame_cache[0] != key:
+            k, rect = fit(size, whole)
             self.frame_cache = (key, k, rect, self.texture(bezel(size, rect)),
-                                self.texture(scanlines(k, rect)) if self.crt else None)
+                                self.texture(scanlines(rect)) if self.crt else None)
         return self.frame_cache[1:]
 
     def toggle_full(self):
         if WEB:
             return                                # the page's own fullscreen button does it
         self.full = not self.full
+        if self.game.opts["fullscreen"] != ("ON" if self.full else "OFF"):
+            self.game.set_option("fullscreen", "ON" if self.full else "OFF")
         if self.full:
             self.window.set_fullscreen(desktop=True)
         else:
@@ -113,19 +150,11 @@ class App:
             if e.key == pygame.K_F11 or alt_enter:
                 self.toggle_full()
             elif e.key == pygame.K_F2:
-                self.crt = not self.crt
+                self.game.set_option("crt", "OFF" if self.crt else "ON")
             elif e.key == pygame.K_F3:
-                self.game.free_play = not self.game.free_play
+                self.game.set_option("free_play", "OFF" if self.game.free_play else "ON")
             elif e.key == pygame.K_ESCAPE:
-                g = self.game
-                if g.mode == "play" and g.paused:
-                    g.to_title()
-                elif g.mode == "play":
-                    g.toggle_pause()
-                elif g.mode in ("title", "scores", "demo") and not WEB:   # a browser tab cannot close itself
-                    return False
-            elif e.key == pygame.K_RETURN and self.game.paused:
-                self.game.toggle_pause()
+                return self.game.back()
         return True
 
     def start(self):
@@ -143,7 +172,7 @@ class App:
         if not WEB:
             self.clock.tick(400)                   # a brake, for a driver that ignores vsync
         now = time.perf_counter()
-        steps, self.acc = pace(self.acc, now - self.last)
+        steps, self.acc = pace(self.acc, (now - self.last) * self.speed)
         self.last = now
         for e in pygame.event.get():
             self.running = self.handle(e) and self.running
@@ -165,7 +194,7 @@ class App:
         self.present()
         audio.tick()
         self.shown += 1
-        return self.running and not (self.limit and self.shown >= self.limit)
+        return self.running and not self.game.quit and not (self.limit and self.shown >= self.limit)
 
     def present(self):
         k, rect, frame, lines = self.layout()

@@ -38,6 +38,7 @@ PROMPTS = {
     "start": ("ENTER", "MENU", "OPTIONS"),
     "coin": ("5", "VIEW", "CREATE"),
 }
+SWAPPED = {"fire": ("A / RT", "CROSS / R2"), "jump": ("X", "SQUARE")}
 KEYS_P2 = {"move": "WASD", "fire": "G", "jump": "H", "bomb": "J", "start": "2", "coin": "5"}
 
 # Rumble (low, high, ms) for game moments.
@@ -78,6 +79,8 @@ class Pad:
 
 
 class _Device:
+    swap = False                               # the options' "swap fire and jump": the two face buttons trade
+
     def __init__(self, index, use_controller):
         if use_controller:
             from pygame._sdl2 import controller
@@ -104,8 +107,11 @@ class _Device:
             dx, dy = eight_way(lx, ly)
             dx += b(pygame.CONTROLLER_BUTTON_DPAD_RIGHT) - b(pygame.CONTROLLER_BUTTON_DPAD_LEFT)
             dy += b(pygame.CONTROLLER_BUTTON_DPAD_DOWN) - b(pygame.CONTROLLER_BUTTON_DPAD_UP)
-            s["jump"] = bool(b(pygame.CONTROLLER_BUTTON_A))
-            s["fire"] = bool(b(pygame.CONTROLLER_BUTTON_X)) or rt > TRIGGER
+            a, x = b(pygame.CONTROLLER_BUTTON_A), b(pygame.CONTROLLER_BUTTON_X)
+            if self.swap:
+                a, x = x, a
+            s["jump"] = bool(a)
+            s["fire"] = bool(x) or rt > TRIGGER
             s["bomb"] = bool(b(pygame.CONTROLLER_BUTTON_B) or b(pygame.CONTROLLER_BUTTON_RIGHTSHOULDER))
             s["start"] = bool(b(pygame.CONTROLLER_BUTTON_START))
             coin = bool(b(pygame.CONTROLLER_BUTTON_BACK))
@@ -119,16 +125,16 @@ class _Device:
             if self.web:                       # W3C standard: A B X Y LB RB LT RT BACK START LS RS UP DOWN LEFT RIGHT
                 dx += b(15) - b(14)
                 dy += b(13) - b(12)
-                s["jump"] = bool(b(0))
-                s["fire"] = bool(b(2) or b(7))
+                s["jump"] = bool(b(2 if self.swap else 0))
+                s["fire"] = bool(b(0 if self.swap else 2) or b(7))
                 s["bomb"] = bool(b(1) or b(5))
                 s["start"] = bool(b(9))
                 coin = bool(b(8))
             else:
                 dx += hx
                 dy -= hy
-                s["jump"] = bool(b(0))
-                s["fire"] = bool(b(2) or b(1))
+                s["jump"] = bool(b(2 if self.swap else 0))
+                s["fire"] = bool(b(0 if self.swap else 2) or b(1))
                 s["bomb"] = bool(b(3) or b(5))
                 s["start"] = bool(b(7))
                 coin = bool(b(6))
@@ -159,6 +165,7 @@ class Controls:
         self.device = [KEYBOARD, KEYBOARD]    # what each player touched last
         self.coin = False
         self.rumble_on = True
+        self.swap = False                     # pads: fire and jump trade face buttons
         self.use_controller = False
         try:
             if not WEB:
@@ -205,6 +212,7 @@ class Controls:
             if any(state.values()):
                 self.device[i] = KEYBOARD
             if i < len(self.devices):
+                self.devices[i].swap = self.swap
                 try:
                     pstate, touched, coin = self.devices[i].state()
                 except pygame.error:
@@ -222,7 +230,10 @@ class Controls:
     def prompt(self, action, player=0):
         if self.device[player] == KEYBOARD:
             return PROMPTS[action][0] if player == 0 else KEYS_P2[action]
-        return PROMPTS[action][1 if self.device[player] == XBOX else 2]
+        kind = 1 if self.device[player] == XBOX else 2
+        if self.swap and action in SWAPPED:
+            return SWAPPED[action][kind - 1]
+        return PROMPTS[action][kind]
 
     def feel(self, player, moment):
         spec = FEEL.get(moment)

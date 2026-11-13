@@ -14,9 +14,11 @@ CONTINUE_FRAMES = 600
 
 
 class World:
-    def __init__(self, players=(0,), seed=None, god=False, level="NORMAL"):
+    def __init__(self, players=(0,), seed=None, god=False, level="NORMAL", lives=None):
         if seed is not None:
             random.seed(seed)
+        self.lives_set = lives            # the options' lives, or None: the difficulty's
+        self.shake_on = self.flashes_on = True      # accessibility options
         self.set_level(level)
         self.deaths = 0                   # the team's, for the "too feeble?" offer
         self.offered = 0                  # deaths when it was last offered
@@ -45,6 +47,7 @@ class World:
     def set_level(self, level):
         self.level = level
         self.lives, self.windup, self.fire, self.boss_hp, self.safe, self.feeble_at = DIFFICULTY[level]
+        self.lives = self.lives_set or self.lives
         if getattr(self, "boss", None) and self.boss.hp > 0:            # a change mid-fight keeps the damage done
             self.boss.hp = max(1, round(self.boss.hp * self.boss_hp / self.boss.HP))
             self.boss.HP = self.boss_hp
@@ -227,6 +230,7 @@ class World:
         self.jolt = (0, 0)
         if self.shake:                                            # rolled here, not in draw(): once a step,
             self.shake -= 1                                       # whatever the screen's refresh rate
+        if self.shake and self.shake_on:
             self.jolt = (round(random.uniform(-1, 1) * min(self.shake, 4)),
                          round(random.uniform(-1, 1) * min(self.shake, 3)))
         for p in self.players:
@@ -393,7 +397,7 @@ class World:
         for b in self.bolts:
             b.draw(game, cam, self.frame)
         self.draw_parts(game, atlas, cam, back)
-        for x, y, small in self.flashes:
+        for x, y, small in self.flashes if self.flashes_on else ():
             img = atlas.glow_s if small else atlas.glow_l
             game.blit(img, (round(x - cam) - img.get_width() // 2, round(y) - img.get_height() // 2),
                       special_flags=pygame.BLEND_ADD)

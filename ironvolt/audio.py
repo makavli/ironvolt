@@ -81,6 +81,8 @@ VOLUME = {"title": 0.11, "stage": 0.16, "boss": 0.13}   # evens out the songs' l
 _tracks = {}
 _building = None
 _playing, _ch = None, 0
+_volume = {"music": 0.8, "sfx": 0.8}              # the options' sliders, 0..1
+_base = {"heavy": 0.7}                            # effects mixed quieter than the rest
 
 
 def _stereo(mono):
@@ -94,8 +96,9 @@ def init():
     """Starts the mixer and the sound build. Returns False with no audio device."""
     global _on, _building
     try:
-        pygame.mixer.pre_init(RATE, -16, 2, 512)
-        pygame.mixer.init(RATE, -16, 2, 512)
+        size = 1024 if sys.platform == "emscripten" else 512    # the browser mixes on the game's own thread
+        pygame.mixer.pre_init(RATE, -16, 2, size)
+        pygame.mixer.init(RATE, -16, 2, size)
         pygame.mixer.set_num_channels(24)
         pygame.mixer.set_reserved(2)               # channels 0 and 1 are the music's: one fades out as the other comes in
     except pygame.error:
@@ -103,7 +106,7 @@ def init():
     _on = True
     for name, data in _effects().items():
         _sounds[name] = pygame.mixer.Sound(buffer=_stereo(data).tobytes())
-    _sounds["heavy"].set_volume(0.7)
+    set_volume()
     _building = _build_all()
     if sys.platform != "emscripten":               # a browser has no threads: tick() builds there, a slice a frame
         threading.Thread(target=lambda: all(True for _ in _building), daemon=True).start()
@@ -116,8 +119,9 @@ def _build_all():
         _tracks[name] = pygame.mixer.Sound(buffer=data.tobytes())
 
 
-def tick(budget=0.006):
-    """Browser only: builds the music for a few milliseconds of this frame."""
+def tick(budget=0.002):
+    """Browser only: builds the music for a few milliseconds of this frame. The browser's sound runs on this same
+    thread: a longer slice made frames late enough to starve it, and it ticked until the build was done."""
     global _building
     if sys.platform != "emscripten" or _building is None:
         return
@@ -127,6 +131,20 @@ def tick(budget=0.006):
             next(_building)
     except StopIteration:
         _building = None
+
+
+def set_volume(music=None, sfx=None):
+    """Music and effects levels, 0..1; the song playing follows at once."""
+    if music is not None:
+        _volume["music"] = music
+    if sfx is not None:
+        _volume["sfx"] = sfx
+    if not _on:
+        return
+    for name, sound in _sounds.items():
+        sound.set_volume(_base.get(name, 1.0) * _volume["sfx"])
+    if _playing:
+        pygame.mixer.Channel(_ch).set_volume(VOLUME[_playing] * _volume["music"])
 
 
 def play(name):
@@ -152,7 +170,7 @@ def music(on=True, track="stage"):
         pygame.mixer.Channel(_ch).fadeout(1200)
         _ch, fade = 1 - _ch, 1200
     ch = pygame.mixer.Channel(_ch)
-    ch.set_volume(VOLUME[track])
+    ch.set_volume(VOLUME[track] * _volume["music"])
     ch.play(_tracks[track], loops=-1, fade_ms=fade)
     _playing = track
 
