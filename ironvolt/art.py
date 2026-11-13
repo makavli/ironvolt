@@ -308,13 +308,15 @@ def player_frames(index):
     return _people({tag: head + BODY for tag, head in HEAD.items()}, player_pal(index), POSES)
 
 
-def foe_frames(armour=C["olive"], armour_d=C["olive_d"], pack=False):
-    """A Rust Legion trooper: the heroes' build in scavenged plate and dusty cloth, a gas mask where their visor is."""
+def foe_frames(armour=C["olive"], armour_d=C["olive_d"], pack=False, **more):
+    """A Rust Legion trooper: the heroes' build in scavenged plate and dusty cloth, a gas mask where their visor is.
+    `more` recolours letters of the map (M m: the mask)."""
     cloth = mix(C["skin_d"], C["steel"], 0.5)
     pal = _armour(armour, armour_d, V=C["red"], M=C["steel"], m=mix(C["steel_d"], INK, 0.4), T=armour_d, t=armour,
                   P=cloth, p=mix(cloth, C["cream"], 0.3), Q=mix(cloth, INK, 0.5), U=mix(cloth, INK, 0.5), u=cloth,
                   K=mix(C["steel_d"], C["black"], 0.4), k=C["steel"], J=mix(C["steel_d"], C["black"], 0.7),
                   X=C["steel_d"], Y=C["gold"])
+    pal.update(more)
     frames = _people({"": FOE_HEAD + (over(BODY, PACK) if pack else BODY)}, pal)
     frames["hurt"] = outlined(sprite([r[2:] for r in FOE_HEAD] + HURT, pal, 28))
     return frames
@@ -483,6 +485,184 @@ def bastion(broken):
     return outlined(s)
 
 
+def warden(broken):
+    """WARDEN's hull, facing left, its feet at the bottom middle: a grid maintenance engine under the Legion's
+    armour, cow-catcher first, the cab at the back. The wheels and their rods, the roof gun and the lamp move, so the
+    actor draws those; `broken` tears the plates open on the firebox the actor lights, and the cab burns red."""
+    s = pygame.Surface((112, 56), pygame.SRCALPHA)
+
+    def at(dx, dy):                                      # offsets from the feet, the same as the actor's
+        return 56 + dx, 57 + dy
+
+    def box(colour, x0, y0, x1, y1):                     # both corners included
+        pygame.draw.rect(s, colour, (*at(x0, y0), x1 - x0 + 1, y1 - y0 + 1))
+
+    def line(colour, a, b):
+        pygame.draw.line(s, colour, at(*a), at(*b))
+
+    plate, dark, lit = C["olive"], C["olive_d"], mix(C["olive"], C["sun"], 0.4)
+    gun, gun_l, iron, shine = C["steel_d"], C["steel"], mix(C["steel_d"], INK, 0.5), C["steel_l"]
+    cab, cab_d, cab_l = C["rust"], C["rust_d"], mix(C["rust"], C["sun"], 0.4)
+    # the running gear's shadow, and an armoured skirt arched over each wheel
+    box(iron, -44, -11, 46, -5)
+    box(gun, -46, -20, 48, -11)
+    line(gun_l, (-46, -20), (48, -20))
+    line(iron, (-46, -11), (48, -11))
+    for wx in (-36, -16, 16, 36):
+        pygame.draw.circle(s, INK, at(wx, -6), 9, draw_top_left=True, draw_top_right=True)
+        pygame.draw.circle(s, iron, at(wx, -6), 8, draw_top_left=True, draw_top_right=True)
+    for bx in range(-43, 47, 6):
+        s.set_at(at(bx, -18), shine)
+        s.set_at(at(bx + 1, -17), INK)
+    # the boiler's armour: lit along its rounded top, dithered into shade below
+    pygame.draw.polygon(s, plate, [at(-45, -21), at(-45, -32), at(-39, -38), at(22, -38), at(22, -21)])
+    for y in range(-38, -20):
+        for x in range(-45, 23):
+            if s.get_at(at(x, y))[:3] != plate:
+                continue
+            if y == -38 or (y <= -36 and (x + y) % 2):
+                s.set_at(at(x, y), lit)
+            elif y >= -22 or (y >= -25 and (x + y) % 2):
+                s.set_at(at(x, y), dark)
+    pygame.draw.polygon(s, gun, [at(-45, -21), at(-45, -32), at(-39, -38), at(-37, -38), at(-37, -21)])  # smokebox
+    line(iron, (-45, -32), (-45, -21))
+    line(gun_l, (-44, -33), (-39, -38))
+    line(INK, (-36, -37), (-36, -21))
+    for sx in (-20, -1, 15):                             # plate seams and their rivets
+        line(dark, (sx, -37), (sx, -23))
+        for ry in (-35, -32, -25):
+            s.set_at(at(sx + 2, ry), lit)
+    line(shine, (-34, -29), (20, -29))                   # a handrail, and its shadow on the plate
+    line(dark, (-33, -28), (20, -28))
+    box(dark, -32, -35, -26, -31)                        # a gun port, shut
+    line(lit, (-32, -35), (-26, -35))
+    line(lit, (-26, -35), (-26, -31))
+    line(INK, (-31, -33), (-28, -33))
+    # the stack, its sunward side lit, and its cap; the roof gun's armoured ring
+    box(gun, -35, -48, -28, -39)
+    line(iron, (-35, -48), (-35, -39))
+    line(gun_l, (-30, -48), (-30, -39))
+    line(shine, (-29, -48), (-29, -39))
+    line(iron, (-35, -44), (-28, -44))
+    box(gun, -37, -51, -26, -49)
+    line(shine, (-36, -51), (-27, -51))
+    line(iron, (-37, -49), (-26, -49))
+    pygame.draw.polygon(s, gun, [at(-19, -39), at(-15, -43), at(-1, -43), at(3, -39)])
+    line(shine, (-14, -43), (-2, -43))
+    line(gun_l, (-1, -43), (3, -39))
+    line(iron, (-19, -39), (-15, -43))
+    for rx in range(-14, 0, 4):
+        s.set_at(at(rx, -41), gun_l)
+    line(C["gold"], (19, -41), (19, -39))                # the whistle
+    s.set_at(at(19, -42), C["cream"])
+    # the cab: rust-red plate lit along the top and at the back, a barred window lit from inside, a masked driver
+    box(cab, 23, -46, 50, -21)
+    box(cab_d, 23, -46, 24, -21)
+    line(cab_l, (25, -46), (49, -46))
+    line(cab_l, (50, -46), (50, -21))
+    for y in range(-24, -20):
+        for x in range(25, 50):
+            if y >= -22 or (x + y) % 2:
+                s.set_at(at(x, y), cab_d)
+    box(gun, 20, -50, 53, -47)                           # the roof, overhanging
+    line(shine, (21, -50), (52, -50))
+    line(INK, (21, -47), (52, -47))
+    for x in (20, 53):
+        s.set_at(at(x, -50), (0, 0, 0, 0))
+    box(INK, 29, -44, 46, -37)
+    box(C["red"] if broken else C["sun"], 30, -43, 45, -38)
+    line(C["ember"] if broken else C["cream"], (30, -43), (45, -43))
+    box(INK, 37, -42, 39, -40)
+    box(INK, 36, -39, 40, -38)
+    s.set_at(at(37, -41), C["sun"] if broken else C["red"])
+    for bx in (33, 43):
+        line(gun, (bx, -43), (bx, -38))
+    pygame.draw.polygon(s, C["red"], [at(30, -34), at(34, -30), at(30, -26), at(26, -30)])    # the Legion's mark
+    pygame.draw.polygon(s, cab_d, [at(30, -32), at(32, -30), at(30, -28), at(28, -30)])
+    line(shine, (36, -34), (36, -25))                    # a grab rail, the door
+    line(cab_d, (37, -33), (37, -25))
+    line(cab_d, (40, -35), (47, -35))
+    line(cab_d, (40, -35), (40, -23))
+    line(cab_l, (47, -34), (47, -23))
+    s.set_at(at(42, -29), shine)
+    box(gun, 49, -19, 53, -13)                           # the rear buffer
+    line(shine, (49, -19), (53, -19))
+    line(gun_l, (54, -18), (54, -14))
+    # the front: a buffer beam in hazard paint, the lamp's housing and hood, the welded cow-catcher
+    for x in range(-51, -45):
+        for y in range(-19, -12):
+            s.set_at(at(x, y), C["gold"] if (x + y) // 2 % 2 else INK)
+    pygame.draw.circle(s, INK, at(-47, -22), 4)
+    pygame.draw.circle(s, gun, at(-47, -22), 3)
+    line(gun_l, (-51, -27), (-44, -27))
+    line(shine, (-50, -28), (-45, -28))
+    pygame.draw.polygon(s, INK, [at(-50, -13), at(-44, -13), at(-44, -3), at(-56, -3)])
+    for k in (0, 1, 2):
+        if not (broken and k == 1):                      # broken: a bar torn out
+            line(shine if k == 0 else gun_l, (-50 + 3 * k, -13), (-56 + 3 * k, -3))
+    line(gun, (-44, -13), (-44, -3))
+    line(shine, (-50, -13), (-44, -13))
+    line(gun_l, (-56, -3), (-44, -3))
+    if broken:
+        soot, rnd = mix(dark, C["black"], 0.6), random.Random(5)
+        for cx, cy, r in ((9, -26, 10), (-29, -32, 6), (26, -36, 5)):     # scorched round the wounds, raggedly
+            for y in range(cy - r, cy + r + 1):
+                for x in range(cx - r, cx + r + 1):
+                    if (x - cx) ** 2 + (y - cy) ** 2 <= r * r * rnd.random() * 1.3 and (x + y) % 2 \
+                            and s.get_at(at(x, y)).a:
+                        s.set_at(at(x, y), soot)
+        hole = [(2, -30), (6, -32), (9, -29), (13, -32), (17, -27), (16, -22), (12, -20), (7, -22), (3, -20), (1, -25)]
+        pygame.draw.polygon(s, INK, [at(*p) for p in hole])                # split open on the firebox
+        pygame.draw.lines(s, C["ember"], True, [at(*p) for p in hole])
+        for x, y in hole[:5]:
+            s.set_at(at(x, y - 1), lit)                  # the plate curled out into the light
+        pygame.draw.polygon(s, iron, [at(-33, -36), at(-25, -37), at(-23, -31), at(-29, -27), at(-34, -30)])
+        for rx in (-31, -28, -25):                       # a plate blown off: the frame behind it
+            line(INK, (rx, -35), (rx, -29))
+        line(lit, (-33, -37), (-25, -38))
+        for x, y in ((-12, -33), (-6, -26), (20, -34), (27, -24), (45, -31), (-40, -16), (6, -15), (-31, -45)):
+            s.set_at(at(x, y), INK)                      # shot holes, their far rims lit
+            s.set_at(at(x + 1, y + 1), mix(s.get_at(at(x + 1, y + 1))[:3], C["cream"], 0.5))
+        for pts in (((24, -46), (27, -41), (26, -36)), ((-20, -38), (-18, -33), (-21, -28)), ((44, -20), (41, -15))):
+            pygame.draw.lines(s, C["ember"], False, [at(x + 1, y) for x, y in pts])
+            pygame.draw.lines(s, soot, False, [at(x, y) for x, y in pts])
+        pygame.draw.polygon(s, INK, [at(-5, -19), at(2, -18), at(5, -12), at(-6, -12)])   # the skirt torn away
+    return outlined(s)
+
+
+RIOT = [                                    # a riot shield a little turned to show its face, lit on the side it faces
+    "..eEF",
+    ".aeEFF",
+    "aeVVVF",
+    "aeVVcF",
+    "aeVVVF",
+    "aeEEFF",
+    "aeERFF",
+    "aeRrRF",
+    "aeERFF",
+    "aeEEFF",
+    "axxxxF",
+    "aeEEFF",
+    "aeEEFF",
+    "aeEEFF",
+    "aeEEFF",
+    "axxxxF",
+    "aeEEFF",
+    ".aeEF",
+]
+
+
+def riot_shield():
+    """A trooper's riot shield, {(lowered, facing): picture}, both drawn from the same top: raised, it covers him
+    from the eyes to the shins; lowered to fire, it drops to the ground and tips forward, and he fires over it."""
+    pal = dict(a=mix(C["steel_d"], INK, 0.45), e=C["steel_d"], E=C["steel"], F=C["steel_l"], c=C["cyan"],
+               V=mix(C["blue"], INK, 0.65), R=C["red"], r=C["rust_d"], x=mix(C["steel_d"], INK, 0.25))
+    up = outlined(sprite(RIOT, pal, 7))
+    low = outlined(sprite([""] * 11 + ["." + r for r in RIOT[:3]] + RIOT[3:12], pal, 7))
+    return {(False, 1): up, (True, 1): low,
+            (False, -1): pygame.transform.flip(up, True, False), (True, -1): pygame.transform.flip(low, True, False)}
+
+
 # ---------------------------------------------------------------- tiles
 
 def _hash(x, y, seed=0):
@@ -568,6 +748,130 @@ def crate_tile(kind=0):
     for x, y in ((1, 1), (14, 1), (1, 14), (14, 14)):    # steel corners
         pygame.draw.rect(s, C["steel_d"], (min(x, 12), min(y, 12), 3, 3))
         s.set_at((x, y), C["steel_l"])
+    return s
+
+
+def line_ground_tile(tx, ty, top, left=False, right=False):
+    """Mission 2's ground, the viaduct: on top its rail bed (the rail on sleepers in the ballast) over the deck's
+    stone cornice, dressed stone below, and the crowns of its arches at the foot of the screen. What stands on the
+    deck (the signal box, the platforms) is brick under a concrete cap. tx runs to 92: 23 for variety, 4 per arch."""
+    s = pygame.Surface((TILE, TILE))
+    rnd = random.Random(_hash(tx, ty, 2))
+    stone = mix(mix(C["steel_d"], C["skin_d"], 0.22), C["black"], {12: 0.4, 13: 0.62}.get(ty, 0.15))
+    lit, shade, mortar = mix(stone, C["cream"], 0.22), mix(stone, INK, 0.4), mix(stone, INK, 0.65)
+    brick = mix(C["rust_d"], C["steel_d"], 0.35)
+    raised = ty < 11                                     # a block standing on the deck
+
+    def courses(y0, y1, face, light, high, long):        # blocks in bond: mortar in shade, tops and sunward ends lit
+        dim, joint = mix(face, INK, 0.4), mix(face, INK, 0.65)
+        for y in range(y0, y1):
+            row, k = divmod(ty * TILE + y, high)
+            for x in range(TILE):
+                n = tx * TILE + x + (long // 2 if row % 2 else 0)
+                j, tone = n % long, _hash(n // long % 92, row) % 7      # 92: the repeat, so no block splits
+                if k == 0 or j == 0:
+                    c = joint
+                elif k == 1 or j == long - 1:
+                    c = light
+                elif k == high - 1 or j == 1 or (high > 4 and k >= high - 3 and (x + y) % 2):
+                    c = dim
+                else:
+                    c = mix(face, light, 0.3) if tone == 0 else mix(face, dim, 0.4) if tone == 1 else face
+                s.set_at((x, y), c)
+        for _ in range(3):                               # chips and pits
+            s.set_at((rnd.randrange(TILE), rnd.randrange(y0, y1)), rnd.choice((light, joint)))
+
+    if raised:
+        courses(0, TILE, brick, mix(brick, C["rust"], 0.55), 4, 8)
+    else:
+        courses(0, TILE, stone, lit, 8, 16)
+    if ty >= 12:
+        for y in range(TILE):                            # the crown of an arch: a ring of wedge stones, dark inside
+            for x in range(TILE):
+                ax, ay = tx % 4 * TILE + x - 32, ty * TILE + y - 241
+                r = math.hypot(ax, ay)
+                if r < 30:
+                    s.set_at((x, y), mix(C["black"], C["ink"], 0.4))
+                elif r < 35:
+                    joint = r >= 34 or math.degrees(math.atan2(ay, ax)) % 9 < 1.5
+                    s.set_at((x, y), mortar if joint else shade if r < 31 else mix(stone, lit, 0.35))
+    if not raised and (top or ty == 11):
+        if top:                                          # the ballast: stones lit from above, darker toward the deck
+            ballast = (mix(C["steel_d"], INK, 0.55), C["steel_d"], mix(C["steel_d"], C["steel"], 0.5), C["steel"])
+            for y in range(4, 9):
+                for x in range(TILE):
+                    n = rnd.random() - (y - 4) * 0.07
+                    s.set_at((x, y), ballast[(n > 0.3) + (n > 0.6) + (n > 0.88)])
+            for x0 in (2, 10):                           # sleepers seen end on, their clips on top
+                pygame.draw.rect(s, mix(C["rust_d"], INK, 0.35), (x0, 5, 4, 3))
+                pygame.draw.line(s, mix(C["rust_d"], C["rust"], 0.5), (x0, 5), (x0 + 3, 5))
+                pygame.draw.line(s, C["steel"], (x0, 4), (x0 + 3, 4))
+                s.set_at((x0 + 3, 4), C["steel_l"])
+            for y, c in enumerate((C["steel_l"], C["steel"], mix(C["steel_d"], INK, 0.5), C["steel_d"])):
+                pygame.draw.line(s, c, (0, y), (TILE, y))    # the rail: a bright head, its web in shade, the foot
+            if rnd.random() < 0.3:
+                s.set_at((rnd.randrange(TILE), 0), C["cream"])
+            if rnd.random() < 0.25:                      # a joint: the fishplate and its bolts
+                x = rnd.randrange(2, 9)
+                pygame.draw.rect(s, C["steel_d"], (x, 2, 6, 2))
+                pygame.draw.line(s, INK, (x + 3, 0), (x + 3, 1))
+                for bx in (x + 1, x + 4):
+                    s.set_at((bx, 2), C["steel_l"])
+        else:                                            # a block's brick, down to the deck
+            courses(0, 9, brick, mix(brick, C["rust"], 0.55), 4, 8)
+        pygame.draw.line(s, mix(stone, C["cream"], 0.5), (0, 9), (TILE, 9))    # the cornice: lit coping, its shadow
+        pygame.draw.rect(s, mix(stone, C["cream"], 0.15), (0, 10, TILE, 2))
+        pygame.draw.line(s, INK, (0, 12), (TILE, 12))
+        pygame.draw.line(s, mortar, (15, 10), (15, 11))
+        pygame.draw.line(s, lit, (14, 10), (14, 11))
+    if raised and top:                                   # a concrete cap
+        concrete = mix(C["steel"], C["skin_d"], 0.25)
+        pygame.draw.line(s, mix(C["steel_l"], C["cream"], 0.3), (0, 0), (TILE, 0))
+        pygame.draw.rect(s, concrete, (0, 1, TILE, 2))
+        pygame.draw.line(s, mix(concrete, INK, 0.5), (0, 3), (TILE, 3))
+        pygame.draw.line(s, INK, (0, 4), (TILE, 4))
+    if top:
+        band = 1 if raised else 10
+        for side, x0 in ((left, 0), (right, TILE - 7)):  # an open end: hazard paint
+            if side:
+                for x in range(x0, x0 + 7):
+                    for y in (band, band + 1):
+                        s.set_at((x, y), C["gold"] if (x + y) // 2 % 2 else INK)
+    for y in range(TILE):                                # an open side: an edge in shade, or lit by the low sun
+        if left:
+            s.set_at((0, y), INK)
+            s.set_at((1, y), mix(s.get_at((1, y))[:3], INK, 0.4))
+        if right:
+            s.set_at((15, y), mix(s.get_at((15, y))[:3], C["cream"], 0.35))
+    return s
+
+
+def container_tile(kind, left, right, mark):
+    """Mission 2's crates: half-height freight containers, one to each run of crates in a row. Corrugated sides,
+    each rib lit on its sunward slope; corner posts and castings where one ends, its door bars at the right end."""
+    s = pygame.Surface((TILE, TILE))
+    paint = (mix(C["gold"], C["rust_d"], 0.55), C["rust"], C["olive"])[kind]
+    lit, dark = mix(paint, C["cream"], 0.35), mix(paint, INK, 0.45)
+    for x in range(TILE):
+        pygame.draw.line(s, (dark, paint, lit, paint)[x % 4], (x, 4), (x, 11))
+    for y, c in ((0, INK), (1, lit), (2, paint), (3, dark), (12, dark), (13, paint), (14, dark), (15, INK)):
+        pygame.draw.line(s, c, (0, y), (TILE, y))        # the top and bottom rails
+    if mark:                                             # the Legion's mark
+        pygame.draw.polygon(s, C["red"], [(8, 4), (11, 7), (8, 10), (5, 7)])
+        pygame.draw.polygon(s, paint, [(8, 6), (9, 7), (8, 8), (7, 7)])
+    if right:                                            # the doors' locking bars
+        for bx in (8, 11):
+            pygame.draw.line(s, C["steel"], (bx, 3), (bx, 12))
+            s.set_at((bx, 3), C["steel_l"])
+            s.set_at((bx - 1, 8), C["steel_l"])
+    for side, x0 in ((left, 0), (right, 13)):            # corner posts and their castings
+        if side:
+            pygame.draw.rect(s, dark, (x0, 1, 3, 14))
+            pygame.draw.line(s, lit if x0 else paint, (x0 + 1, 1), (x0 + 1, 14))
+            for y0 in (1, 12):
+                pygame.draw.rect(s, C["steel_d"], (x0, y0, 3, 3))
+                s.set_at((x0 + 1, y0 + 1), INK)
+            pygame.draw.line(s, INK, (15 if x0 else 0, 0), (15 if x0 else 0, 15))
     return s
 
 
@@ -791,6 +1095,98 @@ def near(width=640):
     return s
 
 
+def viaduct(width=640):
+    """Mission 2's mid layer: a rail viaduct on stone arches across a drowned town, a dead city behind it."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(23)
+    body, rim, edge, lit = C["ink"], C["night"], C["dusk"], (C["sun"], C["ember"])
+    x = 0
+    while x < width:                                     # the dead city: towers with a few windows still lit
+        w, h = rnd.randrange(18, 40), rnd.randrange(40, 96)
+        top = 150 - h
+        pygame.draw.rect(s, rim, (x, top, w, h + 40))
+        pygame.draw.line(s, edge, (x + w - 1, top), (x + w - 1, 150))
+        if rnd.random() < 0.4:                           # a broken top
+            pygame.draw.polygon(s, (0, 0, 0, 0), [(x + w // 2, top - 1), (x + w + 1, top - 1), (x + w + 1, top + 9)])
+        for wy in range(top + 4, 146, 7):
+            for wx in range(x + 3, x + w - 3, 5):
+                if rnd.random() < 0.08:
+                    s.set_at((wx, wy), rnd.choice(lit))
+        x += w + rnd.randrange(2, 14)
+    deck = 128
+    pygame.draw.rect(s, body, (0, deck, width, 8))       # the deck, and the rail's lit edge
+    pygame.draw.line(s, edge, (0, deck), (width, deck))
+    for ax in range(0, width, 40):                       # arches, each pier with its sunward edge lit
+        pygame.draw.rect(s, body, (ax, deck + 8, 10, H - deck))
+        pygame.draw.line(s, edge, (ax + 9, deck + 8), (ax + 9, H))
+        pygame.draw.arc(s, body, (ax + 6, deck + 2, 38, 40), 0, math.pi, 5)
+    for px in range(12, width, 80):                      # catenary masts along the deck
+        pygame.draw.line(s, body, (px, deck), (px, deck - 22), 2)
+        pygame.draw.line(s, body, (px - 6, deck - 20), (px + 8, deck - 20))
+        s.set_at((px + 1, deck - 23), C["red"])
+    for i in range(width):                               # the wire between them, sagging
+        s.set_at((i, deck - 19 + int(3 * math.sin(math.pi * (i % 80) / 80))), body)
+    x = 330                                              # a train on the far track: an engine, its prisoner cars
+    pygame.draw.rect(s, body, (x, deck - 12, 26, 11))
+    pygame.draw.rect(s, body, (x + 18, deck - 16, 9, 5))
+    pygame.draw.rect(s, body, (x + 5, deck - 16, 3, 4))
+    s.set_at((x, deck - 8), C["sun"])
+    for i in range(5):
+        cx = x + 28 + i * 33
+        pygame.draw.rect(s, body, (cx, deck - 13, 31, 12))
+        pygame.draw.line(s, rim, (cx, deck - 13), (cx + 30, deck - 13))
+        pygame.draw.line(s, edge, (cx + 30, deck - 12), (cx + 30, deck - 2))
+        for wx in range(cx + 4, cx + 27, 6):             # barred slits, a few lit
+            pygame.draw.line(s, rnd.choice(lit) if rnd.random() < 0.35 else rim, (wx, deck - 9), (wx + 2, deck - 9))
+    pygame.draw.rect(s, body, (0, 170, width, H - 170))
+    return s
+
+
+def yard(width=640):
+    """Mission 2's near layer: signal masts, their lamps red, and the black flanks of goods wagons."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(29)
+    col, hint = C["black"], C["ink"]
+    for x in range(0, width, 128):                       # signal masts: a ladder, two lamps
+        px = x + rnd.randrange(16, 80)
+        pygame.draw.line(s, col, (px, 180), (px, 92), 3)
+        for y in range(100, 178, 6):
+            pygame.draw.line(s, col, (px + 3, y), (px + 6, y))
+        pygame.draw.line(s, col, (px + 6, 100), (px + 6, 178))
+        pygame.draw.rect(s, col, (px - 5, 86, 11, 18), border_radius=3)
+        pygame.draw.circle(s, C["red"], (px, 91), 2)
+        pygame.draw.circle(s, hint, (px, 98), 2)
+    for _ in range(3):                                   # goods wagons on the next track
+        x = rnd.randrange(0, width - 90)
+        pygame.draw.rect(s, col, (x, 142, 84, 30))
+        for rx in range(x + 6, x + 80, 12):
+            pygame.draw.line(s, hint, (rx, 145), (rx, 168))
+        pygame.draw.line(s, hint, (x, 142), (x + 83, 142))
+        for wx in (x + 14, x + 70):
+            pygame.draw.circle(s, col, (wx, 174), 6)
+            pygame.draw.circle(s, hint, (wx, 174), 2)
+    pygame.draw.rect(s, col, (0, 176, width, H - 176))
+    return s
+
+
+# mission 2: the ash thickens toward the Cradle; a colder, darker dusk, the sun a pale disc
+LINE_PALETTE = {"night": (26, 28, 54), "dusk": (52, 56, 96), "rose": (110, 88, 128), "ember": (176, 92, 96),
+                "sun": (226, 196, 160), "cream": (236, 226, 206)}
+
+
+def backdrop(theme):
+    """(sky, parallax layers, foreground pillar) for a mission's theme; theme 1 repaints the same scenery in
+    LINE_PALETTE for a moment, then puts the palette back."""
+    if theme == 0:
+        return sky(), [(mountains(), 0.08, 0), (factory(), 0.25, 0), (near(), 0.55, 8)], pillar()
+    saved = {k: C[k] for k in LINE_PALETTE}
+    C.update(LINE_PALETTE)
+    try:
+        return sky(), [(mountains(), 0.08, 0), (viaduct(), 0.25, 0), (yard(), 0.55, 8)], pillar()
+    finally:
+        C.update(saved)
+
+
 def pillar():
     """A foreground girder that sweeps past in front of everything (parallax faster than the floor)."""
     s = pygame.Surface((22, H), pygame.SRCALPHA)
@@ -819,6 +1215,9 @@ class Atlas:
         self.foe_l = mirrored(self.foe)
         self.lobber = foe_frames(C["rust"], C["rust_d"], pack=True)
         self.lobber_l = mirrored(self.lobber)
+        self.riot = foe_frames(mix(C["steel"], C["steel_l"], 0.3), C["steel_d"],     # riot plate, a darker mask
+                               M=mix(C["steel_d"], INK, 0.25), m=mix(C["steel_d"], INK, 0.65))
+        self.riot_l = mirrored(self.riot)
         legion = dict(BASE_PAL, g=mix(C["steel_d"], C["black"], 0.6))
         self.rifle = held(RIFLE, legion)
         self.tube = held(TUBE, legion, ((1, 0, 0), (1, -1, 24)))
@@ -827,14 +1226,16 @@ class Atlas:
         self.drone = drone_frames()
         self.turret = turret()
         self.bastion = [bastion(False), bastion(True)]
+        self.warden = [warden(False), warden(True)]
+        self.shield = riot_shield()
         self.caps = {"H": capsule("H", C["red"]), "S": capsule("S", C["blue"]), "R": capsule("R", C["olive"]),
                      "B": capsule("B", C["rust"]), "1": capsule("1", C["green"])}
         self.ground = {}
         self.crates = [crate_tile(k) for k in range(3)]
+        self.containers = {}
         self.girders = {(a, b): girder_tile(a, b) for a in (False, True) for b in (False, True)}
-        self.sky = sky()
-        self.layers = [(mountains(), 0.08, 0), (factory(), 0.25, 0), (near(), 0.55, 8)]
-        self.pillar = pillar()
+        self.themes = [backdrop(0), backdrop(1)]          # one per mission theme (stage.Mission.theme)
+        self.sky, self.layers, self.pillar = self.themes[0]
         self.glow_s = glow(7, (120, 80, 36))
         self.glow_l = glow(18, (150, 70, 30))
 
@@ -844,8 +1245,17 @@ class Atlas:
             self.white[key] = white(surf)
         return self.white[key]
 
-    def ground_at(self, tx, ty, top, left=False, right=False):
-        key = (tx % 23, ty, top, left, right)
+    def ground_at(self, tx, ty, top, left=False, right=False, theme=0):
+        key = (tx % 23, ty, top, left, right) if theme == 0 else (tx % 92, ty, top, left, right, theme)
         if key not in self.ground:
-            self.ground[key] = ground_tile(*key)
+            self.ground[key] = (ground_tile if theme == 0 else line_ground_tile)(*key[:5])
         return self.ground[key]
+
+    def crate_at(self, tx, ty, theme=0, left=False, right=False):
+        """A crate; in mission 2, a stretch of the container that runs along its row (left / right: it ends there)."""
+        if theme == 0:
+            return self.crates[(tx * 7 + ty * 3) % len(self.crates)]
+        key = (ty % 3, left, right, tx % 5 == 2 and not (left or right))
+        if key not in self.containers:
+            self.containers[key] = container_tile(*key)
+        return self.containers[key]

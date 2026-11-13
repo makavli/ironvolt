@@ -1,4 +1,4 @@
-"""Stage 1, SCRAPYARD DUSK: the tile map and what happens where.
+"""The missions: each one's tile map, what happens where, its boss, song, backdrop and briefing.
 
 Tiles: 0 air, 1 ground, 2 crate (solid), 3 catwalk (one-way: stand on it, jump up through it).
 """
@@ -7,18 +7,17 @@ from .settings import H, TILE
 
 ROWS = H // TILE                  # 14
 FLOOR_ROW = 11                    # ground fills rows 11..13
-COLS = 232
-BOSS_COL = 212                    # the arena: the camera locks here and the boss rolls in
-NAME = "STAGE 1  SCRAPYARD DUSK"
-
 AIR, GROUND, CRATE, WALK = 0, 1, 2, 3
 
 
-def _build():
-    g = [[AIR] * COLS for _ in range(ROWS)]
-    for c in range(COLS):
+def _ground(cols):
+    """A flat floor and the tools that carve it; the arena wall closes the right end."""
+    g = [[AIR] * cols for _ in range(ROWS)]
+    for c in range(cols):
         for r in range(FLOOR_ROW, ROWS):
             g[r][c] = GROUND
+    for r in range(0, FLOOR_ROW):          # arena wall: off-screen bounds the camera never shows
+        g[r][cols - 1] = GROUND
 
     def pit(a, b):
         for c in range(a, b + 1):
@@ -33,7 +32,11 @@ def _build():
     def walk(c0, c1, r):
         for c in range(c0, c1 + 1):
             g[r][c] = WALK
+    return g, pit, block, walk
 
+
+def _scrapyard():
+    g, pit, block, walk = _ground(232)
     block(14, 14, 10, CRATE)
     block(15, 15, 9, CRATE)
     block(15, 15, 10, CRATE)
@@ -62,13 +65,11 @@ def _build():
     block(186, 190, 9)
     walk(194, 199, 6)
     block(203, 204, 10, CRATE)
-    for r in range(0, FLOOR_ROW):          # arena walls: off-screen bounds the camera never shows
-        g[r][COLS - 1] = GROUND
     return g
 
 
 # (camera x that triggers it, kind, x, extra). x "edge" = just off the right side of the screen.
-SPAWNS = [
+SCRAPYARD_SPAWNS = [
     (40, "soldier", "edge", None), (100, "hostage", 21 * TILE, "H"),     # in view ahead, not behind the player
     (140, "soldier", "edge", None), (200, "soldier", "edge", None), (300, "soldier", "edge", None), (330, "lobber", 27 * TILE, None),
     (420, "drone", "edge", None), (470, "soldier", "edge", None), (500, "soldier", "edge", None),
@@ -89,15 +90,99 @@ SPAWNS = [
 ]
 
 
+def _line():
+    """Mission 2: a rail yard and its viaduct. Containers to climb, gantries over the gaps, a long straight
+    track for the arena, and two gantries there to climb when the engine charges."""
+    g, pit, block, walk = _ground(248)
+    block(12, 14, 9, CRATE)                # a container
+    walk(18, 23, 8)
+    pit(27, 29)                            # the first gap in the viaduct
+    block(34, 35, 10, CRATE)
+    block(36, 38, 9, CRATE)                # a stack, stepped
+    block(39, 41, 8, CRATE)
+    walk(44, 52, 6)
+    pit(47, 49)
+    block(58, 63, 9)                       # a signal box
+    walk(67, 71, 8)                        # a gantry over the gap
+    pit(68, 70)
+    block(76, 76, 10, CRATE)
+    block(84, 89, 8)                       # the loading platform
+    walk(90, 97, 8)
+    pit(93, 95)
+    block(98, 103, 8)
+    block(110, 111, 9, CRATE)
+    block(112, 113, 10, CRATE)
+    walk(118, 124, 7)
+    pit(121, 123)
+    walk(126, 132, 4)
+    block(138, 142, 9)
+    block(148, 149, 10, CRATE)
+    block(150, 151, 9, CRATE)
+    block(152, 153, 8, CRATE)
+    walk(156, 163, 8)
+    pit(158, 160)
+    block(166, 170, 9)
+    pit(175, 177)
+    block(180, 181, 9, CRATE)
+    walk(181, 187, 6)
+    block(192, 197, 8)
+    walk(198, 204, 8)
+    pit(201, 203)
+    block(205, 209, 8)
+    block(215, 216, 10, CRATE)
+    walk(230, 235, 8)                      # the arena's gantries: above the engine's roof
+    walk(239, 244, 8)
+    return g
+
+
+def _waves(placed, edges, kinds, end):
+    """Spawns from a plan: `placed` (kind, column, extra) appear in view ahead, `kinds` cycle in from the edge."""
+    out = [(c * TILE - 270, kind, c * TILE, extra) for kind, c, extra in placed]
+    out += [(cam, kinds[i % len(kinds)], "edge", None) for i, cam in enumerate(range(edges, end, 70))]
+    return out
+
+
+LINE_SPAWNS = _waves(
+    [("hostage", 22, "H"), ("lobber", 40, None), ("turret", 50, None), ("hostage", 61, "S"), ("lobber", 87, None),
+     ("hostage", 96, "B"), ("turret", 101, None), ("turret", 129, None), ("lobber", 140, None),
+     ("hostage", 152, "R"), ("turret", 161, None), ("lobber", 168, None), ("hostage", 170, "H"),
+     ("turret", 184, None), ("hostage", 195, "1"), ("lobber", 207, None)],
+    60, ["soldier", "shield", "soldier", "soldier", "drone", "soldier", "shield", "soldier"], 3500)
+
+
+class Mission:
+    def __init__(self, number, name, build, spawns, boss_col, boss, boss_title, song, theme, briefing, outro):
+        self.number, self.name, self.build, self.spawns = number, name, build, spawns
+        self.boss_col, self.boss, self.boss_title = boss_col, boss, boss_title
+        self.song, self.theme, self.briefing, self.outro = song, theme, briefing, outro
+
+
+MISSIONS = [
+    Mission(1, "SCRAPYARD DUSK", _scrapyard, SCRAPYARD_SPAWNS, 212, "bastion", "BASTION  LEGION GATE CRAWLER",
+            ("stage", "boss"), 0, ["FREE THE CAPTURED TECHNICIANS.", "BREAK THE LEGION GATE."],
+            ["THE GATE IS DOWN.", "THE PRISONERS WERE MOVED BY RAIL."]),
+    Mission(2, "THE PRISONER LINE", _line, LINE_SPAWNS, 228, "warden", "WARDEN  PRISONER LINE ENGINE",
+            ("line", "warden"), 1, ["THE LEGION SHIPS ITS PRISONERS BY RAIL.", "STOP THE TRAIN."],
+            ["THE PRISONER CARS ARE OPEN.", "KES'S BROTHER WAS NOT ABOARD."]),
+]
+
+
 class Stage:
-    def __init__(self):
-        self.grid = _build()
-        self.width = COLS * TILE
-        self.boss_x = BOSS_COL * TILE
-        self.spawns = sorted(SPAWNS, key=lambda s: s[0])
+    def __init__(self, index=0):
+        self.index = index
+        self.mission = m = MISSIONS[index]
+        self.grid = m.build()
+        self.cols = len(self.grid[0])
+        self.width = self.cols * TILE
+        self.boss_x = m.boss_col * TILE
+        self.spawns = sorted(m.spawns, key=lambda s: s[0])
+
+    @property
+    def last(self):
+        return self.index == len(MISSIONS) - 1
 
     def tile(self, tx, ty):
-        if tx < 0 or tx >= COLS:
+        if tx < 0 or tx >= self.cols:
             return GROUND                       # the stage ends are walls
         if ty < 0 or ty >= ROWS:
             return AIR                          # open sky above, pits below

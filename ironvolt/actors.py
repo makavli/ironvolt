@@ -476,13 +476,14 @@ class Grenade(Body):
 # ------------------------------------------------------------------ enemies
 
 class Foe(Body):
-    """A Rust Legion trooper. Rifles walk in and fire level; lobbers hold ground and arc shells."""
+    """A Rust Legion trooper. Rifles walk in and fire level; lobbers hold ground and arc shells; shields walk in
+    behind a riot shield that stops level shots, and lower it for a moment to fire."""
     w, h = 10, 21
 
     def __init__(self, x, y, kind="soldier"):
         super().__init__(x, y)
         self.kind = kind
-        self.hp = 2 if kind == "soldier" else 3
+        self.hp = {"soldier": 2, "lobber": 3, "shield": 4}[kind]
         self.facing = -1
         self.timer = random.randint(40, 80)
         self.hurt = 0
@@ -513,10 +514,10 @@ class Foe(Body):
             self.facing = 1 if dx > 0 else -1
             far = abs(dx) > (150 if self.kind == "soldier" else 220)
             on_screen = 0 < self.x - world.cam_x < W
-            if self.kind == "soldier" and (far or not on_screen) and not self.aiming:
+            if self.kind != "lobber" and (far or not on_screen) and not self.aiming:
                 ahead = self.x + self.facing * 8
                 if world.stage.floor_y(ahead, self.y - 4) is not None and abs(world.stage.floor_y(ahead, self.y - 4) - self.y) < 20:
-                    self.vx = self.facing * 0.9
+                    self.vx = self.facing * (0.6 if self.kind == "shield" else 0.9)
                 else:
                     self.vx = 0
             else:
@@ -549,6 +550,12 @@ class Foe(Body):
         world.flash(mx, my, small=True)
         audio.play("enemy_shot")
 
+    def blocks(self, shot):
+        """The shield stops a level shot at its face, but not one from behind or above, nor while it fires."""
+        if 0 < self.aiming < 12:
+            return False
+        return shot.vx * self.facing < 0 and abs(shot.vy) < abs(shot.vx)
+
     def damage(self, dmg, world, owner, push=0.0):
         if self.dying:
             return False
@@ -568,8 +575,8 @@ class Foe(Body):
 
     def draw(self, surf, atlas, cam):
         right = self.facing > 0
-        frames = (atlas.foe if right else atlas.foe_l) if self.kind == "soldier" else \
-                 (atlas.lobber if right else atlas.lobber_l)
+        frames = {"lobber": (atlas.lobber, atlas.lobber_l), "shield": (atlas.riot, atlas.riot_l)}.get(
+            self.kind, (atlas.foe, atlas.foe_l))[not right]
         if self.dying and (self.dying // 4) % 2:
             return
         if self.dying or self.stun:
@@ -582,11 +589,14 @@ class Foe(Body):
         surf.blit(atlas.flash(img) if self.hurt else img, (x - img.get_width() // 2, y - img.get_height() + 1))
         if not self.dying and not self.stun:
             lift = self.kind == "lobber" and self.aiming      # a grenadier raises the tube to lob
-            gun = (atlas.rifle if self.kind == "soldier" else atlas.tube)[self.facing, -1 if lift else 0, self.facing]
+            gun = (atlas.tube if self.kind == "lobber" else atlas.rifle)[self.facing, -1 if lift else 0, self.facing]
             sx, sy = x + (2 if right else -3), y - 15 - (img.get_height() - atlas.tall)
             surf.blit(gun, (sx - gun.get_width() // 2, sy - gun.get_height() // 2))
             if self.aiming and self.aiming % 6 < 3:
                 surf.set_at((sx + self.facing * 9, sy - (4 if lift else 0)), C["red"])
+        if self.kind == "shield" and not self.dying:
+            img = atlas.shield[0 < self.aiming < 12, self.facing]      # lowered to the ground while it fires
+            surf.blit(img, (x + 3 if right else x - 3 - img.get_width(), y - 24))
 
 
 class Drone(Body):
@@ -905,3 +915,160 @@ class Bastion(Body):
                 px = round(mx - cam)
                 pygame.draw.line(surf, C["red"], (px - 4, y - 2), (px + 4, y - 2))
                 pygame.draw.polygon(surf, C["red"], [(px, y - 4), (px - 3, y - 9), (px + 3, y - 9)])
+
+
+class Warden(Body):
+    """WARDEN, the prisoner line's armoured engine: a roof gun, and a charge down the track when its whistle
+    blows. Climb a gantry, or jump it. Once broken it charges faster and drops troopers from its back door."""
+    w, h = 100, 40
+    HP = 150
+
+    def __init__(self, x, y, left, right):
+        super().__init__(x, y)
+        self.hp = self.HP
+        self.left, self.right = left, right
+        self.home = right - 66
+        self.state = "enter"
+        self.mode, self.mt = "idle", 0          # idle, whistle, charge, brake, back
+        self.t = self.hurt = self.dying = self.burst = 0
+        self.speed = self.wheel = 0.0
+        self.gun_angle = math.pi
+        self.marks = []                         # none: World.boss_down clears every boss's
+
+    @property
+    def angry(self):
+        return self.hp <= self.HP // 2
+
+    def step(self, world):
+        self.t += 1
+        if self.hurt:
+            self.hurt -= 1
+        if self.dying:
+            self.dying -= 1
+            if self.dying % 7 == 0:
+                world.explode(self.x + random.uniform(-45, 45), self.y - random.uniform(5, 40), 18, 0, None)
+            if self.dying == 1:
+                world.explode(self.x, self.y - 20, 60, 0, None, big=True)
+                self.dead = True
+            return
+        x0 = self.x
+        if self.angry and self.t % 6 == 0:
+            world.smoke(self.x + random.uniform(-40, 40), self.y - 40, 1.0)
+        if self.state == "enter":
+            self.x = max(self.home, self.x - 1.2)
+            if self.x == self.home:
+                self.state, self.t = "fight", 0
+            self.wheel += self.x - x0
+            return
+        self.mt += 1
+        if self.mode == "idle" and self.mt > (190 if self.angry else 260):
+            self.mode, self.mt = "whistle", 0
+            audio.play("whistle")
+        elif self.mode == "whistle":
+            if self.mt % 4 == 0:
+                world.smoke(self.x - 30, self.y - 48, 1.2)    # steam from the stack: it is coming
+            if self.mt >= 55:
+                self.mode, self.mt, self.speed = "charge", 0, 0.0
+        elif self.mode == "charge":
+            self.speed = min(5.0 if self.angry else 4.0, self.speed + 0.2)
+            self.x -= self.speed
+            if world.frame % 2 == 0:
+                world.sparks(self.x - 30 + random.uniform(-20, 50), self.y - 2, 1)
+            if self.x - self.w / 2 <= self.left + 4:
+                self.x = self.left + 4 + self.w / 2
+                self.mode, self.mt = "brake", 0
+                world.shake = max(world.shake, 8)
+                world.explode(self.x - 50, self.y - 20, 14, 0, None)
+                audio.play("rocket")
+        elif self.mode == "brake" and self.mt > 45:
+            self.mode, self.mt = "back", 0
+        elif self.mode == "back":
+            self.x = min(self.home, self.x + 1.1)
+            if self.x == self.home:
+                self.mode, self.mt = "idle", 0
+        self.wheel += self.x - x0
+        target = world.nearest(self.x)
+        if target is None:
+            return
+        gx, gy = self.x - 8, self.y - 44
+        want = math.atan2((target.y - 12) - gy, target.x - gx)
+        self.gun_angle += max(-0.05, min(0.05, (want - self.gun_angle + math.pi) % (2 * math.pi) - math.pi))
+        period = 95 if self.angry else 125
+        beat = self.t % period
+        if self.mode != "charge":
+            if period - 40 <= beat < period - 16 and beat % 6 == 0:     # the roof gun glints before a burst
+                world.flash(gx + math.cos(self.gun_angle) * 12, gy + math.sin(self.gun_angle) * 12, small=True)
+            if beat == period - 16:
+                self.burst = 5 if self.angry else 3
+        if self.burst and self.t % 7 == 0:
+            self.burst -= 1
+            c, s = math.cos(self.gun_angle), math.sin(self.gun_angle)
+            world.bolts.append(Bolt(gx + c * 12, gy + s * 12, c * 2.2 * world.fire, s * 2.2 * world.fire))
+            world.flash(gx + c * 12, gy + s * 12, small=True)
+            audio.play("enemy_shot")
+        if (self.angry and self.mode == "idle" and self.t % 240 == 120
+                and sum(isinstance(f, Foe) for f in world.foes) < 2):
+            trooper = Foe(self.x + self.w / 2 - 6, self.y, "soldier")   # out of the back door
+            trooper.vy = -2.5
+            world.foes.append(trooper)
+
+    def damage(self, dmg, world, owner, push=0.0):
+        if self.dying or self.state == "enter":
+            return True
+        calm = not self.angry
+        self.hp -= dmg
+        self.hurt = 3
+        if self.hp <= 0:
+            self.dying = 150
+            world.award(owner, SCORE["boss"], self.x, self.y - 50)
+            world.boss_down()
+        elif calm and self.angry:                        # its armour splits: a beat to see that the fight has changed
+            world.explode(self.x, self.y - 25, 20, 0, None)
+            world.hitstop(8)
+            world.shake = max(world.shake, 10)
+            audio.play("alarm")
+        return True
+
+    def hitbox(self):
+        return pygame.Rect(round(self.x - self.w / 2), round(self.y - self.h), self.w, self.h)
+
+    def draw(self, surf, atlas, cam):
+        x, y = round(self.x - cam), round(self.y)
+        img = atlas.warden[self.angry]                   # once it breaks, the split armour
+        surf.blit(atlas.flash(img) if self.hurt and self.hurt % 2 else img,
+                  (x - img.get_width() // 2, y - img.get_height()))
+        ink = C["ink"]
+        a = self.wheel / 6                               # the wheels turn with the distance rolled, all in step
+        c, s = math.cos(a), math.sin(a)
+        for wx in (-36, -16, 16, 36):
+            cx, cy = x + wx, y - 6
+            pygame.draw.circle(surf, ink, (cx, cy), 6)
+            pygame.draw.circle(surf, C["steel"], (cx, cy), 5)        # the tyre
+            pygame.draw.circle(surf, C["steel_d"], (cx, cy), 4)
+            for dx, dy in ((c, s), (-s, c)):             # two spokes, square to each other
+                pygame.draw.line(surf, C["steel"], (cx - round(dx * 4), cy - round(dy * 4)),
+                                 (cx + round(dx * 4), cy + round(dy * 4)))
+            surf.set_at((cx, cy), ink)
+        px, py = round(c * 3), round(s * 3)              # the crank pins: a coupling rod for each pair of wheels
+        for x0, x1 in ((-36, -16), (16, 36)):
+            pygame.draw.line(surf, ink, (x + x0 + px, y - 6 + py), (x + x1 + px, y - 6 + py), 3)
+            pygame.draw.line(surf, C["steel_l"], (x + x0 + px, y - 6 + py), (x + x1 + px, y - 6 + py))
+        lamp = C["red"] if self.mode == "whistle" and self.mt % 8 < 4 else C["sun"]
+        surf.blit(atlas.glow_s, (x - 54, y - 29), special_flags=pygame.BLEND_ADD)      # its light on the dusk
+        pygame.draw.circle(surf, lamp, (x - 47, y - 22), 2)
+        surf.set_at((x - 48, y - 23), C["white"] if lamp == C["sun"] else C["cream"])
+        c, s = math.cos(self.gun_angle), math.sin(self.gun_angle)
+        gx, gy = x - 8, y - 44
+        pygame.draw.line(surf, ink, (gx, gy), (gx + c * 13, gy + s * 13), 5)
+        pygame.draw.line(surf, C["steel"], (gx, gy), (gx + c * 12, gy + s * 12), 3)
+        pygame.draw.line(surf, C["steel_l"], (gx, gy - 1), (gx + c * 11, gy + s * 11 - 1))
+        pygame.draw.circle(surf, ink, (round(gx + c * 12), round(gy + s * 12)), 2)    # the muzzle
+        pygame.draw.circle(surf, ink, (gx, gy), 4)
+        pygame.draw.circle(surf, C["steel"], (gx, gy), 3)
+        surf.set_at((gx + 1, gy - 2), C["steel_l"])
+        if self.angry:                                   # the split armour shows the firebox behind its grate
+            glow = C["sun"] if (self.t // 5) % 2 else C["ember"]
+            pygame.draw.rect(surf, C["ember"], (x + 3, y - 28, 12, 7))
+            pygame.draw.rect(surf, glow, (x + 4, y - 26, 10, 4))
+            for bx in (x + 6, x + 9, x + 12):
+                pygame.draw.line(surf, ink, (bx, y - 28), (bx, y - 22))

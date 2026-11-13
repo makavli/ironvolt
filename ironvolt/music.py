@@ -16,7 +16,8 @@ from array import array
 RATE = 22050
 NOTE = {n: i for i, n in enumerate("C C# D D# E F F# G G# A A# B".split())}
 CHORDS = {"Am": (57, (0, 3, 7)), "Dm": (62, (0, 3, 7)), "F": (53, (0, 4, 7)), "C": (60, (0, 4, 7)),
-          "G": (55, (0, 4, 7)), "E": (52, (0, 4, 7)), "Bb": (58, (0, 4, 7))}   # pad root (MIDI), intervals
+          "G": (55, (0, 4, 7)), "E": (52, (0, 4, 7)), "Bb": (58, (0, 4, 7)),
+          "Em": (52, (0, 3, 7)), "D": (62, (0, 4, 7)), "B": (59, (0, 4, 7))}   # pad root (MIDI), intervals
 STYLES = {   # drums, bass notes a bar (0, 8 or 16), pad brightness (low-pass Hz), arpeggio
     "intro": ("half", 8, 900, True),
     "drive": ("full", 8, 1500, True),
@@ -41,6 +42,20 @@ SIEGE = ["A5 - - - . A5 C6 - B5 - A5 - G5 - E5 -", "F5 - - - . F5 A#5 - A5 - G5 
          "A5 - - - . A5 C6 - B5 - A5 - G5 - E5 -", "D6 - - - C6 - A#5 - A5 - - - F5 - A5 -",
          "G5 - - - C6 - E6 - D6 - - - C6 - G5 -", "G#5 - - - B5 - D6 - E6 - - - - - . ."]
 
+# Mission 2, the prisoner line: E minor, a rolling train beat; the boss in E with a Phrygian F.
+RAIL = ["E5 - - . G5 - A5 - B5 - - - A5 - G5 -", "E5 - - - . E5 G5 E5 C5 - - - D5 - E5 -",
+        "D5 - - . G5 - B5 - D6 - - - B5 - G5 -", "F#5 - - - A5 - - - D5 - - - . . . .",
+        "E5 - - . G5 - A5 - B5 - - - A5 - G5 -", "C6 - - - B5 - G5 - E5 - - - G5 - A5 -",
+        "B5 - - - D6 - B5 - G5 - - - B5 - D6 -", "D#6 - - - - - B5 - F#5 - - - D#5 - - -"]
+SIGNAL = ["G5 - - - - - E5 - C5 - - - E5 - G5 -", "A5 - - - - - F#5 - D5 - - - F#5 - A5 -",
+          "B5 - - - - - - - G5 - A5 - B5 - - -", "E6 - - - D6 - B5 - G5 - - - - - . .",
+          "G5 - - - - - E5 - C6 - - - B5 - G5 -", "A5 - - - - - D6 - F#5 - - - A5 - D6 -",
+          "D#6 - - - - - - - B5 - - - F#5 - - -", "B5 - - - - - - - - - - - . . . ."]
+RAM = ["E5 - - - . E5 G5 - F5 - E5 - D5 - B4 -", "F5 - - - . F5 A5 - G5 - F5 - E5 - C5 -",
+       "E5 - - - . E5 B5 - C6 - - - B5 - G5 -", "D#5 - - - F#5 - - - B5 - - - - - . .",
+       "E5 - - - . E5 G5 - F5 - E5 - D5 - B4 -", "C6 - - - B5 - A5 - G5 - - - F5 - A5 -",
+       "G5 - - - B5 - D6 - B5 - - - G5 - D5 -", "D#5 - - - F#5 - A5 - B5 - - - - - . ."]
+
 SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doubled an octave up) or None)
     "title": (120, [("Am F C G Am F C G", "title", (HOOK, "bell", False))]),
     "stage": (120, [("Am F C G", "intro", None),
@@ -51,6 +66,14 @@ SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doub
                     ("Am F C G Am F C E", "drive", (HOOK, "lead", True))]),
     "boss": (140, [("Am Bb Am E Am Bb C E", "boss", None),
                    ("Am Bb Am E Am Bb C E", "boss", (SIEGE, "lead", True))]),
+    "line": (128, [("Em C G D", "intro", None),
+                   ("Em C G D Em C G B", "drive", (RAIL, "lead", False)),
+                   ("C D Em Em C D B B", "lift", (SIGNAL, "lead", False)),
+                   ("C D Em", "break", ([RAIL[1], RAIL[3], RAIL[0]], "bell", False)),
+                   ("Em", "rise", None),
+                   ("Em C G D Em C G B", "drive", (RAIL, "lead", True))]),
+    "warden": (146, [("Em F Em B Em F G B", "boss", None),
+                     ("Em F Em B Em F G B", "boss", (RAM, "lead", True))]),
 }
 CHUNK = 512                 # samples between yields
 

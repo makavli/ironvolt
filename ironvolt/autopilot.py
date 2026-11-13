@@ -41,6 +41,10 @@ class BotPad:
                      (b.kind == "shell" and abs(b.x - p.x) < 20) for b in world.bolts)
         if p.on_ground and (wall or pit or danger) and not self.jump_hold:
             self.jump_hold = 22
+        drop = bool(boss and not boss.dying and p.on_ground and p.on_catwalk(st) and not self.jump_hold
+                    and getattr(boss, "mode", "") not in ("whistle", "charge"))   # fight from the floor
+        if drop and not self.before.get("jump"):
+            self.jump_hold = 1
         if self.jump_hold:
             s["jump"] = True
             if not world.freeze:                       # a hit-stop must not cut the jump short
@@ -52,6 +56,8 @@ class BotPad:
         elif boss and not boss.dying and boss.state == "fight":
             s["up"] = (world.frame // 60) % 3 == 0     # mix diagonal shots in
         s["right"], s["left"] = dx > 0, dx < 0
+        if drop:
+            s["down"], s["up"] = True, False
         if boss:
             s["left"] = s["left"] and not s["up"]
         s["fire"] = (world.frame // 4) % 2 == 0

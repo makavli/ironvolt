@@ -37,7 +37,7 @@ WEAPONS = {
     "R": (22, 20, 6),      # rockets: blast on impact
 }
 
-SCORE = {"soldier": 100, "lobber": 150, "drone": 200, "turret": 500, "hostage": 1000, "boss": 20000}
+SCORE = {"soldier": 100, "lobber": 150, "shield": 300, "drone": 200, "turret": 500, "hostage": 1000, "boss": 20000}
 
 # A limited palette, in the spirit of 90s arcade boards.
 C = {

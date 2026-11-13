@@ -5,6 +5,7 @@ Game.step(controls) runs one 60 Hz frame; Game.draw(surface) paints it at 320x22
 """
 
 import math
+import os
 import sys
 
 import pygame
@@ -13,6 +14,7 @@ from . import __version__, audio, font, storage
 from .autopilot import BotPad
 from .menu import Layout, Menu, Options
 from .settings import CHAIN_FRAMES, CHAIN_MAX, LEVELS, C, H, W
+from .stage import MISSIONS
 from .world import World
 
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
@@ -30,7 +32,10 @@ STORY = [
 ]
 LEVEL_LINES = {"EASY": "FIVE LIVES. SLOWER SHOTS.", "NORMAL": "THE CABINET AS IT WAS.",
                "HARD": "TWO LIVES. NO MERCY."}
-BRIEFING = ["MISSION 1", "SCRAPYARD DUSK", "", "FREE THE CAPTURED TECHNICIANS.", "BREAK THE LEGION GATE."]
+try:                                         # playtests: IRONVOLT_STAGE=2 starts on a later mission
+    FIRST_STAGE = min(max(0, int(os.environ.get("IRONVOLT_STAGE", "1")) - 1), len(MISSIONS) - 1)
+except ValueError:
+    FIRST_STAGE = 0
 
 
 class Game:
@@ -93,7 +98,7 @@ class Game:
 
     def start(self, players, level=None):
         lives = None if self.opts["lives"] == "AUTO" else int(self.opts["lives"])
-        self.world = World(players, level=level or self.level, lives=lives)
+        self.world = World(players, level=level or self.level, lives=lives, stage=FIRST_STAGE)
         if self.opts["level"] != self.world.level:
             self.set_option("level", self.world.level)       # offered first next time
         self.demo = None
@@ -140,7 +145,12 @@ class Game:
             self.play_step(ctl, starts)
         elif self.mode in ("over", "clear"):
             if self.t > (240 if self.mode == "over" else 420) or (self.t > 90 and starts):
-                self.begin_entry()
+                if self.mode == "clear" and not self.world.stage.last:
+                    self.world = self.world.advance()       # on to the next mission, the same team
+                    audio.play("start")
+                    self.go("play")
+                else:
+                    self.begin_entry()
         elif self.mode == "entry":
             self.entry_step(ctl)
 
@@ -257,7 +267,8 @@ class Game:
         if w.cleared:
             audio.music(False)                      # the boss is down: silence, then the tally
         else:
-            audio.music(True, "boss" if w.locked else "stage")
+            stage_song, boss_song = w.stage.mission.song
+            audio.music(True, boss_song if w.locked else stage_song)
         if w.cleared > 180:
             audio.music(False)
             self.bonus = w.hostages_freed * 1000
@@ -497,13 +508,14 @@ class Game:
             frac = max(0, w.boss.hp) / w.boss.HP
             pygame.draw.rect(surf, C["ink"], (W // 2 - 61, 26, 122, 6))
             pygame.draw.rect(surf, C["red"] if w.boss.angry else C["ember"], (W // 2 - 60, 27, round(120 * frac), 4))
-            font.draw(surf, "BASTION", (W // 2, 34), C["cream"], center=True)
+            font.draw(surf, w.stage.mission.boss_title.split()[0], (W // 2, 34), C["cream"], center=True)
 
     def banners(self, surf):
         w = self.world
         if w.frame < 240:
             if w.frame < 170:
-                for k, line in enumerate(BRIEFING):
+                m = w.stage.mission
+                for k, line in enumerate(["MISSION %d" % m.number, m.name, ""] + m.briefing):
                     if w.frame > k * 12:
                         font.draw(surf, line, (W // 2, 60 + k * 12), C["sun"] if k < 2 else C["cream"],
                                   center=True)
@@ -511,7 +523,7 @@ class Game:
                 font.draw(surf, "GO!", (W // 2, 90), C["sun"], 3, center=True)
         elif w.locked and w.boss and w.boss.state == "enter" and w.frame % 30 < 20:
             font.draw(surf, "WARNING", (W // 2, 80), C["red"], 3, center=True)
-            font.draw(surf, "BASTION  LEGION GATE CRAWLER", (W // 2, 110), C["cream"], center=True)
+            font.draw(surf, w.stage.mission.boss_title, (W // 2, 110), C["cream"], center=True)
         elif not w.locked and not any(0 < f.x - w.cam_x < W for f in w.foes) and (w.frame // 30) % 2:
             font.draw(surf, "GO >", (W - 50, 100), C["sun"], 2)
 
@@ -520,5 +532,10 @@ class Game:
         font.draw(surf, "MISSION COMPLETE", (W // 2, 60), C["sun"], 2, center=True)
         font.draw(surf, "PRISONERS FREED  %d" % self.world.hostages_freed, (W // 2, 96), C["cream"], center=True)
         font.draw(surf, "BONUS  %d" % self.bonus, (W // 2, 110), C["cream"], center=True)
-        if self.t > 120:
-            font.draw(surf, "MORE MISSIONS SOON", (W // 2, 150), C["steel_l"], center=True)
+        st = self.world.stage
+        for k, line in enumerate(st.mission.outro):
+            if self.t > 60 + k * 30:
+                font.draw(surf, line, (W // 2, 134 + k * 12), C["steel_l"], center=True)
+        if self.t > 150:
+            font.draw(surf, "MORE MISSIONS SOON" if st.last else "NEXT  MISSION %d" % (st.mission.number + 1),
+                      (W // 2, 172), C["sun"], center=True)

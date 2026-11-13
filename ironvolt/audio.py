@@ -72,14 +72,15 @@ def _effects():
         "alarm": _cat(*(_tone(0.18, f, f, duty=0.5, vol=0.25, decay=0.5) for f in (440, 330, 440, 330))),
         "enemy_shot": _tone(0.08, 500, 250, duty=0.5, vol=0.18, decay=8),
         "clank": _tone(0.04, 2000, 1500, noise=0.5, vol=0.2, decay=15, seed=9),
+        "whistle": _cat(_tone(0.3, 880, 900, duty=0.5, vol=0.18, decay=1), _tone(0.55, 1175, 1150, duty=0.5, vol=0.2, decay=2)),
         "slash": _tone(0.08, 2600, 500, noise=0.55, vol=0.3, decay=10, seed=10),
     }
 
 
 # --------------------------------------------------------------- music
 
-ORDER = ("title", "stage", "boss")            # built in this order: the first one heard comes first
-VOLUME = {"title": 0.11, "stage": 0.16, "boss": 0.13}   # evens out the songs' loudness
+ORDER = ("title", "stage", "boss", "line", "warden")            # built in this order: the first one heard comes first
+VOLUME = {"title": 0.11, "stage": 0.16, "boss": 0.13, "line": 0.16, "warden": 0.13}   # evens out the songs' loudness
 _tracks = {}
 _building = None
 _playing, _ch = None, 0
