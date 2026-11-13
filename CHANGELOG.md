@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0
+
+Mission 2, and a game that goes on after the first boss.
+- **Missions:** clearing a mission now leads to the next one with the same team: scores, lives, guns and grenades
+  carry over, and a player who is out gets a fresh chance to continue. Each mission has its own map, briefing, boss,
+  backdrop and music.
+- **Mission 2, THE PRISONER LINE:** the Legion's rail yard and viaduct under a colder dusk, with container stacks,
+  gantries over the gaps and signal masts.
+- **Shield troopers:** a riot shield stops level shots at its face. Get behind them, shoot from above, throw a
+  grenade, use the knife, or wait for them to lower the shield to fire.
+- **WARDEN**, the prisoner line's armoured engine: its roof gun fires in bursts, and when the whistle blows it charges
+  down the track. Climb a gantry or jump it. Once its armour splits it charges faster and troopers jump from its back
+  door.
+- **Two new songs:** the prisoner line's theme and WARDEN's.
+- The boss's name over its health bar follows the mission.
+- Fixed: the Linux build crashed on quitting.
+
 ## 0.6.0
 
 New moves and a new look.

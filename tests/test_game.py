@@ -15,14 +15,14 @@ import pygame  # noqa: E402
 pygame.init()
 
 from ironvolt import storage  # noqa: E402
-from ironvolt.actors import Foe, Hostage, Pickup  # noqa: E402
+from ironvolt.actors import Foe, Hostage, Pickup, Shot, Warden  # noqa: E402
 from ironvolt.app import fit, integer_fit, pace, scanlines  # noqa: E402
 from ironvolt.art import Atlas  # noqa: E402
 from ironvolt.autopilot import BotPad  # noqa: E402
 from ironvolt.controls import BUTTONS  # noqa: E402
 from ironvolt.game import Game  # noqa: E402
 from ironvolt.settings import GROUND_Y, H, MAX_FALL, RUN, STEP, TILE, W  # noqa: E402
-from ironvolt.stage import WALK  # noqa: E402
+from ironvolt.stage import MISSIONS, WALK  # noqa: E402
 from ironvolt.world import World  # noqa: E402
 
 ATLAS = Atlas()
@@ -263,11 +263,10 @@ class Feel(unittest.TestCase):
         self.assertTrue(bounced)
 
     def test_every_hostage_appears_ahead_of_the_player(self):
-        from ironvolt.stage import SPAWNS
-        self.assertEqual([c for c, *_ in SPAWNS], sorted(c for c, *_ in SPAWNS))   # the spawner reads them in order
-        for cam, kind, x, _ in SPAWNS:
-            if kind == "hostage":
-                self.assertGreater(x - cam, 200, x)  # the player runs ~130 px into the screen
+        for m in MISSIONS:
+            for cam, kind, x, _ in m.spawns:
+                if kind == "hostage":
+                    self.assertGreater(x - cam, 200, x)  # the player runs ~130 px into the screen
 
     def test_the_first_hostage_is_reached_on_foot(self):
         self.p.god = True
@@ -406,25 +405,116 @@ class Combat(unittest.TestCase):
 
 
 class Stage(unittest.TestCase):
-    def test_the_bot_finishes_the_stage(self):
-        w = World((0,), seed=1, god=True)
-        bots = [BotPad(), BotPad()]
-        for _ in range(20000):
-            bots[0].think(w, w.players[0])
-            w.step(bots)
-            if w.cleared:
-                break
-        self.assertTrue(w.cleared, "stage not finished; camera at %d" % w.cam_x)
+    def test_the_bot_finishes_every_mission(self):
+        for i, m in enumerate(MISSIONS):
+            w = World((0,), seed=1, god=True, stage=i)
+            bots = [BotPad(), BotPad()]
+            for _ in range(20000):
+                bots[0].think(w, w.players[0])
+                w.step(bots)
+                if w.cleared:
+                    break
+            self.assertTrue(w.cleared, "%s not finished; camera at %d" % (m.name, w.cam_x))
 
     def test_every_pit_is_jumpable(self):
-        st = World((0,)).stage
-        run_len = 0
-        for c in range(len(st.grid[0])):
-            if st.tile(c, 11) == 0:
-                run_len += 1
-            else:
-                self.assertLessEqual(run_len, 3, "pit ending at column %d" % c)
-                run_len = 0
+        for i in range(len(MISSIONS)):
+            st = World((0,), stage=i).stage
+            run_len = 0
+            for c in range(len(st.grid[0])):
+                if st.tile(c, 11) == 0:
+                    run_len += 1
+                else:
+                    self.assertLessEqual(run_len, 3, "pit ending at column %d" % c)
+                    run_len = 0
+
+
+class Missions(unittest.TestCase):
+    def test_a_riot_shield_stops_shots_at_its_face_only(self):
+        w = World((0,), seed=2)
+        w.spawn_i = len(w.stage.spawns)
+        foe = Foe(200.0, GROUND_Y, "shield")
+        foe.facing, foe.aiming, foe.timer = -1, 0, 10 ** 6
+        w.foes.append(foe)
+        front = Shot(198.0, GROUND_Y - 12, 6.0, 0.0, 1, w.players[0], "bullet")
+        self.assertTrue(foe.blocks(front))
+        back = Shot(210.0, GROUND_Y - 12, -6.0, 0.0, 1, w.players[0], "bullet")
+        self.assertFalse(foe.blocks(back))
+        above = Shot(195.0, GROUND_Y - 20, 3.0, 4.0, 1, w.players[0], "bullet")
+        self.assertFalse(foe.blocks(above))
+        foe.aiming = 6                                   # it lowers the shield to fire
+        self.assertFalse(foe.blocks(front))
+        foe.aiming = 0
+        w.shots.append(front)
+        w.collide()
+        self.assertEqual(foe.hp, 4)
+        self.assertTrue(front.dead)
+
+    def warden_charging(self, x, y):
+        w, pads = World((0,), seed=3), [Pad(), Pad()]
+        w.spawn_i = len(w.stage.spawns)
+        w.cam_x, w.locked = 100.0, True
+        w.boss = Warden(w.cam_x + W - 66, GROUND_Y, w.cam_x, w.cam_x + W)
+        w.boss.state, w.boss.mode = "fight", "charge"
+        p = w.players[0]
+        p.x, p.y, p.safe, p.vy = w.cam_x + x, y, 0, 0.0
+        for _ in range(120):
+            run(w, pads, 1)
+            if p.dying:
+                break
+        return w, p
+
+    def test_the_warden_runs_down_whoever_stays_on_the_track(self):
+        w, p = self.warden_charging(60, GROUND_Y)
+        self.assertTrue(p.dying)
+
+    def test_a_gantry_is_above_the_warden_roof(self):
+        top = GROUND_Y - Warden.h
+        for m in MISSIONS:
+            if m.boss != "warden":
+                continue
+            st = World((0,), stage=MISSIONS.index(m)).stage
+            arena = range(m.boss_col, st.cols)
+            rows = {r for c in arena for r in range(11) if st.tile(c, r) == WALK}
+            self.assertTrue(rows, "no gantry in the arena")
+            self.assertTrue(all(r * TILE <= top - 4 for r in rows))    # feet on it clear the roof
+
+    def test_the_next_mission_keeps_the_team(self):
+        w = World((0, 1), seed=4)
+        a, b = w.players
+        a.score, a.lives, a.weapon, a.ammo = 12340, 1, "S", 30
+        b.out, b.continue_t = True, 0
+        nxt = w.advance()
+        self.assertEqual(nxt.stage.index, 1)
+        self.assertIs(nxt.players[0], a)
+        self.assertEqual((a.score, a.lives, a.weapon), (12340, 1, "S"))
+        self.assertGreater(b.continue_t, 0)              # a fresh chance to continue
+
+    def test_the_tally_leads_to_the_next_mission_then_the_scores(self):
+        g = Game(ATLAS)
+        g.start([0])
+        g.world.players[0].score = 0
+        g.mode, g.t = "clear", 1000
+        g.step(Ctl())
+        self.assertEqual((g.mode, g.world.stage.index), ("play", 1))
+        g.mode, g.t = "clear", 1000
+        g.step(Ctl())
+        self.assertIn(g.mode, ("entry", "scores"))
+
+    def test_every_mission_draws(self):
+        s = pygame.Surface((W, H))
+        for i in range(len(MISSIONS)):
+            w = World((0,), seed=5, stage=i)
+            w.spawn_i = len(w.stage.spawns)
+            w.players[0].x = w.stage.boss_x + 40.0
+            w.cam_x = float(w.stage.boss_x)
+            for _ in range(120):
+                w.step([Pad(), Pad()])
+            self.assertIsNotNone(w.boss)
+            riot = Foe(w.cam_x + 60, GROUND_Y, "shield")
+            w.foes.append(riot)
+            w.draw(s, ATLAS)
+            riot.aiming = 6                              # the shield lowered to fire
+            w.draw(s, ATLAS)
 
 
 class Flow(unittest.TestCase):

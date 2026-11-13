@@ -1,4 +1,4 @@
-"""One play of the stage: the actors, the camera, collisions, effects, and drawing it all."""
+"""One play of a stage: the actors, the camera, collisions, effects, and drawing it all."""
 
 import math
 import random
@@ -6,7 +6,7 @@ import random
 import pygame
 
 from . import audio
-from .actors import Bastion, Drone, Foe, Hostage, Pickup, Player, Turret
+from .actors import Bastion, Drone, Foe, Hostage, Pickup, Player, Turret, Warden
 from .settings import CHAIN_FRAMES, CHAIN_MAX, DIFFICULTY, GRENADES, TILE, C, H, W
 from .stage import AIR, CRATE, GROUND, WALK, Stage
 
@@ -14,7 +14,7 @@ CONTINUE_FRAMES = 600
 
 
 class World:
-    def __init__(self, players=(0,), seed=None, god=False, level="NORMAL", lives=None):
+    def __init__(self, players=(0,), seed=None, god=False, level="NORMAL", lives=None, stage=0):
         if seed is not None:
             random.seed(seed)
         self.lives_set = lives            # the options' lives, or None: the difficulty's
@@ -22,7 +22,7 @@ class World:
         self.set_level(level)
         self.deaths = 0                   # the team's, for the "too feeble?" offer
         self.offered = 0                  # deaths when it was last offered
-        self.stage = Stage()
+        self.stage = Stage(stage)
         self.cam_x = self.cam_ox = 0.0    # the camera now, and a step ago
         self.blend = 1.0                  # how far from the step before to this one the picture is drawn (app.py)
         self.still = False                # a hit-stop holds the picture
@@ -63,6 +63,23 @@ class World:
         p.lives = self.lives
         self.players[i] = p
         return p
+
+    def advance(self):
+        """The next mission, with the same team: scores, lives, guns and grenades carry over."""
+        nxt = World((), god=self.god, level=self.level, lives=self.lives_set, stage=self.stage.index + 1)
+        nxt.shake_on, nxt.flashes_on = self.shake_on, self.flashes_on
+        nxt.deaths, nxt.offered = self.deaths, self.offered
+        for i, p in enumerate(self.players):
+            if p:
+                p.x, p.y, p.vx, p.vy = 40.0 + 16 * i, 176.0, 0.0, 0.0
+                p.ox, p.oy = p.x, p.y
+                p.dying = p.slide = p.slash = 0
+                p.chain = p.chain_t = 0
+                p.safe = self.safe
+                if p.out:
+                    p.continue_t = CONTINUE_FRAMES          # a fresh chance to continue on the new stage
+                nxt.players[i] = p
+        return nxt
 
     def live_players(self):
         return [p for p in self.players if p and p.active]
@@ -214,7 +231,7 @@ class World:
         elif kind == "turret":
             self.foes.append(Turret(x, y))
         else:
-            self.foes.append(Foe(x, y, kind))
+            self.foes.append(Foe(x, y, kind))       # soldier, lobber or shield
 
     def actors(self):
         """Everything with a position of its own."""
@@ -281,7 +298,8 @@ class World:
             self.cam_x = float(self.stage.boss_x)
             self.locked = True
             self.foes = [f for f in self.foes if f.x > self.cam_x]
-            self.boss = Bastion(self.cam_x + W + 60, 176, self.cam_x, self.cam_x + W)
+            kind = Warden if self.stage.mission.boss == "warden" else Bastion
+            self.boss = kind(self.cam_x + W + 60, 176, self.cam_x, self.cam_x + W)
             self.boss.HP = self.boss.hp = self.boss_hp
             audio.play("alarm")
         while self.spawn_i < len(self.stage.spawns) and self.stage.spawns[self.spawn_i][0] <= self.cam_x:
@@ -294,6 +312,11 @@ class World:
             r = s.rect()
             for e in self.foes:
                 if not getattr(e, "dying", 0) and r.colliderect(e.rect()):
+                    if getattr(e, "kind", "") == "shield" and e.blocks(s):
+                        s.dead = True                     # the riot shield takes it: go round, over, or under
+                        self.sparks(s.x, s.y, 2)
+                        audio.play("clank")
+                        break
                     e.damage(s.dmg, self, s.owner, push=1 if s.vx > 0 else -1)
                     s.dead = True
                     s.burst(self) if s.kind == "rocket" else self.sparks(s.x, s.y, 3)
@@ -377,8 +400,9 @@ class World:
     def paint(self, surf, atlas, view, back):
         sx, sy = self.jolt
         cam = round(view) - sx              # whole pixels: the tiles and all that stands on them move as one
-        surf.blit(atlas.sky, (0, 0))
-        for layer, factor, yoff in atlas.layers:
+        sky, layers, pillar = atlas.themes[self.stage.mission.theme]
+        surf.blit(sky, (0, 0))
+        for layer, factor, yoff in layers:
             lw = layer.get_width()
             ox = -int((view - sx) * factor) % lw
             surf.blit(layer, (ox - lw, yoff + sy))
@@ -413,14 +437,14 @@ class World:
             for i in range(int(near // 420), int((near + W) // 420) + 2):
                 px = round(i * 420 + 200 - near)
                 if -30 < px < W + 30:
-                    game.blit(atlas.pillar, (px, 0))
+                    game.blit(pillar, (px, 0))
         from . import font
         for x, y, text, life in self.popups:
             if life > 10 or life % 4 < 2:
                 font.draw(game, text, (round(x - cam), round(y)), C["cream"], center=True)
 
     def draw_tiles(self, surf, atlas, cam, sy):
-        tile = self.stage.tile
+        tile, theme = self.stage.tile, self.stage.mission.theme
         c0 = int(cam // TILE)
         for tx in range(c0, c0 + W // TILE + 2):
             px = round(tx * TILE - cam)
@@ -431,9 +455,10 @@ class World:
                 y = ty * TILE + sy
                 if t == GROUND:                                   # a deck where it is open above, an edge at a drop
                     surf.blit(atlas.ground_at(tx, ty, tile(tx, ty - 1) != GROUND, tile(tx - 1, ty) in (AIR, WALK),
-                                              tile(tx + 1, ty) in (AIR, WALK)), (px, y))
+                                              tile(tx + 1, ty) in (AIR, WALK), theme), (px, y))
                 elif t == CRATE:
-                    surf.blit(atlas.crates[(tx * 7 + ty * 3) % len(atlas.crates)], (px, y))
+                    surf.blit(atlas.crate_at(tx, ty, theme, tile(tx - 1, ty) != CRATE, tile(tx + 1, ty) != CRATE),
+                              (px, y))
                 elif t == WALK:
                     surf.blit(atlas.girders[tile(tx - 1, ty) != WALK, tile(tx + 1, ty) != WALK], (px, y))
                     if ty + 1 < len(self.stage.grid) and tile(tx, ty + 1) == AIR and tx % 3 == 0:

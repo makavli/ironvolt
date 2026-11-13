@@ -44,9 +44,23 @@ The gate is **BASTION**, a deep-mining crawler from the grid's old quarries. The
 a gun to its chin, and a missile rack that fires blind on spotted coordinates. Its glowing core is a salvaged grid
 capacitor; when the armour cracks, the core shows, and it pulses faster the closer it gets to failing.
 
+## Mission 2: The Prisoner Line
+
+The technicians freed at Ashfield were the lucky ones. The rest had already been moved: the Legion ships its
+prisoners to the Cradle by rail, along the last line of the old grid's own railway, over a viaduct that crosses a
+drowned town. The ash is thicker here, the dusk colder, and the only lights left are the line's red signals.
+
+The train is pulled by **WARDEN**, an armoured engine the Legion built from a grid maintenance locomotive. Its roof
+carries a turret, its cow-catcher is welded steel, and when its whistle blows it runs down anything on the track.
+Behind it, the prisoner cars.
+
+The Brigade stops the train and breaks the cars open. Kes searches every one. Her brother is not aboard, but the
+prisoners know his name: he was taken off the line weeks ago and sent ahead, straight to the Cradle, because he
+knew how to read the old grid's maps.
+
 ## Threads for later missions
 
 - The Cradle is not just a power plant: something in it kept running on the night the grid burned. Why only that one?
-- Kes's brother is somewhere on the Legion's prisoner line.
+- Kes's brother was sent ahead to the Cradle, for the grid maps he can read. What does Graive want mapped?
 - Graive wears a technician's badge from before the fall. He was one of them.
 - The ash is thinning near the Cradle. Somebody there is trying to bring the sun back, or keep it away.

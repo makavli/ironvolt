@@ -14,7 +14,7 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 ![pygame-ce](https://img.shields.io/badge/pygame--ce-2.5.8-6aa84f)
 ![Players](https://img.shields.io/badge/players-1%E2%80%932-e8742a)
 ![Assets](https://img.shields.io/badge/game%20assets-0%20files-8e44ad)
-![Status](https://img.shields.io/badge/status-v0.1%20%C2%B7%20mission%201-c0392b)
+![Status](https://img.shields.io/badge/status-v0.7%20%C2%B7%20missions%201%E2%80%932-c0392b)
 
 <img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
 
@@ -41,13 +41,14 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 | | |
 |---|---|
 | <img src="docs/media/play_700.png" alt="Catwalks, troopers and drones" width="400"> | <img src="docs/media/play_2600.png" alt="Rockets against the Legion" width="400"> |
-| **8-way aim, run, jump, slide, stomp, knife up close, drop through catwalks.** Troopers, grenadiers, drones and turrets come from every side. | **Free the prisoners, take their guns:** heavy gun, spread, rockets, grenades, extra lives. |
+| **8-way aim, run, jump, slide, stomp, knife up close, drop through catwalks.** Troopers, grenadiers, shield troopers, drones and turrets come from every side. | **Free the prisoners, take their guns:** heavy gun, spread, rockets, grenades, extra lives. |
 
 <div align="center">
 
 <img src="docs/media/boss.gif" alt="Boss fight against BASTION, the Legion's gate crawler" width="640">
 
-**BASTION**, the Legion's gate crawler. Two phases. Bring grenades.
+**BASTION**, the Legion's gate crawler. Two phases. Bring grenades. Then mission 2, **THE PRISONER LINE**, and
+**WARDEN**, an armoured engine that runs down anything on the track.
 
 </div>
 
@@ -61,8 +62,8 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 - **Easy, Normal or Hard**, chosen before every game. Die too often and the game asks if you are too feeble.
 - **Options for everyone:** lives, music and effects volume, rumble, swapped fire and jump, screen shake, flashes
   and a slower game speed, all saved. A controls page shows the keys and the pad.
-- **A synthesized stereo soundtrack:** a title theme, a stage theme and a boss theme that crossfades in when the
-  gate locks.
+- **A synthesized stereo soundtrack:** a title theme, and for each mission a stage theme and a boss theme that
+  crossfades in when the arena locks.
 - **Zero asset files:** sprites, tiles, the font, every sound effect and the music are generated at start-up.
 
 ## Play from the source
@@ -89,9 +90,11 @@ Free the prisoners: each one drops a weapon (H heavy gun, S spread, R rockets, B
 
 ## Develop
 
-`bash tools/test_local.sh` runs every check on your machine: unit tests, a bot that plays the stage to the end,
+`bash tools/test_local.sh` runs every check on your machine: unit tests, a bot that plays every mission to the end,
 screenshots in `shots/`, and a real window for a few seconds. `--exe` also builds `Ironvolt.exe`; `--web` builds
 the browser version and plays it in headless Chrome (`bash tools/web_build.sh --serve` to play it yourself).
+
+`IRONVOLT_STAGE=2 python run.py` starts on mission 2, to try it without playing mission 1 first.
 
 `python tools/media.py` re-records the GIFs and pictures in this README (needs ffmpeg).
 
