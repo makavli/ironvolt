@@ -264,7 +264,7 @@ def sprite(rows, pal, width=0):
     text = "".join(r.ljust(width, ".") for r in rows)
     table = dict.fromkeys(map(ord, set(text)), "\0\0\0\0")
     table.update((ord(k), "%c%c%c\xff" % tuple(v[:3])) for k, v in pal.items())
-    return pygame.image.frombuffer(text.translate(table).encode("latin-1"), (width, len(rows)), "RGBA").copy()
+    return pygame.image.frombytes(text.translate(table).encode("latin-1"), (width, len(rows)), "RGBA")  # frombytes copies; frombuffer kept a pointer to a freed temporary (Linux segfault)
 
 
 def outlined(surf, colour=INK):
