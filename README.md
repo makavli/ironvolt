@@ -1,10 +1,53 @@
+<div align="center">
+
+<img src="docs/media/title.png" alt="IRONVOLT title screen" width="720">
+
 # IRONVOLT
 
-An arcade run-and-gun in the spirit of 90s cabinets: a 320×224 screen scaled up in whole steps, layered parallax
-at dusk, chunky sprites, big explosions, one or two players on one machine. Everything you see and hear is
-drawn and synthesized in code.
+**Two soldiers. One endless dusk. Every bullet counts.**
 
-**Status:** v0.1, one complete stage with a boss. More missions to come.
+A 90s-arcade run-and-gun for one or two players: chunky pixels, screen-shaking explosions,
+a tank boss with a second phase, and not a single image or sound file in the repo.
+**Every pixel and every note is made by code.**
+
+![Python 3.13](https://img.shields.io/badge/python-3.13-3776AB?logo=python&logoColor=white)
+![pygame-ce](https://img.shields.io/badge/pygame--ce-2.5.8-6aa84f)
+![Players](https://img.shields.io/badge/players-1%E2%80%932-e8742a)
+![Assets](https://img.shields.io/badge/game%20assets-0%20files-8e44ad)
+![Status](https://img.shields.io/badge/status-v0.1%20%C2%B7%20mission%201-c0392b)
+
+<img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
+
+</div>
+
+## The Long Dusk
+
+In 2079 the Voltline grid burned in a single night, and the sun has not cleared the horizon since. The **Rust
+Legion** holds the last working tower and drags grid technicians from their towns in chains to keep it running.
+
+You are what is left of the **Ironvolt Brigade**, the crews who used to climb those towers. Free every technician
+you reach. Break the Legion's gate. Turn the lights back on. *([The full story](docs/STORY.md))*
+
+## What's in the cabinet
+
+| | |
+|---|---|
+| <img src="docs/media/play_700.png" alt="Catwalks, troopers and drones" width="400"> | <img src="docs/media/play_2600.png" alt="Rockets against the Legion" width="400"> |
+| **8-way aim, run, jump, drop through catwalks.** Troopers, grenadiers, drones and turrets come from every side. | **Free the prisoners, take their guns:** heavy gun, spread, rockets, grenades, extra lives. |
+
+<div align="center">
+
+<img src="docs/media/boss.gif" alt="Boss fight against BASTION, the Legion's gate crawler" width="640">
+
+**BASTION**, the Legion's gate crawler. Two phases. Bring grenades.
+
+</div>
+
+- **Two players on one machine**, keyboard or any gamepad (Xbox, PlayStation, Switch Pro), with rumble and light bar.
+- **Smooth on any screen:** logic at a fixed 60 Hz, drawn blended at your refresh rate (144 Hz, 165 Hz...), scaled
+  up in sharp whole steps inside a cabinet bezel. Optional scanlines.
+- **Arcade to the bone:** hit-stop, screen shake, continues, coins or free play, and a high-score table.
+- **Zero asset files:** sprites, tiles, the font, every sound effect and the music are generated at start-up.
 
 ## Play
 
@@ -32,6 +75,8 @@ Free the prisoners: each one drops a weapon (H heavy gun, S spread, R rockets, B
 
 `bash tools/test_local.sh` runs every check on your machine: unit tests, a bot that plays the stage to the end,
 screenshots in `shots/`, and a real window for a few seconds (`--exe` also builds the Windows app).
+
+`python tools/media.py` re-records the GIFs and pictures in this README (needs ffmpeg).
 
 ## Licence
 
