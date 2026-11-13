@@ -1,0 +1,27 @@
+name: close-issue
+
+# A pull request closed while its checks are red would leave open the issue test.yml opened for it: this job closes
+# it. Its token may write issues and nothing else. A fork's pull request never gets an issue, so it is left out.
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  close:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      issues: write
+    steps:
+      - name: Close the issue of this pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          title="Checks failed on pull request #$PR"
+          issue="$(gh api "repos/$GH_REPO/issues?state=open&labels=ci-failure&per_page=100" --jq ".[] | select(.pull_request == null and .title == \"$title\") | .number" | head -n 1)"
+          if [ -n "$issue" ]; then gh issue close "$issue" --comment "#$PR is closed, so this issue is too."; fi
