@@ -54,6 +54,7 @@ Missions 3 and 4 play differently, not only look different, and there is more to
 - **The knife reaches further:** fire with a trooper in your face or a long arm away and it is a stab, not a shot.
 - **Bouncing signs:** "DUCK HERE: GO DOWN!" over the drain grate and "WALK IN: GOING UP!" at the lift, and a shout
   as you go down, up and back out.
+- In the storm drain, prisoners and troopers stand on its floor (they appeared on top of its ceiling).
 - Mission 4's high catwalks now run on over the pits beyond them: walking off the end no longer drops you in one.
 
 ## 0.9.0
