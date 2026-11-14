@@ -93,8 +93,9 @@ def _effects():
 
 ORDER = ("title", "stage", "boss", "line", "warden", "pylon", "harrow", "cradle", "graive", "sakura", "blademaster", "harbour",
          "leviathan")            # built in this order: the first one heard comes first
-VOLUME = {"title": 0.11, "stage": 0.16, "boss": 0.13, "line": 0.16, "warden": 0.13, "pylon": 0.16, "harrow": 0.13,
-          "cradle": 0.16, "graive": 0.13, "sakura": 0.12, "blademaster": 0.104, "harbour": 0.114, "leviathan": 0.116}   # evens out the songs' loudness
+VOLUME = {"title": 0.11, "stage": 0.14, "boss": 0.131, "line": 0.133, "warden": 0.118, "pylon": 0.137,
+          "harrow": 0.104, "cradle": 0.133, "graive": 0.121, "sakura": 0.12, "blademaster": 0.104, "harbour": 0.114,
+          "leviathan": 0.116}   # evens out the songs' loudness
 _tracks = {}
 _wanted = set()                                   # songs asked for before they were built: built next
 _building = None
