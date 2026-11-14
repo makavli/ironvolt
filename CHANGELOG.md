@@ -27,12 +27,12 @@ Two new missions, over the sea to the old Eastern grid (story in docs/STORY.md):
   the harbour crane over a flooded dock, the storm sewers under the street, a rotten pier. Boss: **TIDEBREAKER,
   gantry walker**: a walking container crane that drops its hook where a red mark blinks, calls shells down where
   its searchlight stops, and once its cab cracks swings a container along the quay (duck it).
-- New backdrops for both (blossom island at dusk; neon skyline, cranes and wet asphalt) and four new songs.
+- New backdrops for both (blossom island at dusk; neon skyline, cranes and wet asphalt). Each has its own band: mission 5 plays bamboo flute, koto, taiko drums and a gong; mission 6 slows down for a rainy night of electric piano, deep bass, clanking metal and rain.
 - The Voltline map crosses the sea to the two new stops; six map pages to find.
 
-New Legion troops in every mission:
-- **Cutters:** blade troopers in black wraps and red scarves. They run in, throw one star, crouch, and dive at you.
-- **Snipers:** a red laser line tracks you, blinks, locks, then fires along it. Move when it blinks.
+New enemies:
+- **Cutters** (missions 5 and 6 only, the Kagenui clan): blade troopers in black wraps and red scarves. They run in, throw one star, crouch, and dive at you.
+- **Snipers** (every mission): a red laser line tracks you, blinks, locks, then fires along it. Move when it blinks.
 - **Trikes:** a siren and a warning at the screen's edge, then an armoured trike that jumps gaps and ramps walls.
 - **Oil drums:** one shot and they blow, hurting everyone near, you included.
 

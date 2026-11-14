@@ -88,7 +88,7 @@ SCRAPYARD_SPAWNS = [
     (2340, "soldier", "edge", None), (2400, "hostage", 200 * TILE, "1"), (2440, "drone", "edge", None),
     (2480, "soldier", "edge", None), (2520, "soldier", "edge", None),
     (50, "barrel", 20 * TILE, None), (962, "barrel", 77 * TILE, None), (2402, "barrel", 167 * TILE, None),
-    (1460, "cutter", "edge", None), (1980, "cutter", "edge", None), (2280, "cutter", "edge", None),
+    (1460, "soldier", "edge", None), (1980, "soldier", "edge", None), (2280, "soldier", "edge", None),
     (1230, "trike", "edge", None), (2180, "trike", "edge", None),
 ]
 
@@ -122,7 +122,7 @@ def _stash():
 
 
 STASH_SPAWNS = _waves([("hostage", 16, "S"), ("lobber", 30, None), ("hostage", 38, "1"), ("page", 44, 4),
-                       ("hostage", 51, "B"), ("barrel", 25, None)], 40, ["soldier", "cutter", "shield"], 850)
+                       ("hostage", 51, "B"), ("barrel", 25, None)], 40, ["soldier", "soldier", "shield"], 850)
 
 
 def _line():
@@ -177,7 +177,7 @@ LINE_SPAWNS = _waves(
      ("hostage", 152, "R"), ("turret", 161, None), ("lobber", 168, None), ("hostage", 170, "H"),
      ("turret", 184, None), ("hostage", 195, "1"), ("lobber", 207, None), ("sniper", 41, None),
      ("sniper", 130, None), ("barrel", 31, None), ("barrel", 74, None), ("barrel", 135, None)],
-    60, ["soldier", "shield", "cutter", "soldier", "drone", "soldier", "trike", "shield", "cutter", "soldier"], 3500)
+    60, ["soldier", "shield", "soldier", "soldier", "drone", "soldier", "trike", "shield", "soldier", "soldier"], 3500)
 
 
 LINE_PROPS = [("shutter", 80), ("ladder", 104, "roofs", 144), ("crumble", 211, 213, 11)]
@@ -189,7 +189,7 @@ def _roofs():
     return g
 
 
-ROOFS_SPAWNS = [(540, "cutter", 290, None), (1000, "cutter", 30, None), (80, "soldier", 280, None), (200, "shield", 260, None), (300, "gift", 160, "S"),
+ROOFS_SPAWNS = [(540, "soldier", 290, None), (1000, "soldier", 30, None), (80, "soldier", 280, None), (200, "shield", 260, None), (300, "gift", 160, "S"),
                 (420, "soldier", 40, None), (480, "drone", 300, None), (620, "soldier", 270, None),
                 (700, "page", 200, 2), (760, "lobber", 60, None), (880, "soldier", 290, None),
                 (980, "drone", 20, None), (1060, "shield", 250, None), (1180, "soldier", 60, None)]
@@ -245,7 +245,7 @@ ROAD_SPAWNS = _waves(
      ("hostage", 158, "S"), ("lobber", 169, None), ("turret", 188, None), ("hostage", 203, "1"),
      ("lobber", 210, None), ("sniper", 40, None), ("sniper", 187, None), ("barrel", 15, None),
      ("barrel", 131, None)],
-    60, ["soldier", "sapper", "trike", "soldier", "drone", "cutter", "shield", "sapper", "trike", "soldier"], 3400) + \
+    60, ["soldier", "sapper", "trike", "soldier", "drone", "soldier", "shield", "sapper", "trike", "soldier"], 3400) + \
     [(cam, "drone", "edge", None) for cam in range(1380, 1860, 80)]      # over the gully, only the air comes at you
 
 
@@ -267,7 +267,7 @@ def _drain():
 
 
 DRAIN_SPAWNS = _waves([("hostage", 22, "R"), ("lobber", 36, None), ("hostage", 48, "1"), ("page", 58, 4),
-                       ("lobber", 60, None)], 40, ["soldier", "cutter", "shield"], 1000)
+                       ("lobber", 60, None)], 40, ["soldier", "soldier", "shield"], 1000)
 
 
 def _cradle():
@@ -313,7 +313,7 @@ CRADLE_SPAWNS = _waves(
      ("turret", 88, None), ("hostage", 87, "S"), ("guard", 140, None), ("hostage", 150, "R"), ("turret", 171, None),
      ("guard", 186, None), ("hostage", 188, "1"), ("sniper", 45, None), ("sniper", 80, None),
      ("barrel", 92, None), ("barrel", 190, None)],
-    60, ["guard", "cutter", "sapper", "shield", "guard", "drone", "cutter", "soldier", "sapper"], 3150)
+    60, ["guard", "guard", "sapper", "shield", "guard", "drone", "guard", "soldier", "sapper"], 3150)
 
 
 def _lift():
@@ -328,7 +328,7 @@ LIFT_SPAWNS = [(60, "guard", 250, None), (120, "soldier", 70, None), (220, "dron
                (520, "drone", 300, None), (560, "guard", 240, None), (600, "shield", 90, None),
                (760, "sapper", 40, None), (780, "guard", 270, None), (900, "drone", 300, None),
                (940, "drone", 20, None), (1000, "guard", 160, None), (1100, "soldier", 280, None),
-               (1120, "soldier", 40, None), (460, "cutter", 200, None), (840, "cutter", 100, None)]
+               (1120, "soldier", 40, None), (460, "guard", 200, None), (840, "guard", 100, None)]
 
 def _hanakiri():
     """Mission 5: HANAKIRI, the Kagenui's temple island. Stone steps up the mountain, rope bridges over the ravines
@@ -546,7 +546,7 @@ MISSIONS = [
             ("stage", "boss"), 0, ["FREE THE CAPTURED TECHNICIANS.", "BREAK THE LEGION GATE."],
             ["THE GATE IS DOWN.", "THE PRISONERS WERE MOVED BY RAIL."], SCRAPYARD_PROPS,
             (206, _gate_yard, [("hostage", 12, "S"), ("lobber", 25, None), ("barrel", 27, None)],
-             ["soldier", "cutter", "drone"],
+             ["soldier", "soldier", "drone"],
              [("shutter", 9), ("crumble", 18, 19, 11), ("crusher", 29, 40)])),
     Mission(2, "THE PRISONER LINE", _line, LINE_SPAWNS, 228, "warden", "WARDEN  PRISONER LINE ENGINE",
             ("line", "warden"), 1, ["THE LEGION SHIPS ITS PRISONERS BY RAIL.", "STOP THE TRAIN."],
@@ -556,12 +556,12 @@ MISSIONS = [
     Mission(3, "PYLON ROAD", _pylon_road, ROAD_SPAWNS, 220, "harrow", "HARROW  LINE SURVEY GUNSHIP",
             ("pylon", "harrow"), 2, ["THE LAST LIVE LINE RUNS TO THE CRADLE.", "FOLLOW IT. DOWN THE GUNSHIP."],
             ["HARROW'S LOG CARRIES THE BROTHER'S MAPS.", "GRAIVE IS RELIGHTING THE OLD GRID."], ROAD_PROPS,
-            (213, _last_pylon, [("hostage", 16, "R"), ("lobber", 29, None)], ["trike", "sapper", "cutter"],
+            (213, _last_pylon, [("hostage", 16, "R"), ("lobber", 29, None)], ["trike", "sapper", "soldier"],
              [("arc", 3, 10, 8, 30), ("laser", 13), ("laser", 27)])),
     Mission(4, "THE CRADLE", _cradle, CRADLE_SPAWNS, 220, "graive", "GRAIVE  WARLORD OF THE CRADLE",
             ("cradle", "graive"), 3, ["THE CRADLE STILL TURNS. GRAIVE IS INSIDE.", "TAKE THE TOWER. FIND KES'S BROTHER."],
             ["GRAIVE IS DOWN. THE CRADLE IS OURS.", "KES'S BROTHER IS AT THE CONTROLS."], CRADLE_PROPS,
-            (216, _turbine_hall, [("hostage", 19, "H"), ("guard", 24, None)], ["cutter", "guard", "cutter"],
+            (216, _turbine_hall, [("hostage", 19, "H"), ("guard", 24, None)], ["guard", "soldier", "guard"],
              [("vent", 2), ("piston", 16, 0), ("laser", 21)])),
     Mission(5, "HANAKIRI", _hanakiri, HANAKIRI_SPAWNS, 228, "sorakage", "SORAKAGE  CLAN BLADEMASTER",
             ("sakura", "blademaster"), 7, ["THE CRADLE'S POWER RUNS EAST BY SEA.", "CLIMB HANAKIRI. BREAK THE KAGENUI."],

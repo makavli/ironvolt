@@ -832,6 +832,23 @@ class BrowserPad(unittest.TestCase):
 
 
 class Music(unittest.TestCase):
+    def test_every_mission_song_is_built(self):
+        from ironvolt import audio, music, stage
+        for m in stage.MISSIONS:
+            for song in m.song:
+                self.assertIn(song, audio.ORDER, m.name)
+                self.assertIn(song, audio.VOLUME, m.name)
+        self.assertEqual(set(audio.ORDER), set(music.SONGS))      # the baked folder holds what ORDER loads
+
+    def test_ninjas_only_in_the_eastern_missions(self):
+        from ironvolt import stage
+        for i, m in enumerate(stage.MISSIONS):
+            if m.theme in (7, 8):
+                continue
+            rooms = [p[2] for p in m.props if p[0] in stage.INTO]
+            for st in [stage.Stage(i)] + [stage.Stage(i, r) for r in rooms]:
+                self.assertNotIn("cutter", [s[1] for s in st.spawns], (m.name, st.room))
+
     def test_song_never_clips(self):
         from ironvolt import music
         data = music.render("title")
@@ -844,6 +861,8 @@ class Music(unittest.TestCase):
         for name, (bpm, sections) in music.SONGS.items():
             for chords, style, lead in sections:
                 self.assertIn(style, music.STYLES)
+                if lead:
+                    self.assertIn(lead[1], music.TIMBRES, name)
                 for c in chords.split():
                     self.assertIn(c, music.CHORDS)
                 if lead:

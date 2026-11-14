@@ -91,10 +91,12 @@ def _effects():
 
 # --------------------------------------------------------------- music
 
-ORDER = ("title", "stage", "boss", "line", "warden", "pylon", "harrow", "cradle", "graive")            # built in this order: the first one heard comes first
+ORDER = ("title", "stage", "boss", "line", "warden", "pylon", "harrow", "cradle", "graive", "sakura", "blademaster", "harbour",
+         "leviathan")            # built in this order: the first one heard comes first
 VOLUME = {"title": 0.11, "stage": 0.16, "boss": 0.13, "line": 0.16, "warden": 0.13, "pylon": 0.16, "harrow": 0.13,
-          "cradle": 0.16, "graive": 0.13}   # evens out the songs' loudness
+          "cradle": 0.16, "graive": 0.13, "sakura": 0.12, "blademaster": 0.104, "harbour": 0.114, "leviathan": 0.116}   # evens out the songs' loudness
 _tracks = {}
+_wanted = set()                                   # songs asked for before they were built: built next
 _building = None
 _playing, _ch = None, 0
 _volume = {"music": 0.8, "sfx": 0.8}              # the options' sliders, 0..1
@@ -108,9 +110,11 @@ def _stereo(mono):
     return out
 
 
-def init():
-    """Starts the mixer and the sound build. Returns False with no audio device."""
+def init(first=()):
+    """Starts the mixer and the sound build, the songs in `first` right after the title's. Returns False with no
+    audio device."""
     global _on, _building
+    _wanted.update(("title",) + tuple(first))
     try:
         pygame.mixer.pre_init(RATE, -16, 2, 512)
         pygame.mixer.init(RATE, -16, 2, 512)
@@ -137,7 +141,10 @@ def init():
 
 
 def _build_all():
-    for name in ORDER:
+    pending = list(ORDER)
+    while pending:
+        name = next((n for n in pending if n in _wanted), pending[0])
+        pending.remove(name)
         data = yield from songs.build(name)
         _tracks[name] = pygame.mixer.Sound(buffer=data.tobytes())
 
@@ -185,7 +192,13 @@ def music(on=True, track="stage"):
             pygame.mixer.Channel(_ch).fadeout(600)
             _playing = None
         return
-    if track == _playing or track not in _tracks:
+    if track == _playing:
+        return
+    if track not in _tracks:                       # still being built: silence, not the last mission's song
+        _wanted.add(track)
+        if _playing:
+            pygame.mixer.Channel(_ch).fadeout(600)
+            _playing = None
         return
     fade = 4000                                    # from silence: eases in under the start jingle
     if _playing:

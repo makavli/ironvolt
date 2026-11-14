@@ -950,6 +950,8 @@ class Sorakage(Body):
         self.trail = (self.trail + [self.x])[-5:] if self.mode == "dashing" else []
         if self.dying:
             self.dying -= 1
+            self.vx = 0
+            self.fall(world)                         # killed mid-leap or mid-dash: he comes down, not hangs there
             if self.dying % 10 == 0:
                 self.petals(world, 6)
             if self.dying == 1:
