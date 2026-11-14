@@ -208,6 +208,64 @@ ROAD_SPAWNS = _waves(
     60, ["soldier", "sapper", "soldier", "drone", "shield", "sapper", "soldier", "soldier"], 3400)
 
 
+def _cradle():
+    """Mission 4: the Cradle's outer works, up to the tower that still turns. Coolant housings and reactor blocks,
+    catwalks in tiers, gaps where the floor plates fell in; the arena under the tower has two catwalks, high enough
+    that GRAIVE's rig lands under them."""
+    g, pit, block, walk = _ground(240)
+    block(10, 11, 9, CRATE)
+    walk(15, 21, 8)
+    walk(18, 24, 5)
+    pit(26, 28)
+    block(32, 36, 9)                       # a reactor block
+    block(34, 36, 7)
+    walk(40, 46, 7)
+    pit(49, 51)
+    block(55, 56, 10, CRATE)
+    block(56, 56, 9, CRATE)
+    walk(60, 68, 8)
+    walk(63, 66, 5)
+    pit(71, 73)
+    block(77, 81, 8)
+    walk(84, 90, 6)
+    block(93, 94, 10, CRATE)
+    block(94, 94, 9, CRATE)
+    pit(98, 100)
+    walk(97, 101, 8)
+    block(105, 109, 9)
+    block(107, 109, 7)
+    walk(113, 120, 8)
+    walk(116, 119, 5)
+    pit(123, 125)
+    block(129, 131, 10, CRATE)
+    walk(134, 141, 7)
+    block(144, 148, 8)
+    pit(152, 154)
+    walk(151, 155, 8)
+    block(159, 160, 10, CRATE)
+    block(160, 160, 9, CRATE)
+    walk(164, 171, 6)
+    block(166, 168, 9)
+    pit(175, 177)
+    block(181, 185, 9)
+    block(183, 185, 7)
+    walk(189, 196, 8)
+    pit(199, 201)
+    block(205, 207, 10, CRATE)
+    walk(210, 215, 8)
+    walk(222, 226, 8)                      # the arena's catwalks: above the rig's head
+    walk(233, 237, 8)
+    return g
+
+
+CRADLE_SPAWNS = _waves(
+    [("hostage", 20, "H"), ("turret", 35, None), ("lobber", 44, None), ("hostage", 64, "S"), ("turret", 80, None),
+     ("guard", 88, None), ("hostage", 99, "R"), ("turret", 108, None), ("lobber", 118, None), ("hostage", 137, "B"),
+     ("turret", 147, None), ("guard", 166, None), ("hostage", 184, "S"), ("turret", 184, None),
+     ("hostage", 207, "1"), ("guard", 212, None)],
+    60, ["guard", "soldier", "sapper", "shield", "guard", "drone", "soldier", "sapper"], 3400)
+
+
 class Mission:
     def __init__(self, number, name, build, spawns, boss_col, boss, boss_title, song, theme, briefing, outro):
         self.number, self.name, self.build, self.spawns = number, name, build, spawns
@@ -225,6 +283,9 @@ MISSIONS = [
     Mission(3, "PYLON ROAD", _pylon_road, ROAD_SPAWNS, 220, "harrow", "HARROW  LINE SURVEY GUNSHIP",
             ("pylon", "harrow"), 2, ["THE LAST LIVE LINE RUNS TO THE CRADLE.", "FOLLOW IT. DOWN THE GUNSHIP."],
             ["HARROW'S LOG CARRIES THE BROTHER'S MAPS.", "GRAIVE IS RELIGHTING THE OLD GRID."]),
+    Mission(4, "THE CRADLE", _cradle, CRADLE_SPAWNS, 220, "graive", "GRAIVE  WARLORD OF THE CRADLE",
+            ("cradle", "graive"), 3, ["THE CRADLE STILL TURNS. GRAIVE IS INSIDE.", "TAKE THE TOWER. FIND KES'S BROTHER."],
+            ["GRAIVE IS DOWN. THE CRADLE IS OURS.", "KES'S BROTHER IS AT THE CONTROLS."]),
 ]
 
 

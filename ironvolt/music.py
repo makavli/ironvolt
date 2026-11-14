@@ -18,7 +18,8 @@ NOTE = {n: i for i, n in enumerate("C C# D D# E F F# G G# A A# B".split())}
 CHORDS = {"Am": (57, (0, 3, 7)), "Dm": (62, (0, 3, 7)), "F": (53, (0, 4, 7)), "C": (60, (0, 4, 7)),
           "G": (55, (0, 4, 7)), "E": (52, (0, 4, 7)), "Bb": (58, (0, 4, 7)),
           "Em": (52, (0, 3, 7)), "D": (62, (0, 4, 7)), "B": (59, (0, 4, 7)),
-          "A": (57, (0, 4, 7)), "Gm": (55, (0, 3, 7)), "Eb": (63, (0, 4, 7))}   # pad root (MIDI), intervals
+          "A": (57, (0, 4, 7)), "Gm": (55, (0, 3, 7)), "Eb": (63, (0, 4, 7)),
+          "Cm": (60, (0, 3, 7)), "Ab": (56, (0, 4, 7)), "Fm": (53, (0, 3, 7)), "Db": (61, (0, 4, 7))}   # pad root (MIDI), intervals
 STYLES = {   # drums, bass notes a bar (0, 8 or 16), pad brightness (low-pass Hz), arpeggio
     "intro": ("half", 8, 900, True),
     "drive": ("full", 8, 1500, True),
@@ -71,6 +72,20 @@ ROTOR = ["D5 - - - . D5 F5 - E5 - D5 - C5 - A4 -", "D#5 - - - . D#5 G5 - F5 - D#
          "D5 - - - . D5 F5 - E5 - D5 - C5 - A4 -", "A#5 - - - A5 - G5 - F5 - - - D#5 - G5 -",
          "F5 - - - A5 - C6 - A5 - - - F5 - C5 -", "C#5 - - - E5 - G5 - A5 - - - - - . ."]
 
+# Mission 4, the Cradle: C minor, the grid's last heartbeat; GRAIVE in C with a Phrygian Db.
+CRADLE = ["C5 - - - G5 - - - D#5 - D5 - C5 - - -", "C5 - - . D#5 - G#5 - G5 - - - F5 - D#5 -",
+          "A#5 - - - G5 - D#5 - G5 - - - A#5 - - -", "D5 - - - F5 - A#5 - D6 - - - C6 - A#5 -",
+          "C5 - - - G5 - - - D#5 - D5 - C5 - - -", "D#5 - - - G#5 - C6 - A#5 - G#5 - G5 - - -",
+          "F5 - - - G#5 - C6 - G#5 - - - F5 - - -", "B5 - - - - - G5 - D5 - - - B4 - . ."]
+HEART = ["D#5 - - - - - C5 - G#4 - - - C5 - D#5 -", "F5 - - - - - D5 - A#4 - - - D5 - F5 -",
+         "G5 - - - - - - - D#5 - F5 - G5 - - -", "C6 - - - A#5 - G5 - D#5 - - - - - . .",
+         "D#5 - - - - - C5 - G#5 - - - G5 - D#5 -", "F5 - - - - - A#5 - D5 - - - F5 - A#5 -",
+         "B5 - - - - - - - G5 - - - D5 - - -", "G5 - - - - - - - - - - - . . . ."]
+CROWN = ["C5 - - - . C5 D#5 - D5 - C5 - A#4 - G4 -", "C#5 - - - . C#5 F5 - D#5 - C#5 - C5 - G#4 -",
+         "C5 - - - . C5 G5 - G#5 - - - G5 - D#5 -", "B4 - - - D5 - - - G5 - - - - - . .",
+         "C5 - - - . C5 D#5 - D5 - C5 - A#4 - G4 -", "G#5 - - - G5 - F5 - D#5 - - - C#5 - F5 -",
+         "D#5 - - - G5 - A#5 - G5 - - - D#5 - A#4 -", "B4 - - - D5 - F5 - G5 - - - - - . ."]
+
 SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doubled an octave up) or None)
     "title": (120, [("Am F C G Am F C G", "title", (HOOK, "bell", False))]),
     "stage": (120, [("Am F C G", "intro", None),
@@ -97,6 +112,14 @@ SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doub
                     ("Dm Bb F C Dm Bb Gm A", "drive", (PYLON, "lead", True))]),
     "harrow": (150, [("Dm Eb Dm A Dm Eb F A", "boss", None),
                      ("Dm Eb Dm A Dm Eb F A", "boss", (ROTOR, "lead", True))]),
+    "cradle": (126, [("Cm Ab Eb Bb", "intro", None),
+                     ("Cm Ab Eb Bb Cm Ab Fm G", "drive", (CRADLE, "lead", False)),
+                     ("Ab Bb Cm Cm Ab Bb G G", "lift", (HEART, "lead", False)),
+                     ("Ab Bb Cm", "break", ([CRADLE[1], CRADLE[3], CRADLE[0]], "bell", False)),
+                     ("Cm", "rise", None),
+                     ("Cm Ab Eb Bb Cm Ab Fm G", "drive", (CRADLE, "lead", True))]),
+    "graive": (154, [("Cm Db Cm G Cm Db Eb G", "boss", None),
+                     ("Cm Db Cm G Cm Db Eb G", "boss", (CROWN, "lead", True))]),
 }
 CHUNK = 512                 # samples between yields
 

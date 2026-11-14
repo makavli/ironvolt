@@ -421,6 +421,8 @@ class Bolt:
                 world.sparks(self.x, self.y, 2)
 
     def rect(self):
+        if self.kind == "wave":                                 # low and wide: a jump clears it, a crouch does not
+            return pygame.Rect(round(self.x) - 4, round(self.y) - 5, 8, 8)
         r = 3 if self.kind in ("shell", "missile") else 2      # a pixel inside the picture: a graze is a miss
         return pygame.Rect(round(self.x) - r, round(self.y) - r, r * 2, r * 2)
 
@@ -430,6 +432,12 @@ class Bolt:
             pygame.draw.circle(surf, C["ink"], (x, y), 4)
             pygame.draw.circle(surf, C["steel"], (x, y), 3)
             surf.set_at((x - 1, y - 1), C["white"])
+        elif self.kind == "wave":
+            for k in range(3):                                  # three crackling forks, redrawn every frame
+                h = 3 + (frame * 7 + k * 5) % 6
+                pygame.draw.line(surf, C["cyan"], (x - 4 + k * 4, y + 2), (x - 3 + k * 3, y + 2 - h))
+            pygame.draw.line(surf, C["white"], (x - 5, y + 2), (x + 5, y + 2))
+            surf.set_at((x, y - 3 - frame % 3), C["white"])
         elif self.kind == "missile":
             pygame.draw.line(surf, C["ink"], (x, y - 9), (x, y), 4)
             pygame.draw.line(surf, C["steel_l"], (x, y - 9), (x, y - 1), 2)
@@ -479,13 +487,14 @@ class Grenade(Body):
 class Foe(Body):
     """A Rust Legion trooper. Rifles walk in and fire level; lobbers hold ground and arc shells; shields walk in
     behind a riot shield that stops level shots, and lower it for a moment to fire. Sappers carry no gun: they run
-    at you with a satchel charge and light it up close, so shoot them early or knife them before the fuse burns."""
+    at you with a satchel charge and light it up close, so shoot them early or knife them before the fuse burns.
+    Guards, Graive's own, wear his red plate, take three hits and fire their rifles two shots at a time."""
     w, h = 10, 21
 
     def __init__(self, x, y, kind="soldier"):
         super().__init__(x, y)
         self.kind = kind
-        self.hp = {"soldier": 2, "lobber": 3, "shield": 4, "sapper": 1}[kind]
+        self.hp = {"soldier": 2, "lobber": 3, "shield": 4, "sapper": 1, "guard": 3}[kind]
         self.facing = -1
         self.timer = random.randint(40, 80)
         self.hurt = 0
@@ -570,6 +579,9 @@ class Foe(Body):
             t = 52.0
             vx = max(-3.2, min(3.2, (target.x - mx) / t))
             world.bolts.append(Bolt(mx, my - 4, vx, -0.5 * 0.16 * t, 0.16, "shell"))
+        elif self.kind == "guard":                        # two shots, fanned: one flies level, one dips
+            for vy in (0.0, 0.35):
+                world.bolts.append(Bolt(mx, my, self.facing * ENEMY_BULLET_V * world.fire, vy))
         else:
             world.bolts.append(Bolt(mx, my, self.facing * ENEMY_BULLET_V * world.fire, 0))
         world.flash(mx, my, small=True)
@@ -601,7 +613,7 @@ class Foe(Body):
     def draw(self, surf, atlas, cam):
         right = self.facing > 0
         frames = {"lobber": (atlas.lobber, atlas.lobber_l), "shield": (atlas.riot, atlas.riot_l),
-                  "sapper": (atlas.sapper, atlas.sapper_l)}.get(
+                  "sapper": (atlas.sapper, atlas.sapper_l), "guard": (atlas.guard, atlas.guard_l)}.get(
             self.kind, (atlas.foe, atlas.foe_l))[not right]
         if self.dying and (self.dying // 4) % 2:
             return
@@ -1255,3 +1267,173 @@ class Harrow(Body):
             glow = C["sun"] if (self.t // 5) % 2 else C["ember"]
             pygame.draw.rect(surf, C["ember"], (x + 14, y - 26, 10, 5))
             pygame.draw.rect(surf, glow, (x + 15, y - 25, 8, 3))
+
+
+class Graive(Body):
+    """OTTAR GRAIVE in the Cradle's lineman rig: a walking frame built to carry a technician up a reactor tower, now
+    plated and armed. It strides in firing its arm cannon, crouches, and leaps at you; the landing sends a shockwave
+    crawling along the floor both ways. Jump the waves, and never be where it lands. Broken, it leaps sooner and its
+    landing sends a second wave after the first."""
+    w, h = 36, 44                               # under the arena's catwalks, so standing on one is safe
+    HP = 170
+
+    def __init__(self, x, y, left, right):
+        super().__init__(x, y)
+        self.floor = y
+        self.hp = self.HP
+        self.left, self.right = left, right
+        self.home = right - 70
+        self.state = "enter"
+        self.mode, self.mt = "stride", 0        # stride, crouch, leap, land
+        self.t = self.hurt = self.dying = self.burst = 0
+        self.stride = 0.0
+        self.facing = -1
+        self.target_x = x
+        self.gun_angle = math.pi
+        self.marks = []                         # none: World.boss_down clears every boss's
+
+    @property
+    def angry(self):
+        return self.hp <= self.HP // 2
+
+    def step(self, world):
+        self.t += 1
+        if self.hurt:
+            self.hurt -= 1
+        if self.dying:                          # the rig staggers, sparks, goes down on its knees
+            self.dying -= 1
+            self.y = min(self.floor, self.y + 2)
+            if self.dying % 7 == 0:
+                world.explode(self.x + random.uniform(-18, 18), self.y - random.uniform(6, 40), 16, 0, None)
+            if self.dying == 1:
+                world.explode(self.x, self.y - 20, 60, 0, None, big=True)
+                self.dead = True
+            return
+        if self.angry and self.t % 6 == 0:
+            world.smoke(self.x + random.uniform(-10, 10), self.y - 44, 1.0)
+        x0 = self.x
+        if self.state == "enter":
+            self.x = max(self.home, self.x - 0.8)
+            self.stride += self.x - x0
+            if self.x == self.home:
+                self.state, self.t = "fight", 0
+            return
+        target = world.nearest(self.x)
+        self.mt += 1
+        if self.mode == "stride":
+            if target is not None:
+                self.facing = 1 if target.x > self.x else -1
+                want = max(self.left + 30, min(self.right - 30, target.x - self.facing * 110))
+                self.x += max(-0.5, min(0.5, want - self.x))
+            if self.mt > (150 if self.angry else 230):
+                if target is not None and target.y < self.floor - 4:     # up on a catwalk: its arc would pass
+                    self.mt = 0                                          # through it, so it keeps shooting
+                else:
+                    self.mode, self.mt = "crouch", 0
+                    audio.play("alarm")
+        elif self.mode == "crouch":             # it sinks on its legs and vents: the leap is coming
+            if self.mt % 4 == 0:
+                world.smoke(self.x - self.facing * 10, self.y - 30, 1.2)
+            if self.mt >= 28:
+                land = self.x if target is None else target.x
+                self.target_x = max(self.left + 24, min(self.right - 24, land))
+                self.vx = (self.target_x - self.x) / 52.0
+                self.vy, self.mode, self.mt = -6.5, "leap", 0
+        elif self.mode == "leap":
+            self.vy += 0.25
+            self.x += self.vx
+            self.y += self.vy
+            if self.y >= self.floor:
+                self.y, self.vy = self.floor, 0.0
+                self.mode, self.mt = "land", 0
+                self.shockwave(world)
+        elif self.mode == "land":
+            if self.angry and self.mt == 24:
+                self.shockwave(world)
+            if self.mt > 50:
+                self.mode, self.mt = "stride", 0
+        self.stride += self.x - x0 if self.mode == "stride" else 0
+        if target is None or self.mode in ("leap", "crouch"):
+            return
+        gx, gy = self.x + self.facing * 16, self.y - 34 + (6 if self.mode == "land" and self.mt < 10 else 0)
+        want = math.atan2((target.y - 12) - gy, target.x - gx)
+        self.gun_angle += max(-0.06, min(0.06, (want - self.gun_angle + math.pi) % (2 * math.pi) - math.pi))
+        period = 80 if self.angry else 110
+        beat = self.t % period
+        if period - 36 <= beat < period - 14 and beat % 6 == 0:          # the arm cannon glints before a burst
+            world.flash(gx + math.cos(self.gun_angle) * 12, gy + math.sin(self.gun_angle) * 12, small=True)
+        if beat == period - 14:
+            self.burst = 4 if self.angry else 3
+        if self.burst and self.t % 7 == 0:
+            self.burst -= 1
+            c, s = math.cos(self.gun_angle), math.sin(self.gun_angle)
+            world.bolts.append(Bolt(gx + c * 12, gy + s * 12, c * 2.2 * world.fire, s * 2.2 * world.fire))
+            world.flash(gx + c * 12, gy + s * 12, small=True)
+            audio.play("enemy_shot")
+
+    def shockwave(self, world):
+        speed = 2.6 if self.angry else 2.2
+        for d in (-1, 1):
+            world.bolts.append(Bolt(self.x + d * 20, self.floor - 4, d * speed, 0, 0, "wave"))
+        world.shake = max(world.shake, 8)
+        world.dust(self.x - 12, self.floor)
+        world.dust(self.x + 12, self.floor)
+        audio.play("stomp")
+
+    def damage(self, dmg, world, owner, push=0.0):
+        if self.dying or self.state == "enter":
+            return True
+        calm = not self.angry
+        self.hp -= dmg
+        self.hurt = 3
+        if self.hp <= 0:
+            self.dying, self.mode = 160, "stride"
+            world.award(owner, SCORE["boss"], self.x, self.y - 50)
+            world.boss_down()
+        elif calm and self.angry:                        # its chest plate blows off on the Cradle's core
+            world.explode(self.x, self.y - 34, 20, 0, None)
+            world.hitstop(8)
+            world.shake = max(world.shake, 10)
+            audio.play("alarm")
+        return True
+
+    def hitbox(self):
+        return pygame.Rect(round(self.x - self.w / 2), round(self.y - self.h), self.w, self.h)
+
+    def draw(self, surf, atlas, cam):
+        x, y = round(self.x - cam), round(self.y)
+        ink, plate, dark = C["ink"], C["steel_d"], C["black"]
+        if self.mode == "leap" and not self.dying:      # its shadow where it will land
+            sx = round(self.target_x - cam)
+            pygame.draw.ellipse(surf, ink, (sx - 16, self.floor - 3, 32, 6))
+            pygame.draw.ellipse(surf, C["red"] if self.t % 8 < 4 else dark, (sx - 12, self.floor - 2, 24, 4), 1)
+        sink = 6 if self.mode == "crouch" or (self.mode == "land" and self.mt < 10) or self.dying else 0
+        tuck = 6 if self.mode == "leap" else 0
+        for side in (-1, 1):                             # two legs: hip, knee forward, a broad foot
+            phase = self.stride / 5 + (0 if side < 0 else math.pi)
+            step = round(math.sin(phase) * 6) if self.mode == "stride" else 0
+            lift = max(0, round(math.cos(phase) * 3)) if self.mode == "stride" else tuck
+            hip = (x + side * 7, y - 22 + sink)
+            foot = (x + side * 7 + step, y - 1 - lift)
+            knee = (x + side * 7 + step // 2 + self.facing * 6, (hip[1] + foot[1]) // 2)
+            for a, b in ((hip, knee), (knee, foot)):
+                pygame.draw.line(surf, ink, a, b, 6)
+                pygame.draw.line(surf, plate, a, b, 4)
+                pygame.draw.line(surf, C["steel"], (a[0], a[1] - 1), (b[0], b[1] - 1))
+            pygame.draw.circle(surf, ink, knee, 4)
+            pygame.draw.circle(surf, C["rust"], knee, 3)
+            pygame.draw.rect(surf, ink, (foot[0] - 7, foot[1] - 3, 14, 5))
+            pygame.draw.rect(surf, plate, (foot[0] - 6, foot[1] - 2, 12, 3))
+        img = atlas.graive[self.angry][self.facing > 0]
+        surf.blit(atlas.flash(img) if self.hurt and self.hurt % 2 else img,
+                  (x - img.get_width() // 2, y - 20 + sink - img.get_height()))
+        c, s = math.cos(self.gun_angle), math.sin(self.gun_angle)
+        gx, gy = x + self.facing * 16, y - 34 + sink
+        pygame.draw.line(surf, ink, (gx, gy), (gx + c * 13, gy + s * 13), 6)
+        pygame.draw.line(surf, C["rust"], (gx, gy), (gx + c * 12, gy + s * 12), 4)
+        pygame.draw.line(surf, C["sun"], (gx, gy - 1), (gx + c * 11, gy + s * 11 - 1))
+        pygame.draw.circle(surf, ink, (round(gx + c * 12), round(gy + s * 12)), 2)
+        if self.angry:                                   # the core behind the blown chest plate
+            glow = C["white"] if (self.t // 4) % 2 else C["cyan"]
+            pygame.draw.circle(surf, C["blue"], (x, y - 46 + sink), 5)
+            pygame.draw.circle(surf, glow, (x, y - 46 + sink), 3)

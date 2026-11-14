@@ -73,6 +73,18 @@ The Brigade brings it down on the road. In its flight log Juno finds survey runs
 been mapping the dead lines, tower by tower, from maps drawn by a prisoner. Kes knows the handwriting. Graive is not
 just holding the Cradle. He is relighting the old grid, one line at a time, and every line he relights he owns.
 
+## Mission 4: The Cradle
+
+The Cradle stands at the centre of the dead grid: one cooling tower among forty that burned, and the only one whose
+turbine still turns. Over it the ash is torn open, and the dusk there is high and pale, almost a dawn. Graive's
+guard holds the works around it, troopers in his own red plate.
+
+Graive meets the Brigade himself, in the rig the Cradle's crews once used to climb the tower: a walking frame for
+carrying a technician up the reactor wall, now plated and armed. He fights from inside the open cage, bare-headed,
+the grid company's badge still on his old work jacket.
+
+When the rig goes down, the Brigade takes the tower. Kes finds her brother in the control room, at the board, alive.
+
 ## Threads for later missions
 
 - The Cradle is not just a power plant: something in it kept running on the night the grid burned. Why only that one?

@@ -34,6 +34,10 @@ class BotPad:
         if boss and not boss.dying:
             near = (20, 36) if flying else (100, 150)          # a gunship is fought from just under its nose
             dx = -1 if p.x > boss.x - near[0] else (1 if p.x < boss.x - near[1] else 0)
+            if dx < 0 and p.x < world.cam_x + 24:           # cornered: stand and fight
+                dx = 0
+            if dx == 0 and (boss.x - p.x) * p.facing < 0:     # backed off from a boss that walks in: turn round
+                dx = 1 if boss.x > p.x else -1
         if p.safe > RESPAWN_SAFE - 40 and not p.on_ground:     # dropping back in: straight down, onto the ground
             dx = 0
         ahead = p.x + 12 * (dx or 1)
