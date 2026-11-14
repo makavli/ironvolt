@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.10.0
+
+Missions 3 and 4 play differently, not only look different, and there is more to do between missions.
+- **Mission 3, PYLON ROAD:**
+  - **Live cross-arms:** the line's current jumps along some arms on a beat. They crackle first, then burn anyone
+    standing on them. Cross between beats.
+  - **The storm drain:** crouch on the grate in the road and the team drops into the drain under it. It is dark and
+    wet, it holds two prisoners and a map page, and it comes up past the hardest stretch of road.
+  - **The gully:** a lineman's cable trolley carries the team across while drones come at it. It waits until
+    everyone is aboard, and its cage keeps you on.
+- **Mission 4, THE CRADLE:**
+  - **Steam vents:** stand on one and it throws you up to the high catwalks, where a prisoner and a map page wait.
+  - **The crushers:** four rams slam the floor in a rolling wave. Run under them between blows; they crush troopers
+    too.
+  - **Lights out:** a long stretch in the dark. Only your lamp, muzzle flashes, fire and the Legion's red lenses
+    show.
+  - **The lift:** the team rides the freight lift up the tower while Graive's guard drops onto it, then steps out
+    into the arena.
+- **Between missions:** a map of the old grid, the Voltline. The route you fought along lights up, the towns around
+  the mission you won get their power back one by one, and the next mission's node blinks.
+- **A rank for every mission (S, A, B, C)** on the tally, with a bonus up to 30,000: S means every prisoner,
+  secrets included, and nobody down.
+- **The brother's map pages:** one is hidden in missions 3 and 4. Each is worth 5,000, and the map screen keeps
+  count.
+- **Gentler choices:**
+  - **RELAXED**, a new level below EASY: nine lives, half the troopers, half as many shots, a weaker boss.
+  - EASY now sends fewer troopers and shoots less often too.
+  - **Two new options**, ENEMIES (fewer, normal, more) and ENEMY FIRE (less, normal, more), override the
+    difficulty. The options page scrolls.
+- **Grenades:** six at the start, at each respawn and from each B capsule (was ten), so the bosses are no longer a
+  grenade spam.
+- New mission art: the salt road has its own near layer (poles, salt mounds, a bucket truck), and the Cradle its
+  own (pipe racks, tanks, a venting stack). New sounds for the arcs, vents, the drain and the lift.
+
 ## 0.9.0
 
 Mission 4, the last one.

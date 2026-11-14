@@ -14,7 +14,7 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 ![pygame-ce](https://img.shields.io/badge/pygame--ce-2.5.8-6aa84f)
 ![Players](https://img.shields.io/badge/players-1%E2%80%932-e8742a)
 ![Assets](https://img.shields.io/badge/game%20assets-0%20files-8e44ad)
-![Status](https://img.shields.io/badge/status-v0.9%20%C2%B7%20missions%201%E2%80%934-c0392b)
+![Status](https://img.shields.io/badge/status-v0.10%20%C2%B7%20missions%201%E2%80%934-c0392b)
 
 <img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
 
@@ -52,6 +52,11 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 **WARDEN**, an armoured engine that runs down anything on the track. Then mission 3, **PYLON ROAD**, and **HARROW**,
 a gunship that bombs the road. Then mission 4, **THE CRADLE**, and **GRAIVE** himself.
 
+Each mission plays its own way: live cross-arms that arc on a beat, a storm drain under the road, a cable trolley
+over a gully, steam vents that throw you to the high catwalks, crushers, a stretch with the lights out, and a lift
+ride up the tower. Between missions, a map of the old grid lights up behind you; every mission ends with a rank,
+S to C, and hides a page of the brother's maps.
+
 </div>
 
 - **Two players on one machine**, keyboard or any gamepad (Xbox, PlayStation, Switch Pro), with rumble and light bar.
@@ -61,8 +66,9 @@ a gunship that bombs the road. Then mission 4, **THE CRADLE**, and **GRAIVE** hi
   screens too.
 - **Arcade to the bone:** hit-stop, screen shake, a kill-chain multiplier up to x8, continues, coins or free
   play, and a high-score table.
-- **Easy, Normal or Hard**, chosen before every game. Die too often and the game asks if you are too feeble.
-- **Options for everyone:** lives, music and effects volume, rumble, swapped fire and jump, screen shake, flashes
+- **Relaxed, Easy, Normal or Hard**, chosen before every game. Die too often and the game asks if you are too
+  feeble.
+- **Options for everyone:** lives, how many enemies and how often they shoot, music and effects volume, rumble, swapped fire and jump, screen shake, flashes
   and a slower game speed, all saved. A controls page shows the keys and the pad.
 - **A synthesized stereo soundtrack:** a title theme, and for each mission a stage theme and a boss theme that
   crossfades in when the arena locks.
@@ -89,6 +95,7 @@ Coin: 5 (or Back) when free play is off. F11 or Alt+Enter: fullscreen. F2: scanl
 Esc: pause (or back out of a menu). The pause menu has the options and the way back to the title.
 
 Free the prisoners: each one drops a weapon (H heavy gun, S spread, R rockets, B grenades, 1 extra life).
+Crouch on a grate in the road to go under it.
 
 ## Develop
 

@@ -5,24 +5,35 @@ import random
 
 import pygame
 
-from . import audio
+from . import audio, props
 from .actors import Bastion, Drone, Foe, Graive, Harrow, Hostage, Pickup, Player, Turret, Warden
-from .settings import CHAIN_FRAMES, CHAIN_MAX, DIFFICULTY, GRENADES, TILE, C, H, W
+from .settings import CHAIN_FRAMES, CHAIN_MAX, DIFFICULTY, GRENADES, GROUND_Y, TILE, C, H, W
 from .stage import AIR, CRATE, GROUND, WALK, Stage
 
 CONTINUE_FRAMES = 600
 
 
 class World:
-    def __init__(self, players=(0,), seed=None, god=False, level="NORMAL", lives=None, stage=0):
+    def __init__(self, players=(0,), seed=None, god=False, level="NORMAL", lives=None, stage=0, crowd=None,
+                 calm=None):
         if seed is not None:
             random.seed(seed)
         self.lives_set = lives            # the options' lives, or None: the difficulty's
+        self.crowd_set, self.calm_set = crowd, calm     # the options' enemy count and fire, or None: the difficulty's
         self.shake_on = self.flashes_on = True      # accessibility options
         self.set_level(level)
         self.deaths = 0                   # the team's, for the "too feeble?" offer
         self.offered = 0                  # deaths when it was last offered
         self.stage = Stage(stage)
+        self.props = [props.build(spec) for spec in self.stage.props]
+        self.above = None                 # in a room: (the road, its props, its spawn index, the column to come up at)
+        self.room_t = 0                   # frames spent in the room
+        self.fade = 0                     # frames of a fade from black: a room entered or left
+        self.pages = set()                # the mission numbers whose map page the team has found
+        self.grades = {}                  # mission number: grade letter
+        self.deaths_start = 0             # the team's deaths when this mission began
+        self.hostage_total = self.stage.hostage_count()
+        self.waves = 0.0                  # edge spawns owed: the crowd option thins or thickens the waves
         self.cam_x = self.cam_ox = 0.0    # the camera now, and a step ago
         self.blend = 1.0                  # how far from the step before to this one the picture is drawn (app.py)
         self.still = False                # a hit-stop holds the picture
@@ -44,10 +55,19 @@ class World:
         self.cleared = 0                  # frames since the boss fell
         self.locked = False
 
+    def set_enemies(self, crowd, calm):
+        """The options' enemy count and fire (None: the difficulty's), applied at once."""
+        self.crowd_set, self.calm_set = crowd, calm
+        self.crowd = crowd or DIFFICULTY[self.level][6]
+        self.calm = calm or DIFFICULTY[self.level][7]
+
     def set_level(self, level):
         self.level = level
-        self.lives, self.windup, self.fire, self.boss_hp, self.safe, self.feeble_at = DIFFICULTY[level]
+        (self.lives, self.windup, self.fire, self.boss_hp, self.safe, self.feeble_at, self.crowd,
+         self.calm) = DIFFICULTY[level]
         self.lives = self.lives_set or self.lives
+        self.crowd = self.crowd_set or self.crowd
+        self.calm = self.calm_set or self.calm
         if getattr(self, "boss", None) and self.boss.hp > 0:            # a change mid-fight keeps the damage done
             self.boss.hp = max(1, round(self.boss.hp * self.boss_hp / self.boss.HP))
             self.boss.HP = self.boss_hp
@@ -66,9 +86,11 @@ class World:
 
     def advance(self):
         """The next mission, with the same team: scores, lives, guns and grenades carry over."""
-        nxt = World((), god=self.god, level=self.level, lives=self.lives_set, stage=self.stage.index + 1)
+        nxt = World((), god=self.god, level=self.level, lives=self.lives_set, stage=self.stage.index + 1,
+                    crowd=self.crowd_set, calm=self.calm_set)
         nxt.shake_on, nxt.flashes_on = self.shake_on, self.flashes_on
-        nxt.deaths, nxt.offered = self.deaths, self.offered
+        nxt.deaths, nxt.offered, nxt.deaths_start = self.deaths, self.offered, self.deaths
+        nxt.pages, nxt.grades = set(self.pages), dict(self.grades)
         for i, p in enumerate(self.players):
             if p:
                 p.x, p.y, p.vx, p.vy = 40.0 + 16 * i, 176.0, 0.0, 0.0
@@ -109,7 +131,7 @@ class World:
     def respawn(self, p):
         if p.lives > 0:
             p.lives -= 1
-            p.x, p.y, p.vx, p.vy = self.drop_x(), -10.0, 0.0, 0.0
+            p.x, p.y, p.vx, p.vy = self.drop_x(), float(self.stage.drop_y), 0.0, 0.0
             p.buffer = p.trigger = 0
             p.safe, p.weapon, p.ammo = self.safe, "P", 0
             p.grenades = max(p.grenades, GRENADES)
@@ -122,6 +144,9 @@ class World:
         for x in range(int(self.cam_x) + 40 + off, int(self.cam_x) + W - 40, 8):
             if self.stage.floor_y(x - 5) is not None and self.stage.floor_y(x + 5) is not None:
                 return float(x)
+        for d in filter(None, (pr.deck() for pr in self.props)):       # over the gully: onto the trolley
+            if self.cam_x < d[0] < self.cam_x + W:
+                return (d[0] + d[1]) / 2 + off / 2
         return self.cam_x + 40 + off
 
     def carry_on(self, i):
@@ -223,9 +248,14 @@ class World:
         if kind == "drone":
             self.foes.append(Drone(x + 10, random.uniform(40, 86)))
             return
+        if kind in ("page", "gift"):                  # a map page placed in the level, or a capsule dropped in
+            self.pickups.append(Pickup(x, extra * TILE if kind == "page" else -10, "M" if kind == "page" else extra))
+            return
         y = self.stage.floor_y(x)
         if y is None:
             return
+        if self.stage.timed and kind != "hostage":
+            y = -20                                    # on the lift they drop in from above
         if kind == "hostage":
             self.hostages.append(Hostage(x, y, extra))
         elif kind == "turret":
@@ -240,6 +270,7 @@ class World:
 
     def step(self, pads):
         self.frame += 1
+        self.fade = max(0, self.fade - 1)
         self.felt.clear()
         self.cam_ox = self.cam_x
         for a in self.actors():
@@ -265,10 +296,19 @@ class World:
                     p.listen(pads[i])                             # a press during a hit-stop still counts
             return
         self.flashes.clear()                                      # a flash lasts one step, not one screen refresh
+        for pr in self.props:
+            pr.step(self)
+            if self.above is not None and pr not in self.props:  # it took the team into a room
+                break
+        for p in self.players:
+            if p and p.riding:                                    # a deck carries whoever stands on it
+                p.x += getattr(p.riding, "dx", 0.0)
         for i, p in enumerate(self.players):
             if p:
                 p.step(pads[i], self)
+        self.ride()
         self.camera()
+        self.rooms()
         for group in (self.foes, self.shots, self.bolts, self.thrown, self.pickups, self.hostages):
             for a in group:
                 a.step(self)
@@ -287,8 +327,88 @@ class World:
             self.part(self.cam_x + W + 4, random.uniform(20, 170), -random.uniform(0.4, 0.9),
                       -random.uniform(0.05, 0.25), 600, "ember")
 
+    def ride(self):
+        """Feet that come down onto a deck stand on it; a rider in a moving cage stays inside it."""
+        for p in self.players:
+            if not p:
+                continue
+            was, p.riding = p.riding, None
+            if not p.active or p.vy < 0:
+                continue
+            for pr in self.props:
+                d = pr.deck()
+                if d and d[0] - 2 <= p.x <= d[1] + 2 and p.oy <= d[2] + 0.5 and p.y >= d[2]:
+                    p.y, p.vy, p.on_ground, p.riding = float(d[2]), 0.0, True, pr
+                    if getattr(pr, "going", False):
+                        p.x = max(d[0] + 5, min(d[1] - 5, p.x))
+                    elif was is not pr:
+                        self.dust(p.x, p.y)
+                    break
+
+    def deck_at(self, x):
+        return any(d[0] <= x <= d[1] for d in filter(None, (pr.deck() for pr in self.props)))
+
+    def enter(self, room, back_col):
+        """The team goes into a room (a drain, a lift): the road waits, and is joined again at back_col."""
+        self.above = (self.stage, self.props, self.spawn_i, back_col)
+        self.stage = Stage(self.stage.index, room)
+        self.props = [props.build(spec) for spec in self.stage.props]
+        self.switch(40.0, float(self.stage.drop_y) if self.stage.drop_y > 0 else 150.0)
+        audio.play("drop" if room == "drain" else "lift")
+
+    def surface(self):
+        """Back on the road from a room, at the column the room comes out at. What was skipped stays skipped."""
+        self.stage, self.props, self.spawn_i, col = self.above
+        self.above = None
+        self.cam_x = self.cam_ox = max(0.0, col * TILE - 60.0)
+        self.switch(col * TILE + 8.0, GROUND_Y, keep_cam=True)
+        while self.spawn_i < len(self.stage.spawns) and self.stage.spawns[self.spawn_i][0] <= self.cam_x:
+            _, kind, x, extra = self.stage.spawns[self.spawn_i]
+            if x != "edge" and x > self.cam_x:                     # what stands ahead is still there
+                self.spawn(kind, x, extra)
+            self.spawn_i += 1
+        for p in self.live_players():
+            p.vy = -4.0                                            # up out of the hatch
+        audio.play("jump")
+
+    def switch(self, x, y, keep_cam=False):
+        if not keep_cam:
+            self.cam_x = self.cam_ox = 0.0
+            self.spawn_i = 0
+        self.room_t = 0
+        self.fade = 24
+        for group in (self.foes, self.shots, self.bolts, self.thrown, self.pickups, self.hostages, self.parts,
+                      self.popups):
+            group.clear()
+        for i, p in enumerate(self.players):
+            if p and not p.out:
+                p.x, p.y, p.vx, p.vy = x + 16 * i, y, 0.0, 0.0
+                p.ox, p.oy = p.x, p.y
+                p.dying, p.slide, p.riding = 0, 0, None
+                p.safe = max(p.safe, 40)
+
+    def rooms(self):
+        """The room's own clock, and its way out: the far end of a drain, the top of the lift."""
+        if self.above is None:
+            return
+        self.room_t += 1
+        st = self.stage
+        if st.timed:
+            done = self.room_t >= st.timed and not self.foes or self.room_t >= st.timed + 900
+            if done:
+                self.surface()
+        elif any(p.x > st.width - 6 * TILE for p in self.live_players()):
+            self.surface()
+
     def camera(self):
         live = self.live_players()
+        if self.stage.timed:                       # the lift: one screen, its spawns come by the clock
+            while self.spawn_i < len(self.stage.spawns) and self.stage.spawns[self.spawn_i][0] <= self.room_t:
+                _, kind, x, extra = self.stage.spawns[self.spawn_i]
+                self.spawn_i += 1
+                if kind in ("hostage", "gift") or self.thin():
+                    self.spawn(kind, x, extra)
+            return
         if self.locked:
             return
         if live:                                     # follow the leader, but never past the slowest player:
@@ -305,8 +425,19 @@ class World:
             audio.play("alarm")
         while self.spawn_i < len(self.stage.spawns) and self.stage.spawns[self.spawn_i][0] <= self.cam_x:
             _, kind, x, extra = self.stage.spawns[self.spawn_i]
-            self.spawn(kind, x, extra)
             self.spawn_i += 1
+            if x != "edge":
+                self.spawn(kind, x, extra)                         # what the level places is always there
+                continue
+            for k in range(self.thin()):
+                self.spawn(kind, x if not k else self.cam_x + W + 44, extra)
+
+    def thin(self):
+        """How many of the next wave come: the crowd setting (0.5 fewer, 1.5 more) spread evenly."""
+        self.waves += self.crowd
+        n = int(self.waves)
+        self.waves -= n
+        return n
 
     def collide(self):
         for s in self.shots:
@@ -344,7 +475,10 @@ class World:
                     b.dead = True
                     self.kill_player(p)
             for k in self.pickups:
-                if pr.colliderect(k.rect()):
+                if pr.colliderect(k.rect()) and not k.dead:
+                    if k.kind == "M":                             # a page of the brother's maps
+                        self.pages.add(self.stage.mission.number)
+                        self.award(p, 5000, k.x, k.y - 16, "MAP PAGE")
                     k.apply(p)
                     self.feel(p, "pickup")
             for h in self.hostages:
@@ -401,14 +535,19 @@ class World:
     def paint(self, surf, atlas, view, back):
         sx, sy = self.jolt
         cam = round(view) - sx              # whole pixels: the tiles and all that stands on them move as one
-        sky, layers, pillar = atlas.themes[self.stage.mission.theme]
+        sky, layers, pillar = atlas.themes[self.stage.theme]
         surf.blit(sky, (0, 0))
+        climb = (self.room_t * 2 - (1 - self.blend) * 2) if self.stage.timed else 0   # the lift: the shaft slides down
         for layer, factor, yoff in layers:
-            lw = layer.get_width()
+            lw, lh = layer.get_width(), layer.get_height()
             ox = -int((view - sx) * factor) % lw
-            surf.blit(layer, (ox - lw, yoff + sy))
-            surf.blit(layer, (ox, yoff + sy))
+            oy = int(climb * factor) % lh if climb else 0
+            for dy in ((oy - lh, oy) if climb else (0,)):
+                surf.blit(layer, (ox - lw, yoff + sy + dy))
+                surf.blit(layer, (ox, yoff + sy + dy))
         game = surf.subsurface(pygame.Rect(0, 0, W, H))
+        for pr in self.props:
+            pr.draw(game, atlas, cam, self.frame)
         self.draw_tiles(game, atlas, cam, sy)
         for a in self.hostages:
             a.draw(game, atlas, cam, self.frame)
@@ -433,7 +572,8 @@ class World:
             game.blit(img, (round(x - cam) - img.get_width() // 2, round(y) - img.get_height() // 2),
                       special_flags=pygame.BLEND_ADD)
             pygame.draw.circle(game, C["white"], (round(x - cam), round(y)), 2 if small else 3)
-        if cam < self.stage.boss_x - W:                           # foreground girders sweep past
+        self.darkness(game, cam)
+        if cam < self.stage.boss_x - W and not self.stage.timed:  # foreground girders sweep past
             near = (view - sx) * 1.4
             for i in range(int(near // 420), int((near + W) // 420) + 2):
                 px = round(i * 420 + 200 - near)
@@ -443,9 +583,37 @@ class World:
         for x, y, text, life in self.popups:
             if life > 10 or life % 4 < 2:
                 font.draw(game, text, (round(x - cam), round(y)), C["cream"], center=True)
+        if self.fade:
+            veil = pygame.Surface((W, H), pygame.SRCALPHA)
+            veil.fill((4, 3, 10, min(255, self.fade * 14)))
+            game.blit(veil, (0, 0))
+
+    def darkness(self, surf, cam):
+        """A dark room or a stretch with the lights out: a veil with light cut out where there is light. The
+        players carry a lamp, shots and fire glow, and the Legion's red lenses show in the dark."""
+        amount = max([self.stage.dark / 255] + [pr.amount(cam) * 0.9 for pr in self.props if hasattr(pr, "amount")])
+        if amount <= 0:
+            return
+        lights = [(p.x - cam, p.y - 12, 46) for p in self.players if p and not p.out]
+        lights += [(x - cam, y, 34 if not small else 20) for x, y, small in self.flashes]
+        lights += [(b.x - cam, b.y, 9) for b in self.bolts]
+        lights += [(q[0] - cam, q[1], 12) for q in self.parts[::3] if q[6] == "fire"]
+        lights += [(x - cam, 40, 50) for x in self.stage.lamps]
+        lights += [(h.x - cam, h.y - 8, 16) for h in self.hostages]
+        lights += [(k.x - cam, k.y - 6, 14) for k in self.pickups]
+        for pr in self.props:
+            lights += [(x - cam, y, r) for x, y, r in pr.lights(self.frame)]
+        if self.boss:
+            lights.append((self.boss.x - cam, self.boss.y - 30, 40))
+        surf.blit(props.light_mask((W, H), round(235 * amount), [q for q in lights if -60 < q[0] < W + 60]), (0, 0))
+        for e in self.foes:                                       # red lenses
+            if not getattr(e, "dying", 0) and isinstance(e, Foe):
+                ex, ey = round(e.x - cam + e.facing * 2), round(e.y - 17)
+                surf.set_at((ex, ey), C["red"])
+                surf.set_at((ex + e.facing, ey), C["red"])
 
     def draw_tiles(self, surf, atlas, cam, sy):
-        tile, theme = self.stage.tile, self.stage.mission.theme
+        tile, theme = self.stage.tile, self.stage.theme
         c0 = int(cam // TILE)
         for tx in range(c0, c0 + W // TILE + 2):
             px = round(tx * TILE - cam)

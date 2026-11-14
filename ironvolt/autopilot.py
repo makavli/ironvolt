@@ -38,11 +38,16 @@ class BotPad:
                 dx = 0
             if dx == 0 and (boss.x - p.x) * p.facing < 0:     # backed off from a boss that walks in: turn round
                 dx = 1 if boss.x > p.x else -1
+        if world.stage.timed and world.foes:                  # on the lift: face whoever is nearest
+            f = min(world.foes, key=lambda f: abs(f.x - p.x))
+            dx = (1 if f.x > p.x else -1) if abs(f.x - p.x) > 40 or (f.x - p.x) * p.facing < 0 else 0
         if p.safe > RESPAWN_SAFE - 40 and not p.on_ground:     # dropping back in: straight down, onto the ground
             dx = 0
         ahead = p.x + 12 * (dx or 1)
         wall = any(st.solid(int(ahead // TILE), int((p.y - k) // TILE)) for k in (4, 18))
-        pit = dx and st.floor_y(p.x + 10 * dx, p.y - 2) is None
+        pit = dx and st.floor_y(p.x + 10 * dx, p.y - 2) is None and not world.deck_at(p.x + 10 * dx)
+        if p.riding is not None and getattr(p.riding, "going", False):
+            pit = False                                        # the trolley's cage: ride it out
         danger = any(abs(b.x - p.x) < 34 and abs(b.y - (p.y - 10)) < 30 and (b.x - p.x) * b.vx < 0 or
                      (b.kind == "shell" and abs(b.x - p.x) < 20) for b in world.bolts)
         if p.on_ground and (wall or pit or danger) and not self.jump_hold:

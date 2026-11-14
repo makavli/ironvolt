@@ -77,6 +77,12 @@ def _effects():
         "rotor": _tone(0.35, 140, 90, noise=0.7, vol=0.3, decay=3, seed=11),
         "stomp": _tone(0.45, 90, 30, noise=0.85, vol=0.6, decay=4, seed=12),
         "slash": _tone(0.08, 2600, 500, noise=0.55, vol=0.3, decay=10, seed=10),
+        "zap": _cat(_tone(0.05, 3000, 900, noise=0.7, vol=0.3, decay=4, seed=13),
+                    _tone(0.22, 1800, 400, noise=0.8, vol=0.28, decay=5, seed=14)),
+        "vent": _tone(0.5, 2400, 600, noise=0.95, vol=0.3, decay=4, seed=15),
+        "drop": _cat(_tone(0.12, 400, 150, duty=0.5, vol=0.25, decay=4), _tone(0.3, 140, 60, noise=0.6, vol=0.3, seed=16)),
+        "lift": _cat(_tone(0.1, 180, 180, duty=0.3, vol=0.22, decay=1),
+                     _tone(0.45, 90, 120, noise=0.4, vol=0.25, decay=2, seed=17)),
     }
 
 

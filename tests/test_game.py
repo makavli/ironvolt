@@ -14,7 +14,7 @@ import pygame  # noqa: E402
 
 pygame.init()
 
-from ironvolt import storage  # noqa: E402
+from ironvolt import props, storage  # noqa: E402
 from ironvolt.actors import SAPPER_FUSE, Bolt, Foe, Graive, Harrow, Hostage, Pickup, Shot, Warden  # noqa: E402
 from ironvolt.app import fit, integer_fit, pace, scanlines  # noqa: E402
 from ironvolt.art import Atlas  # noqa: E402
@@ -23,6 +23,7 @@ from ironvolt.controls import BUTTONS  # noqa: E402
 from ironvolt.game import Game  # noqa: E402
 from ironvolt.settings import GROUND_Y, H, MAX_FALL, RUN, STEP, TILE, W  # noqa: E402
 from ironvolt.stage import MISSIONS, WALK  # noqa: E402
+from ironvolt.game import grade  # noqa: E402
 from ironvolt.world import World  # noqa: E402
 
 ATLAS = Atlas()
@@ -418,10 +419,12 @@ class Stage(unittest.TestCase):
 
     def test_every_pit_is_jumpable(self):
         for i in range(len(MISSIONS)):
-            st = World((0,), stage=i).stage
+            w = World((0,), stage=i)
+            st = w.stage
             run_len = 0
             for c in range(len(st.grid[0])):
-                if st.tile(c, 11) == 0:
+                if st.tile(c, 11) == 0 and not w.deck_at(c * TILE + 8) and not any(  # a trolley's run is ridden
+                        isinstance(pr, props.Trolley) and pr.x <= c * TILE <= pr.x_end + pr.W for pr in w.props):
                     run_len += 1
                 else:
                     self.assertLessEqual(run_len, 3, "pit ending at column %d" % c)
@@ -594,6 +597,9 @@ class Missions(unittest.TestCase):
         g.world.players[0].score = 0
         for i in range(1, len(MISSIONS)):
             g.mode, g.t = "clear", 1000
+            g.step(Ctl())
+            self.assertEqual(g.mode, "map")                 # the Voltline between missions
+            g.t = 1000
             g.step(Ctl())
             self.assertEqual((g.mode, g.world.stage.index), ("play", i))
         g.mode, g.t = "clear", 1000
@@ -1053,3 +1059,182 @@ class Art(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SetPieces(unittest.TestCase):
+    """The parts of a mission that change how it plays: drains, live arms, the trolley, vents, crushers, the dark."""
+
+    def world(self, stage):
+        w = World((0,), seed=8, stage=stage)
+        w.spawn_i = len(w.stage.spawns)                  # no foes unless a test adds them
+        w.players[0].safe = 0                            # no blinking safety from the start
+        return w, [Pad(), Pad()], w.players[0]
+
+    def prop(self, w, kind):
+        return next(pr for pr in w.props if isinstance(pr, kind))
+
+    def test_a_crouch_on_the_grate_goes_under_the_road_and_comes_up_past_it(self):
+        w, pads, p = self.world(2)
+        grate = self.prop(w, props.Drain)
+        p.x, p.y = grate.x0 + 16.0, float(GROUND_Y)
+        w.cam_x = grate.x0 - 100.0
+        run(w, pads, 4, down=True)
+        self.assertEqual(w.stage.room, "drain")
+        run(w, pads, 60)
+        self.assertTrue(p.on_ground)
+        self.assertLess(p.y, GROUND_Y + 1)               # under the roof, on the drain's floor, not on its roof
+        w.cam_x = float(w.stage.width - W)
+        p.x = w.stage.width - 5 * TILE
+        run(w, pads, 2)
+        self.assertIsNone(w.stage.room)
+        self.assertGreater(p.x, grate.x0 + 20 * TILE)    # up again, past what the road holds
+        run(w, pads, 60, down=True)
+        self.assertIsNone(w.stage.room)                  # one way: the grate does not take you back
+
+    def test_the_drain_holds_prisoners_and_a_map_page(self):
+        w, pads, p = self.world(2)
+        self.assertEqual(w.hostage_total, 8)             # the road's six and the drain's two
+        w.enter("drain", 86)
+        kinds = [s[1] for s in w.stage.spawns]
+        self.assertIn("page", kinds)
+        run(w, pads, 60)
+        w.spawn("page", p.x, int(p.y // TILE) - 1)
+        run(w, pads, 40)
+        self.assertEqual(w.pages, {3})
+
+    def test_a_live_arm_burns_only_on_its_beat(self):
+        w, pads, p = self.world(2)
+        arc = self.prop(w, props.Arc)
+        w.cam_x = arc.x0 - 60.0
+        p.x, p.y, p.on_ground = arc.x0 + 20.0, float(arc.y), True
+        w.frame = arc.PERIOD - arc.phase                  # the start of a beat: dead
+        run(w, pads, 10)
+        self.assertFalse(p.dying)
+        w.frame = arc.PERIOD * 3 + arc.LIVE - arc.phase - 1
+        p.x, p.y = arc.x0 + 20.0, float(arc.y)
+        run(w, pads, 3)
+        self.assertTrue(p.dying)
+
+    def test_the_trolley_waits_for_the_whole_team_then_carries_it_over(self):
+        w = World((0, 1), seed=8, stage=2)
+        w.spawn_i = len(w.stage.spawns)
+        pads = [Pad(), Pad()]
+        a, b = w.players
+        tr = self.prop(w, props.Trolley)
+        w.cam_x = tr.x - 100.0
+        a.x, a.y = tr.x + 14.0, tr.y - 4.0
+        b.x, b.y = tr.x - 40.0, float(GROUND_Y)
+        run(w, pads, 30)
+        self.assertIs(a.riding, tr)
+        self.assertFalse(tr.going)                       # one aboard, one not
+        b.x, b.y = tr.x + 34.0, tr.y - 4.0
+        for _ in range(2000):
+            pads[0].press(right=True)                    # running in the cage does not run off the front
+            pads[1].press()
+            w.step(pads)
+            if tr.done:
+                break
+        self.assertTrue(tr.done)
+        self.assertFalse(a.dying or b.dying)
+        self.assertGreater(a.x, tr.x_end)
+
+    def test_a_dead_rider_drops_back_onto_the_trolley(self):
+        w, pads, p = self.world(2)
+        tr = self.prop(w, props.Trolley)
+        tr.x = tr.x + 200
+        w.cam_x = tr.x - 120.0
+        x = w.drop_x()
+        self.assertTrue(tr.x <= x <= tr.x + tr.W)
+
+    def test_a_vent_throws_you_up_to_the_high_catwalk(self):
+        w, pads, p = self.world(3)
+        vent = self.prop(w, props.Vent)
+        w.cam_x = vent.x0 - 100.0
+        p.x, p.y = vent.x0 + 8.0, float(GROUND_Y)
+        top = p.y
+        for _ in range(90):
+            pads[0].press()
+            w.step(pads)
+            top = min(top, p.y)
+        self.assertLess(top, 4 * TILE)                   # above the catwalk at row 4
+        self.assertTrue(p.on_ground)
+        self.assertEqual(p.y, 4 * TILE)                  # and landed on it
+
+    def test_a_crusher_kills_under_it_and_crushes_troopers(self):
+        w, pads, p = self.world(3)
+        pis = self.prop(w, props.Piston)
+        w.cam_x = pis.x0 - 100.0
+        p.x, p.y = pis.x0 + 16.0, float(GROUND_Y)
+        foe = Foe(pis.x0 + 8.0, GROUND_Y, "soldier")
+        foe.timer = 10 ** 6
+        w.foes.append(foe)
+        w.frame = pis.PERIOD * 2 + pis.SLAM - pis.phase - 2
+        run(w, pads, 12)
+        self.assertTrue(p.dying)
+        self.assertTrue(foe.dying)
+
+    def test_the_lights_go_out_and_the_lenses_show(self):
+        w, pads, p = self.world(3)
+        dark = self.prop(w, props.Dark)
+        s = pygame.Surface((W, H))
+        w.cam_x = 2 * TILE
+        w.draw(s, ATLAS)
+        lit = sum(sum(s.get_at((x, 60))[:3]) for x in range(0, W, 4))
+        w.cam_x = float(dark.x0 + 30 * TILE)
+        p.x = w.cam_x + 40
+        w.draw(s, ATLAS)
+        dim = sum(sum(s.get_at((x, 60))[:3]) for x in range(0, W, 4))
+        self.assertLess(dim, lit * 0.5)
+
+    def test_the_lift_rides_up_and_lets_the_team_out_at_the_arena(self):
+        w, pads, p = self.world(3)
+        w.enter("lift", 214)
+        self.assertEqual(w.stage.room, "lift")
+        p.god = True
+        for _ in range(w.stage.timed + 1000):
+            w.foes.clear()                               # nobody to fight: the ride ends on its clock
+            w.step(pads)
+            if not w.stage.room:
+                break
+        self.assertIsNone(w.stage.room)
+        self.assertGreater(p.x, 210 * TILE)
+
+    def test_every_room_draws(self):
+        s = pygame.Surface((W, H))
+        for stage, room in ((2, "drain"), (3, "lift")):
+            w, pads, p = self.world(stage)
+            w.enter(room, 100)
+            run(w, pads, 30)
+            w.draw(s, ATLAS)
+            self.assertGreater(len({tuple(s.get_at((x, 120))) for x in range(0, W, 8)}), 2)
+
+
+class Gentler(unittest.TestCase):
+    def test_relaxed_sends_half_the_waves_and_shoots_less(self):
+        calm, busy = World((0,), level="RELAXED"), World((0,), level="NORMAL")
+        self.assertEqual(sum(calm.thin() for _ in range(100)), 50)
+        self.assertEqual(sum(busy.thin() for _ in range(100)), 100)
+        self.assertGreater(calm.calm, busy.calm)
+
+    def test_the_enemy_options_override_the_difficulty(self):
+        w = World((0,), level="HARD", crowd=0.5, calm=1.8)
+        self.assertEqual((w.crowd, w.calm), (0.5, 1.8))
+        w.set_enemies(None, None)
+        self.assertEqual(w.crowd, 1.15)
+
+    def test_grades(self):
+        self.assertEqual(grade(8, 8, 0), "S")
+        self.assertEqual(grade(6, 8, 1), "A")
+        self.assertEqual(grade(6, 8, 0), "A")
+        self.assertEqual(grade(4, 8, 3), "B")
+        self.assertEqual(grade(8, 8, 9), "C")
+
+    def test_pages_and_grades_go_on_with_the_team(self):
+        w = World((0,))
+        w.pages, w.grades, w.deaths = {1}, {1: "S"}, 3
+        nxt = w.advance()
+        self.assertEqual((nxt.pages, nxt.grades, nxt.deaths_start), ({1}, {1: "S"}, 3))
+
+    def test_six_grenades(self):
+        w = World((0,))
+        self.assertEqual(w.players[0].grenades, 6)

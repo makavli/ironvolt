@@ -1402,6 +1402,179 @@ CRADLE_PALETTE = {"night": (36, 44, 78), "dusk": (78, 88, 132), "rose": (196, 13
 PLANT_PALETTE = {"rust": (118, 128, 150), "rust_d": (64, 70, 96)}
 
 
+def map_page():
+    """A page of the brother's maps: a folded sheet with a grid line drawn on it, glowing like a capsule."""
+    s = pygame.Surface((14, 12), pygame.SRCALPHA)
+    pygame.draw.polygon(s, C["ink"], [(1, 0), (11, 0), (13, 2), (13, 11), (1, 11)])
+    pygame.draw.polygon(s, C["cream"], [(2, 1), (10, 1), (12, 3), (12, 10), (2, 10)])
+    pygame.draw.line(s, C["steel_l"], (10, 1), (10, 3))
+    pygame.draw.line(s, C["steel_l"], (10, 3), (12, 3))
+    pygame.draw.lines(s, C["blue"], False, [(3, 8), (5, 5), (8, 7), (11, 4)])
+    for x, y in ((3, 8), (8, 7), (11, 4)):
+        s.set_at((x, y), C["red"])
+    return s
+
+
+def salt_near(width=640):
+    """Mission 3's near layer: leaning telegraph poles on the old road, salt mounds, a lineman's bucket truck
+    abandoned with its boom still up, road markers. Darkest of all, like the scrapyard's."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(41)
+    col, hint = C["black"], C["ink"]
+    poles = []
+    for x in range(30, width, 106):                      # telegraph poles, leaning, their wires slack
+        lean = rnd.randrange(-6, 7)
+        pygame.draw.line(s, col, (x, 180), (x + lean, 92), 3)
+        pygame.draw.line(s, col, (x + lean - 12, 98), (x + lean + 12, 98), 2)
+        for dx in (-10, -3, 4, 11):
+            s.set_at((x + lean + dx, 96), hint)
+        poles.append((x + lean, 98))
+    poles.append((poles[0][0] + width, poles[0][1]))
+    for (x0, y0), (x1, y1) in zip(poles, poles[1:]):
+        for side in (-10, 11):
+            for i in range(x1 - x0):
+                s.set_at(((x0 + side + i) % width, y0 + int(16 * math.sin(math.pi * i / (x1 - x0)))), col)
+    for _ in range(9):                                   # salt mounds
+        x, w, h = rnd.randrange(width), rnd.randrange(30, 70), rnd.randrange(6, 16)
+        pygame.draw.ellipse(s, col, (x, 178 - h, w, h * 2))
+        pygame.draw.line(s, hint, (x + w // 4, 179 - h), (x + w // 2, 178 - h))
+    x = 380                                              # the bucket truck, its boom raised to a dead line
+    pygame.draw.polygon(s, col, [(x, 174), (x + 2, 160), (x + 30, 160), (x + 32, 150), (x + 46, 150), (x + 52, 160),
+                                 (x + 60, 164), (x + 60, 174)])
+    pygame.draw.line(s, col, (x + 14, 158), (x + 34, 112), 3)
+    pygame.draw.line(s, col, (x + 34, 112), (x + 52, 120), 3)
+    pygame.draw.rect(s, col, (x + 48, 112, 12, 10))
+    pygame.draw.polygon(s, hint, [(x + 36, 153), (x + 45, 153), (x + 49, 159), (x + 36, 159)])
+    for wx in (x + 12, x + 46):
+        pygame.draw.circle(s, col, (wx, 175), 7)
+        pygame.draw.circle(s, hint, (wx, 175), 2)
+    for x in range(10, width, 64):                       # road markers
+        pygame.draw.line(s, col, (x, 170), (x, 180), 2)
+        s.set_at((x, 171), C["rose"])
+    pygame.draw.rect(s, col, (0, 178, width, H - 178))
+    return s
+
+
+def plant_near(width=640):
+    """Mission 4's near layer: the Cradle's pipe racks and tanks, valve wheels, a stack venting steam, warning
+    lamps. Black like every near layer, with the plant's cold light in the seams."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(43)
+    col, hint = C["black"], C["ink"]
+    for y in (132, 140):                                 # a pipe rack the whole way along, on trestles
+        pygame.draw.line(s, col, (0, y), (width, y), 4)
+        pygame.draw.line(s, hint, (0, y - 2), (width, y - 2))
+    for x in range(8, width, 48):
+        pygame.draw.line(s, col, (x, 128), (x, 180), 3)
+        pygame.draw.line(s, col, (x - 6, 128), (x + 6, 128), 2)
+    for _ in range(4):                                   # tanks, banded
+        x, w, h = rnd.randrange(0, width - 50), rnd.randrange(30, 48), rnd.randrange(34, 56)
+        pygame.draw.rect(s, col, (x, 180 - h, w, h), border_radius=8)
+        for by in range(180 - h + 8, 178, 12):
+            pygame.draw.line(s, hint, (x + 2, by), (x + w - 3, by))
+        s.set_at((x + w // 2, 180 - h + 3), C["red"])
+    for x in (120, 440):                                 # a stack, venting
+        pygame.draw.rect(s, col, (x, 70, 14, 110))
+        for k in range(6):
+            pygame.draw.circle(s, hint, (x + 7 + k * 3 + rnd.randrange(-2, 3), 64 - k * 7), 4 + k)
+        pygame.draw.circle(s, C["red"], (x + 7, 74), 1)
+    for x in range(30, width, 96):                       # valve wheels on the rack
+        pygame.draw.circle(s, col, (x, 150), 6, 2)
+        pygame.draw.line(s, col, (x - 6, 150), (x + 6, 150))
+        pygame.draw.line(s, col, (x, 144), (x, 156))
+    for x in range(0, width, 5):                         # the cold light in the seams of the rack
+        if rnd.random() < 0.12:
+            s.set_at((x, 137), C["cyan"] if rnd.random() < 0.4 else C["dusk"])
+    pygame.draw.rect(s, col, (0, 178, width, H - 178))
+    return s
+
+
+def drain_sky():
+    """The storm drain's back wall: wet brick in the dark, a gutter line, nothing that scrolls."""
+    s = pygame.Surface((W, H))
+    s.fill(DRAIN_PALETTE["night"])
+    rnd = random.Random(47)
+    for y in range(64, H, 8):
+        off = 8 if (y // 8) % 2 else 0
+        for x in range(-off, W, 16):
+            shade = mix(DRAIN_PALETTE["night"], DRAIN_PALETTE["dusk"], rnd.random() * 0.5)
+            pygame.draw.rect(s, shade, (x + 1, y + 1, 14, 6))
+    pygame.draw.rect(s, C["black"], (0, 0, W, 64))
+    return s
+
+
+def drain_wall(width=640):
+    """The drain's mid layer: pipes along the wall, drips, the light falling through the road's grates."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(53)
+    pipe, lit = DRAIN_PALETTE["dusk"], DRAIN_PALETTE["rose"]
+    for y, r in ((84, 5), (100, 3)):
+        pygame.draw.line(s, C["black"], (0, y), (width, y), r * 2)
+        pygame.draw.line(s, pipe, (0, y - r + 1), (width, y - r + 1))
+        for x in range(20, width, 90):
+            pygame.draw.rect(s, C["black"], (x, y - r - 2, 4, r * 2 + 4))
+    for x in range(60, width, 160):                      # light through a grate: a pale slant down the wall
+        for k in range(4):
+            pygame.draw.line(s, (*lit, 50), (x + k * 3, 64), (x + 14 + k * 3, 176))
+    for _ in range(30):                                  # drips and wet streaks
+        x, y = rnd.randrange(width), rnd.randrange(66, 170)
+        pygame.draw.line(s, C["black"], (x, y), (x, y + rnd.randrange(4, 14)))
+        s.set_at((x, y + 2), C["cyan"])
+    return s
+
+
+def shaft_sky():
+    """The lift shaft's far wall: concrete in courses, lit from below by the lift's own lamps."""
+    s = pygame.Surface((W, H))
+    for y in range(H):
+        s.fill(mix(SHAFT_PALETTE["night"], SHAFT_PALETTE["dusk"], y / H), (0, y, W, 1))
+    rnd = random.Random(59)
+    for x in range(26, W - 26, 34):                      # the far wall's panels and conduit: vertical, so the
+        pygame.draw.line(s, SHAFT_PALETTE["night"], (x, 0), (x, H))      # unmoving wall never gives the climb away
+        if rnd.random() < 0.5:
+            pygame.draw.line(s, C["black"], (x + 12, 0), (x + 12, H), 3)
+            pygame.draw.line(s, SHAFT_PALETTE["dusk"], (x + 11, 0), (x + 11, H))
+    for y in range(H - 40, H):                           # the lift's lamps warm the bottom of the shaft
+        t = (y - (H - 40)) / 40
+        glow = pygame.Surface((W, 1), pygame.SRCALPHA)
+        glow.fill((*SHAFT_PALETTE["rose"], int(60 * t)))
+        s.blit(glow, (0, y))
+    return s
+
+
+def shaft(width=320):
+    """The lift shaft: walls and girders that slide down past the deck as it climbs (World.paint scrolls it)."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    wall, hint, lit = C["black"], SHAFT_PALETTE["dusk"], SHAFT_PALETTE["rose"]
+    for x0, x1 in ((0, 26), (width - 26, width)):         # the shaft's walls with their rails
+        pygame.draw.rect(s, wall, (x0, 0, x1 - x0, H))
+        rail = x1 - 4 if x0 == 0 else x0 + 2
+        pygame.draw.rect(s, hint, (rail, 0, 2, H))
+        for y in range(6, H, 28):
+            pygame.draw.circle(s, lit, (rail + 1, y), 1)
+    for y in (40, 152):                                  # girders across, their braces, a floor number lamp
+        pygame.draw.rect(s, wall, (26, y, width - 52, 8))
+        for x in range(26, width - 26, 16):
+            pygame.draw.line(s, hint, (x, y + 1), (x + 8, y + 7))
+        pygame.draw.rect(s, C["red"] if y == 40 else C["gold"], (width // 2 - 2, y + 2, 4, 3))
+    for x in (90, 230):                                  # cables
+        pygame.draw.line(s, wall, (x, 0), (x, H), 2)
+    for y in (96, 200):                                  # landing doors going past, shut, a number stencilled on
+        pygame.draw.rect(s, wall, (width // 2 - 30, y, 60, 22))
+        pygame.draw.rect(s, hint, (width // 2 - 30, y, 60, 22), 1)
+        pygame.draw.line(s, hint, (width // 2, y), (width // 2, y + 21))
+        for k in range(width // 2 - 28, width // 2 + 28, 6):
+            pygame.draw.line(s, C["gold"], (k, y + 19), (k + 3, y + 16))
+    return s
+
+
+# the drain under the road: cold, wet, nearly black; the lift: the tower's concrete, lit warm from below
+DRAIN_PALETTE = {"night": (16, 18, 30), "dusk": (36, 42, 60), "rose": (90, 104, 120)}
+DRAIN_FLOOR = {"rust": (60, 70, 84), "rust_d": (30, 36, 50)}
+SHAFT_PALETTE = {"night": (18, 16, 28), "dusk": (70, 56, 70), "rose": (220, 150, 90)}
+SHAFT_FLOOR = {"rust": (120, 110, 100), "rust_d": (70, 60, 60)}
+
+
 def _painted(palette, make, *args):
     """make(*args) drawn in a palette: C is swapped for the call, then put back."""
     saved = {k: C[k] for k in palette}
@@ -1421,9 +1594,13 @@ def backdrop(theme):
                                                        (yard(), 0.55, 8)], pillar()))
     if theme == 2:
         return _painted(ROAD_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (pylons(), 0.25, 0),
-                                                       (near(), 0.55, 8)], pillar()))
-    return _painted(CRADLE_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (cradle(), 0.25, 0),
-                                                     (near(), 0.55, 8)], pillar()))
+                                                       (salt_near(), 0.55, 8)], pillar()))
+    if theme == 3:
+        return _painted(CRADLE_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (cradle(), 0.25, 0),
+                                                         (plant_near(), 0.55, 8)], pillar()))
+    if theme == 4:
+        return drain_sky(), [(drain_wall(), 0.5, 0)], pillar()
+    return shaft_sky(), [(shaft(), 1.0, 0)], pillar()
 
 
 def pillar():
@@ -1476,12 +1653,12 @@ class Atlas:
         self.graive = [(t, pygame.transform.flip(t, True, False)) for t in (graive_torso(False), graive_torso(True))]
         self.shield = riot_shield()
         self.caps = {"H": capsule("H", C["red"]), "S": capsule("S", C["blue"]), "R": capsule("R", C["olive"]),
-                     "B": capsule("B", C["rust"]), "1": capsule("1", C["green"])}
+                     "B": capsule("B", C["rust"]), "1": capsule("1", C["green"]), "M": map_page()}
         self.ground = {}
         self.crates = [crate_tile(k) for k in range(3)]
         self.containers = {}
         self.girders = {(a, b): girder_tile(a, b) for a in (False, True) for b in (False, True)}
-        self.themes = [backdrop(0), backdrop(1), backdrop(2), backdrop(3)]          # one per mission theme (stage.Mission.theme)
+        self.themes = [backdrop(k) for k in range(6)]     # one per mission theme (stage.Mission.theme), then the rooms
         self.sky, self.layers, self.pillar = self.themes[0]
         self.glow_s = glow(7, (120, 80, 36))
         self.glow_l = glow(18, (150, 70, 30))
@@ -1496,7 +1673,7 @@ class Atlas:
         key = (tx % (92 if theme == 1 else 23), ty, top, left, right, theme)
         if key not in self.ground:
             make = (ground_tile, line_ground_tile)[theme == 1]
-            paint = {2: SALT_PALETTE, 3: PLANT_PALETTE}.get(theme)
+            paint = {2: SALT_PALETTE, 3: PLANT_PALETTE, 4: DRAIN_FLOOR, 5: SHAFT_FLOOR}.get(theme)
             self.ground[key] = _painted(paint, make, *key[:5]) if paint else make(*key[:5])
         return self.ground[key]
 
