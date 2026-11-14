@@ -6,7 +6,7 @@ import random
 import pygame
 
 from . import audio
-from .actors import Bastion, Drone, Foe, Hostage, Pickup, Player, Turret, Warden
+from .actors import Bastion, Drone, Foe, Harrow, Hostage, Pickup, Player, Turret, Warden
 from .settings import CHAIN_FRAMES, CHAIN_MAX, DIFFICULTY, GRENADES, TILE, C, H, W
 from .stage import AIR, CRATE, GROUND, WALK, Stage
 
@@ -231,7 +231,7 @@ class World:
         elif kind == "turret":
             self.foes.append(Turret(x, y))
         else:
-            self.foes.append(Foe(x, y, kind))       # soldier, lobber or shield
+            self.foes.append(Foe(x, y, kind))       # soldier, lobber, shield or sapper
 
     def actors(self):
         """Everything with a position of its own."""
@@ -298,7 +298,7 @@ class World:
             self.cam_x = float(self.stage.boss_x)
             self.locked = True
             self.foes = [f for f in self.foes if f.x > self.cam_x]
-            kind = Warden if self.stage.mission.boss == "warden" else Bastion
+            kind = {"bastion": Bastion, "warden": Warden, "harrow": Harrow}[self.stage.mission.boss]
             self.boss = kind(self.cam_x + W + 60, 176, self.cam_x, self.cam_x + W)
             self.boss.HP = self.boss.hp = self.boss_hp
             audio.play("alarm")

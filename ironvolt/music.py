@@ -17,7 +17,8 @@ RATE = 22050
 NOTE = {n: i for i, n in enumerate("C C# D D# E F F# G G# A A# B".split())}
 CHORDS = {"Am": (57, (0, 3, 7)), "Dm": (62, (0, 3, 7)), "F": (53, (0, 4, 7)), "C": (60, (0, 4, 7)),
           "G": (55, (0, 4, 7)), "E": (52, (0, 4, 7)), "Bb": (58, (0, 4, 7)),
-          "Em": (52, (0, 3, 7)), "D": (62, (0, 4, 7)), "B": (59, (0, 4, 7))}   # pad root (MIDI), intervals
+          "Em": (52, (0, 3, 7)), "D": (62, (0, 4, 7)), "B": (59, (0, 4, 7)),
+          "A": (57, (0, 4, 7)), "Gm": (55, (0, 3, 7)), "Eb": (63, (0, 4, 7))}   # pad root (MIDI), intervals
 STYLES = {   # drums, bass notes a bar (0, 8 or 16), pad brightness (low-pass Hz), arpeggio
     "intro": ("half", 8, 900, True),
     "drive": ("full", 8, 1500, True),
@@ -56,6 +57,20 @@ RAM = ["E5 - - - . E5 G5 - F5 - E5 - D5 - B4 -", "F5 - - - . F5 A5 - G5 - F5 - E
        "E5 - - - . E5 G5 - F5 - E5 - D5 - B4 -", "C6 - - - B5 - A5 - G5 - - - F5 - A5 -",
        "G5 - - - B5 - D6 - B5 - - - G5 - D5 -", "D#5 - - - F#5 - A5 - B5 - - - - - . ."]
 
+# Mission 3, the pylon road: D minor, wide and open, the sun almost through; the gunship in D with a Phrygian Eb.
+PYLON = ["D5 - - - A5 - - - F5 - E5 - D5 - - -", "D5 - - . F5 - A#5 - A5 - - - G5 - F5 -",
+         "C6 - - - A5 - F5 - A5 - - - C6 - - -", "E5 - - - G5 - C6 - E6 - - - D6 - C6 -",
+         "D5 - - - A5 - - - F5 - E5 - D5 - - -", "F5 - - - A#5 - D6 - C6 - A#5 - A5 - - -",
+         "G5 - - - A#5 - D6 - A#5 - - - G5 - - -", "C#6 - - - - - A5 - E5 - - - C#5 - . ."]
+SPAN = ["F5 - - - - - D5 - A#4 - - - D5 - F5 -", "G5 - - - - - E5 - C5 - - - E5 - G5 -",
+        "A5 - - - - - - - F5 - G5 - A5 - - -", "D6 - - - C6 - A5 - F5 - - - - - . .",
+        "F5 - - - - - D5 - A#5 - - - A5 - F5 -", "G5 - - - - - C6 - E5 - - - G5 - C6 -",
+        "C#6 - - - - - - - A5 - - - E5 - - -", "A5 - - - - - - - - - - - . . . ."]
+ROTOR = ["D5 - - - . D5 F5 - E5 - D5 - C5 - A4 -", "D#5 - - - . D#5 G5 - F5 - D#5 - D5 - A#4 -",
+         "D5 - - - . D5 A5 - A#5 - - - A5 - F5 -", "C#5 - - - E5 - - - A5 - - - - - . .",
+         "D5 - - - . D5 F5 - E5 - D5 - C5 - A4 -", "A#5 - - - A5 - G5 - F5 - - - D#5 - G5 -",
+         "F5 - - - A5 - C6 - A5 - - - F5 - C5 -", "C#5 - - - E5 - G5 - A5 - - - - - . ."]
+
 SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doubled an octave up) or None)
     "title": (120, [("Am F C G Am F C G", "title", (HOOK, "bell", False))]),
     "stage": (120, [("Am F C G", "intro", None),
@@ -74,6 +89,14 @@ SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doub
                    ("Em C G D Em C G B", "drive", (RAIL, "lead", True))]),
     "warden": (146, [("Em F Em B Em F G B", "boss", None),
                      ("Em F Em B Em F G B", "boss", (RAM, "lead", True))]),
+    "pylon": (124, [("Dm Bb F C", "intro", None),
+                    ("Dm Bb F C Dm Bb Gm A", "drive", (PYLON, "lead", False)),
+                    ("Bb C Dm Dm Bb C A A", "lift", (SPAN, "lead", False)),
+                    ("Bb C Dm", "break", ([PYLON[1], PYLON[3], PYLON[0]], "bell", False)),
+                    ("Dm", "rise", None),
+                    ("Dm Bb F C Dm Bb Gm A", "drive", (PYLON, "lead", True))]),
+    "harrow": (150, [("Dm Eb Dm A Dm Eb F A", "boss", None),
+                     ("Dm Eb Dm A Dm Eb F A", "boss", (ROTOR, "lead", True))]),
 }
 CHUNK = 512                 # samples between yields
 

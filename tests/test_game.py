@@ -15,7 +15,7 @@ import pygame  # noqa: E402
 pygame.init()
 
 from ironvolt import storage  # noqa: E402
-from ironvolt.actors import Foe, Hostage, Pickup, Shot, Warden  # noqa: E402
+from ironvolt.actors import SAPPER_FUSE, Foe, Harrow, Hostage, Pickup, Shot, Warden  # noqa: E402
 from ironvolt.app import fit, integer_fit, pace, scanlines  # noqa: E402
 from ironvolt.art import Atlas  # noqa: E402
 from ironvolt.autopilot import BotPad  # noqa: E402
@@ -449,6 +449,52 @@ class Missions(unittest.TestCase):
         self.assertEqual(foe.hp, 4)
         self.assertTrue(front.dead)
 
+    def sapper_beside(self):
+        w, pads = World((0,), seed=4), [Pad(), Pad()]
+        w.spawn_i = len(w.stage.spawns)
+        p = w.players[0]
+        run(w, pads, 5)
+        p.safe, p.facing = 0, 1
+        foe = Foe(p.x + 12, GROUND_Y, "sapper")
+        w.foes.append(foe)
+        run(w, pads, 2)
+        self.assertTrue(foe.fuse)                        # up close it lights the fuse instead of shooting
+        return w, pads, p, foe
+
+    def test_a_sapper_left_alone_blows_up_beside_you(self):
+        w, pads, p, foe = self.sapper_beside()
+        run(w, pads, SAPPER_FUSE + 2)
+        self.assertTrue(p.dying)
+        self.assertNotIn(foe, w.foes)
+
+    def test_a_knife_stops_a_lit_sapper(self):
+        w, pads, p, foe = self.sapper_beside()
+        pads[0].press(fire=True)
+        w.step(pads)
+        self.assertTrue(foe.dying)
+        self.assertFalse(w.shots)
+        run(w, pads, SAPPER_FUSE + 2)
+        self.assertFalse(p.dying)
+
+    def test_the_gunship_flies_out_of_jumping_reach_over_open_road(self):
+        self.assertLess(Harrow.FLY + 3, GROUND_Y - 58 - 21)          # bob included, a full jump's head stays under
+        for i, m in enumerate(MISSIONS):
+            if m.boss == "harrow":
+                st = World((0,), stage=i).stage
+                for c in range(m.boss_col, st.cols - 1):
+                    self.assertFalse(any(st.tile(c, r) for r in range(11)), "something to stand on at %d" % c)
+
+    def test_the_gunship_bombs_the_road_on_its_run(self):
+        w = World((0,), seed=5)
+        w.spawn_i = len(w.stage.spawns)
+        w.cam_x, w.locked = 100.0, True
+        w.boss = Harrow(w.cam_x + W - 90, GROUND_Y, w.cam_x, w.cam_x + W)
+        w.boss.state, w.boss.mode = "fight", "run"
+        w.players[0].x = w.cam_x + 40
+        for _ in range(40):
+            w.boss.step(w)
+        self.assertTrue(any(b.kind == "shell" for b in w.bolts))
+
     def warden_charging(self, x, y):
         w, pads = World((0,), seed=3), [Pad(), Pad()]
         w.spawn_i = len(w.stage.spawns)
@@ -493,9 +539,10 @@ class Missions(unittest.TestCase):
         g = Game(ATLAS)
         g.start([0])
         g.world.players[0].score = 0
-        g.mode, g.t = "clear", 1000
-        g.step(Ctl())
-        self.assertEqual((g.mode, g.world.stage.index), ("play", 1))
+        for i in range(1, len(MISSIONS)):
+            g.mode, g.t = "clear", 1000
+            g.step(Ctl())
+            self.assertEqual((g.mode, g.world.stage.index), ("play", i))
         g.mode, g.t = "clear", 1000
         g.step(Ctl())
         self.assertIn(g.mode, ("entry", "scores"))

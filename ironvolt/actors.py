@@ -10,7 +10,7 @@ import pygame
 
 from . import audio
 from .settings import (BULLET_V, ENEMY_BULLET_V, GRAVITY, GRENADES, JUMP_V, LIVES, MAX_FALL, RESPAWN_SAFE, RUN,
-                       SCORE, TILE, WEAPONS, C, H, W)
+                       GROUND_Y, SCORE, TILE, WEAPONS, C, H, W)
 from .stage import WALK
 
 
@@ -87,6 +87,7 @@ FIRE_BUFFER = 8                            # a tap between two shots still fires
 STAND, DUCK = 21, 12                       # body heights: rifle fire flies 15 px up, over a crouch
 SLIDE, SLIDE_V, SLIDE_DRAG = 22, 3.2, 0.95  # down + jump on solid ground: a low dash under rifle fire
 KNIFE_REACH, KNIFE_DMG, KNIFE_RATE = 18, 3, 14   # fire with a foe this close: a stab that downs any trooper
+SAPPER_FUSE = 40                           # frames from a sapper lighting up beside you to the blast: time to knife it
 STOMP_DMG, STOMP_BOUNCE = 2, -4.6          # landing on a foe's head; hold jump to bounce high
 
 
@@ -477,13 +478,14 @@ class Grenade(Body):
 
 class Foe(Body):
     """A Rust Legion trooper. Rifles walk in and fire level; lobbers hold ground and arc shells; shields walk in
-    behind a riot shield that stops level shots, and lower it for a moment to fire."""
+    behind a riot shield that stops level shots, and lower it for a moment to fire. Sappers carry no gun: they run
+    at you with a satchel charge and light it up close, so shoot them early or knife them before the fuse burns."""
     w, h = 10, 21
 
     def __init__(self, x, y, kind="soldier"):
         super().__init__(x, y)
         self.kind = kind
-        self.hp = {"soldier": 2, "lobber": 3, "shield": 4}[kind]
+        self.hp = {"soldier": 2, "lobber": 3, "shield": 4, "sapper": 1}[kind]
         self.facing = -1
         self.timer = random.randint(40, 80)
         self.hurt = 0
@@ -491,6 +493,7 @@ class Foe(Body):
         self.run_t = 0.0
         self.aiming = 0
         self.stun = 0
+        self.fuse = 0
 
     def step(self, world):
         if self.dying:
@@ -509,6 +512,8 @@ class Foe(Body):
             self.vx *= 0.7
         elif target is None:
             self.vx = 0
+        elif self.kind == "sapper":
+            self.charge(world, target)
         else:
             dx = target.x - self.x
             self.facing = 1 if dx > 0 else -1
@@ -538,6 +543,26 @@ class Foe(Body):
         self.run_t = self.run_t + 0.11 if self.vx and not self.stun else 0
         if self.y > H + 20 or self.x < world.cam_x - 40:
             self.dead = True
+
+    def charge(self, world, target):
+        """A sapper runs straight in; up close it stops and lights the fuse, and the charge goes off where it stands."""
+        if self.fuse:
+            self.fuse -= 1
+            self.vx = 0
+            if self.fuse % 6 == 0:
+                audio.play("fuse")
+            if self.fuse == 0:
+                self.dead, self.dying = True, 1            # gone in its own blast, which then skips it
+                world.explode(self.x, self.y - 10, 24, 0, None, hurts_players=True)
+            return
+        dx = target.x - self.x
+        self.facing = 1 if dx > 0 else -1
+        if abs(dx) < 16 and abs(target.y - self.y) < 24:
+            self.fuse = SAPPER_FUSE
+            return
+        ahead = self.x + self.facing * 8
+        floor = world.stage.floor_y(ahead, self.y - 4)
+        self.vx = self.facing * 1.45 if floor is not None and abs(floor - self.y) < 20 else 0
 
     def fire(self, world, target):
         mx, my = self.x + self.facing * 10, self.y - 15
@@ -575,7 +600,8 @@ class Foe(Body):
 
     def draw(self, surf, atlas, cam):
         right = self.facing > 0
-        frames = {"lobber": (atlas.lobber, atlas.lobber_l), "shield": (atlas.riot, atlas.riot_l)}.get(
+        frames = {"lobber": (atlas.lobber, atlas.lobber_l), "shield": (atlas.riot, atlas.riot_l),
+                  "sapper": (atlas.sapper, atlas.sapper_l)}.get(
             self.kind, (atlas.foe, atlas.foe_l))[not right]
         if self.dying and (self.dying // 4) % 2:
             return
@@ -587,7 +613,11 @@ class Foe(Body):
             img = frames["stand"]
         x, y = round(self.x - cam), round(self.y)
         surf.blit(atlas.flash(img) if self.hurt else img, (x - img.get_width() // 2, y - img.get_height() + 1))
-        if not self.dying and not self.stun:
+        if self.kind == "sapper":
+            if self.fuse and not self.dying and self.fuse % 6 < 3:            # the lit fuse on the satchel, faster as it burns down
+                surf.set_at((x - self.facing * 5, y - 17), C["sun"])
+                surf.set_at((x - self.facing * 5, y - 18), C["white"])
+        elif not self.dying and not self.stun:
             lift = self.kind == "lobber" and self.aiming      # a grenadier raises the tube to lob
             gun = (atlas.tube if self.kind == "lobber" else atlas.rifle)[self.facing, -1 if lift else 0, self.facing]
             sx, sy = x + (2 if right else -3), y - 15 - (img.get_height() - atlas.tall)
@@ -1072,3 +1102,156 @@ class Warden(Body):
             pygame.draw.rect(surf, glow, (x + 4, y - 26, 10, 4))
             for bx in (x + 6, x + 9, x + 12):
                 pygame.draw.line(surf, ink, (bx, y - 28), (bx, y - 22))
+
+
+class Harrow(Body):
+    """HARROW, the grid company's old line-survey gunship under Legion plate. It hangs over the arena out of jumping
+    reach and fires aimed bursts from its chin gun; when its siren sounds it climbs and makes a bomb run along the
+    road. Shoot up at it, and run out from under the bombs. Once broken it runs faster and drops drones."""
+    w, h = 72, 34                               # up to the rotor pylons: a shot through them counts
+    HP = 150
+    FLY = 88                                    # the hull's underside: a jump from the road tops out below it
+
+    def __init__(self, x, y, left, right):
+        super().__init__(x, self.FLY)
+        self.hp = self.HP
+        self.left, self.right = left, right
+        self.home = right - 90
+        self.state = "enter"
+        self.mode, self.mt = "hover", 0         # hover, siren, run, settle
+        self.t = self.hurt = self.dying = self.burst = 0
+        self.dir, self.vy = -1, 0.0
+        self.gun_angle = math.pi * 0.75
+        self.marks = []                         # none: World.boss_down clears every boss's
+
+    @property
+    def angry(self):
+        return self.hp <= self.HP // 2
+
+    def step(self, world):
+        self.t += 1
+        if self.hurt:
+            self.hurt -= 1
+        if self.dying:                          # it loses the air and comes down on the road
+            self.dying -= 1
+            self.vy = min(3.0, self.vy + 0.04)
+            self.y = min(GROUND_Y - 4, self.y + self.vy)
+            self.x += self.dir * 0.4
+            if self.dying % 6 == 0:
+                world.explode(self.x + random.uniform(-34, 34), self.y - random.uniform(4, 24), 16, 0, None)
+            if self.dying == 1:
+                world.explode(self.x, self.y - 10, 60, 0, None, big=True)
+                self.dead = True
+            return
+        if self.t % 40 == 0:
+            audio.play("rotor")
+        if self.angry and self.t % 5 == 0:
+            world.smoke(self.x + 20 + random.uniform(-6, 6), self.y - 22, 1.0)
+        bob = math.sin(self.t / 18) * 3
+        if self.state == "enter":
+            self.x = max(self.home, self.x - 1.3)
+            self.y = self.FLY + bob
+            if self.x == self.home:
+                self.state, self.t = "fight", 0
+            return
+        target = world.nearest(self.x)
+        self.mt += 1
+        mid = (self.left + self.right) / 2
+        if self.mode == "hover":
+            if target is not None:              # it drifts to sit just ahead of whoever it hunts
+                want = max(self.left + 50, min(self.right - 50, target.x + 30))
+                self.x += max(-0.8, min(0.8, (want - self.x) * 0.02))
+            self.y = self.FLY + bob
+            if self.mt > (210 if self.angry else 300):
+                self.mode, self.mt = "siren", 0
+                self.dir = -1 if self.x > mid else 1
+                audio.play("alarm")
+        elif self.mode == "siren":              # a climb, its siren lamp flashing: the bomb run is coming
+            self.y = max(self.FLY - 26, self.y - 0.7)
+            if self.mt >= 50:
+                self.mode, self.mt = "run", 0
+        elif self.mode == "run":
+            self.x += self.dir * (2.6 if self.angry else 2.0)
+            if self.mt % (12 if self.angry else 16) == 0:
+                world.bolts.append(Bolt(self.x, self.y + 2, self.dir * 0.6, 0.4, 0.14, "shell"))
+            end = self.left + 40 if self.dir < 0 else self.right - 40
+            if (self.x - end) * self.dir >= 0:
+                self.x = end
+                self.mode, self.mt = "settle", 0
+        elif self.mode == "settle":
+            self.y = min(self.FLY + bob, self.y + 0.8)
+            if self.mt > 40:
+                self.mode, self.mt = "hover", 0
+        if target is None:
+            return
+        gx, gy = self.x + self.nose(), self.y + 2
+        want = math.atan2((target.y - 12) - gy, target.x - gx)
+        self.gun_angle += max(-0.06, min(0.06, (want - self.gun_angle + math.pi) % (2 * math.pi) - math.pi))
+        period = 90 if self.angry else 120
+        beat = self.t % period
+        if self.mode in ("hover", "settle"):
+            if period - 36 <= beat < period - 14 and beat % 6 == 0:     # the chin gun glints before a burst
+                world.flash(gx + math.cos(self.gun_angle) * 10, gy + math.sin(self.gun_angle) * 10, small=True)
+            if beat == period - 14:
+                self.burst = 4 if self.angry else 3
+        if self.burst and self.t % 7 == 0:
+            self.burst -= 1
+            c, s = math.cos(self.gun_angle), math.sin(self.gun_angle)
+            world.bolts.append(Bolt(gx + c * 10, gy + s * 10, c * 2.2 * world.fire, s * 2.2 * world.fire))
+            world.flash(gx + c * 10, gy + s * 10, small=True)
+            audio.play("enemy_shot")
+        if (self.angry and self.mode == "hover" and self.t % 300 == 150
+                and sum(isinstance(f, Drone) for f in world.foes) < 2):
+            world.foes.append(Drone(self.x, self.y + 12))           # out of the bay doors
+
+    def damage(self, dmg, world, owner, push=0.0):
+        if self.dying or self.state == "enter":
+            return True
+        calm = not self.angry
+        self.hp -= dmg
+        self.hurt = 3
+        if self.hp <= 0:
+            self.dying, self.vy = 150, 0.0
+            world.award(owner, SCORE["boss"], self.x, self.y - 40)
+            world.boss_down()
+        elif calm and self.angry:                        # a rotor takes a hit: a beat to see the fight change
+            world.explode(self.x + 20, self.y - 20, 20, 0, None)
+            world.hitstop(8)
+            world.shake = max(world.shake, 10)
+            audio.play("alarm")
+        return True
+
+    def hitbox(self):
+        return pygame.Rect(round(self.x - self.w / 2), round(self.y - self.h), self.w, self.h)
+
+    def nose(self):
+        """The chin gun's offset: under the nose, which turns into a rightward bomb run."""
+        return 24 if self.dir > 0 and self.mode == "run" else -24
+
+    def draw(self, surf, atlas, cam):
+        x, y = round(self.x - cam), round(self.y)
+        img = atlas.harrow[self.angry]
+        if self.nose() > 0:
+            img = atlas.harrow_r[self.angry]             # it turns its nose into the bomb run
+        surf.blit(atlas.flash(img) if self.hurt and self.hurt % 2 else img,
+                  (x - img.get_width() // 2, y - img.get_height()))
+        ink = C["ink"]
+        for rx in (-18, 18):                             # two rotors: a blur that beats, the blades catching the light
+            half = 4 + round(24 * abs(math.cos(self.t * 0.7 + rx)))
+            ry = y - 34
+            pygame.draw.line(surf, ink, (x + rx - half, ry), (x + rx + half, ry), 2)
+            pygame.draw.line(surf, C["steel_l"], (x + rx - half + 2, ry), (x + rx + half - 2, ry))
+            pygame.draw.rect(surf, ink, (x + rx - 1, ry - 1, 3, 4))
+        lamp = C["red"] if self.mode == "siren" and self.mt % 8 < 4 else C["sun"]
+        surf.blit(atlas.glow_s, (x - 7, y - 3), special_flags=pygame.BLEND_ADD)    # its searchlight on the ash
+        pygame.draw.circle(surf, lamp, (x, y + 1), 2)
+        c, s = math.cos(self.gun_angle), math.sin(self.gun_angle)
+        gx, gy = x + self.nose(), y + 2
+        pygame.draw.line(surf, ink, (gx, gy), (gx + c * 11, gy + s * 11), 4)
+        pygame.draw.line(surf, C["steel"], (gx, gy), (gx + c * 10, gy + s * 10), 2)
+        pygame.draw.circle(surf, ink, (gx, gy), 3)
+        pygame.draw.circle(surf, C["steel"], (gx, gy), 2)
+        if self.angry:                                   # the torn engine cowl shows the turbine glowing
+            glow = C["sun"] if (self.t // 5) % 2 else C["ember"]
+            pygame.draw.rect(surf, C["ember"], (x + 14, y - 26, 10, 5))
+            pygame.draw.rect(surf, glow, (x + 15, y - 25, 8, 3))

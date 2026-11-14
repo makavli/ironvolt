@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+Mission 3.
+- **Mission 3, PYLON ROAD:** the service road under the last live high-tension line, across the salt flats toward
+  the Cradle. A clearer, warmer dusk (the ash is thinning), pylon footings to climb and their cross-arms to run
+  along, wrecked line trucks and washed-out culverts.
+- **Sappers:** hazard-yellow troopers with no gun and a satchel charge. They run straight at you and light it up
+  close: shoot them early, or knife them before the fuse burns down.
+- **HARROW**, the grid company's old line-survey gunship under Legion plate: it hangs over the road out of jumping
+  reach and fires aimed bursts; when its siren sounds it climbs and makes a bomb run down the road. Shoot up and run
+  out from under the bombs. Once a rotor is hit it runs faster and drops drones.
+- **Two new songs:** the pylon road's theme and HARROW's.
+- `python tools/sim.py god 3` plays any mission with the bot.
+
 ## 0.7.1
 
 The first release with mission 2 (all of 0.7.0 below: its own release run was cancelled).
