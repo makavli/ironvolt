@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0
+
+Mission 4, the last one.
+- **Mission 4, THE CRADLE:** the outer works of the one reactor tower that still turns, under a high, pale dusk
+  where the ash is torn open. Reactor blocks, coolant housings, catwalks in tiers, floor plates fallen in.
+- **Guards:** Graive's own troopers in his red plate. They take three hits and fire two shots at a time.
+- **GRAIVE**, the warlord himself, in the Cradle's lineman rig: it strides in firing its arm cannon, crouches, and
+  leaps at you, and its landing sends a shockwave along the floor both ways. Jump the waves, watch for the shadow
+  where it lands, or get up on a catwalk, where it cannot leap at you. Broken, it leaps sooner and lands two waves.
+- **Two new songs:** the Cradle's theme and GRAIVE's.
+- The bot that tests every mission turns to face a boss that walks in, and stands its ground in a corner.
+
 ## 0.8.0
 
 Mission 3.

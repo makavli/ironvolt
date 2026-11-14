@@ -730,6 +730,68 @@ def harrow(broken):
     return outlined(s)
 
 
+def graive_torso(broken):
+    """GRAIVE's rig from the hips up, facing left: a reactor-climber's cage under rust-red Legion plate with gold
+    trim, the warlord himself behind the open cage (bare head, the old technician's badge on his chest), a vent stack
+    on the back. The legs and the arm cannon move, so the actor draws those; `broken` blows off the chest plate on
+    the core the actor lights."""
+    s = pygame.Surface((44, 40), pygame.SRCALPHA)
+
+    def at(dx, dy):                                      # dy up from the hips, dx from the middle
+        return 22 + dx, 39 + dy
+
+    def box(colour, x0, y0, x1, y1):
+        pygame.draw.rect(s, colour, (*at(x0, y0), x1 - x0 + 1, y1 - y0 + 1))
+
+    def line(colour, a, b):
+        pygame.draw.line(s, colour, at(*a), at(*b))
+
+    plate, dark, lit = C["rust"], C["rust_d"], mix(C["rust"], C["sun"], 0.4)
+    gun, iron, shine, trim = C["steel_d"], mix(C["steel_d"], INK, 0.5), C["steel_l"], C["gold"]
+    box(gun, 9, -36, 14, -16)                            # the vent stack on its back
+    line(shine, (10, -36), (10, -17))
+    line(iron, (14, -36), (14, -16))
+    box(iron, 8, -38, 15, -37)
+    box(gun, -12, -6, 12, -1)                            # the hip block
+    line(shine, (-12, -6), (12, -6))
+    pygame.draw.polygon(s, plate, [at(-14, -8), at(-16, -26), at(-10, -34), at(10, -34), at(14, -26), at(12, -8)])
+    for y in range(-34, -7):
+        for x in range(-16, 15):
+            if s.get_at(at(x, y))[:3] != plate:
+                continue
+            if y <= -33 or (y <= -31 and (x + y) % 2):
+                s.set_at(at(x, y), lit)
+            elif y >= -10 or (y >= -13 and (x + y) % 2):
+                s.set_at(at(x, y), dark)
+    line(trim, (-16, -26), (-10, -34))                   # gold trim along the cage
+    line(trim, (-10, -34), (10, -34))
+    # the open cage at the front, and the man in it
+    box(INK, -15, -30, -3, -14)
+    box(C["night"], -14, -29, -4, -15)
+    for bx in (-12, -8):
+        line(gun, (bx, -30), (bx, -14))
+    head = (-9, -26)
+    pygame.draw.circle(s, C["skin_d"], at(*head), 4)
+    pygame.draw.circle(s, C["skin"], at(head[0] - 1, head[1] - 1), 3)
+    line(C["steel_l"], (head[0] - 3, head[1] - 4), (head[0] + 2, head[1] - 4))     # grey, cropped hair
+    s.set_at(at(head[0] - 3, head[1]), INK)
+    box(C["olive_d"], -13, -21, -5, -15)                 # his old work jacket, the grid company's badge
+    s.set_at(at(-8, -19), trim)
+    s.set_at(at(-7, -19), C["cream"])
+    for sx in (0, 7):                                    # plate seams and their rivets
+        line(dark, (sx, -32), (sx, -10))
+        for ry in (-30, -20, -12):
+            s.set_at(at(sx + 2, ry), lit)
+    if broken:
+        pygame.draw.polygon(s, INK, [at(-6, -12), at(-4, -9), at(6, -10), at(8, -14), at(2, -8)])
+        rnd = random.Random(17)
+        for _ in range(30):
+            x, y = rnd.randrange(-14, 12), rnd.randrange(-32, -8)
+            if s.get_at(at(x, y))[:3] in (plate, dark, lit):
+                s.set_at(at(x, y), mix(C["rust_d"], INK, rnd.random() * 0.7))
+    return outlined(s)
+
+
 def riot_shield():
     """A trooper's riot shield, {(lowered, facing): picture}, both drawn from the same top: raised, it covers him
     from the eyes to the shins; lowered to fire, it drops to the ground and tips forward, and he fires over it."""
@@ -1297,6 +1359,49 @@ ROAD_PALETTE = {"night": (44, 34, 70), "dusk": (110, 70, 112), "rose": (206, 112
 SALT_PALETTE = {"rust": (196, 176, 158), "rust_d": (120, 98, 92)}
 
 
+def cradle(width=640):
+    """Mission 4's mid layer: the Cradle, the one reactor tower that still turns, huge at the centre of the dead
+    grid; its turbine hall lit, the lines it feeds running out of it, and the ash torn open above it."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    body, rim, edge = C["night"], C["dusk"], C["rose"]
+    rnd = random.Random(37)
+    x = 0
+    while x < width:                                     # the works: halls and stacks, a few windows lit
+        w, h = rnd.randrange(20, 46), rnd.randrange(24, 60)
+        pygame.draw.rect(s, body, (x, 150 - h, w, h))
+        pygame.draw.line(s, rim, (x + w - 1, 150 - h), (x + w - 1, 150))
+        for wy in range(150 - h + 4, 146, 6):
+            for wx in range(x + 3, x + w - 3, 5):
+                if rnd.random() < 0.1:
+                    s.set_at((wx, wy), C["cyan"] if rnd.random() < 0.3 else C["sun"])
+        x += w + rnd.randrange(0, 10)
+    for cx in (160, 480):                                # the tower: a cooling hyperboloid, its sunward flank lit
+        top, foot = 34, 150
+        for y in range(top, foot):
+            t = (y - top) / (foot - top)
+            half = int(24 + 20 * (t - 0.45) ** 2 * 4)
+            pygame.draw.line(s, body, (cx - half, y), (cx + half, y))
+            s.set_at((cx + half, y), edge)
+            if y % 9 == 0:
+                pygame.draw.line(s, rim, (cx - half + 2, y), (cx + half - 2, y))
+        pygame.draw.ellipse(s, rim, (cx - 26, top - 3, 52, 7), 1)
+        for k in range(5):                               # the core's light through the louvres, still burning
+            pygame.draw.line(s, C["cyan"], (cx - 14 + k * 7, 118), (cx - 12 + k * 7, 118))
+        pygame.draw.circle(s, C["red"], (cx, top - 4), 1)
+        for d in (-1, 1):                                # the lines it feeds, running out over the works
+            for i in range(0, 150):
+                s.set_at(((cx + d * (30 + i)) % width, 70 + int(i * 0.25 + 6 * math.sin(i / 24))), body)
+    pygame.draw.rect(s, body, (0, 150, width, H - 150))
+    return s
+
+
+# mission 4: at the Cradle the ash is torn open; a high, pale dusk, almost a dawn
+CRADLE_PALETTE = {"night": (36, 44, 78), "dusk": (78, 88, 132), "rose": (196, 130, 140), "ember": (242, 166, 104),
+                  "sun": (255, 228, 160), "cream": (255, 250, 232)}
+# the Cradle's floor: blue-grey plant concrete and conduit instead of rust and slag
+PLANT_PALETTE = {"rust": (118, 128, 150), "rust_d": (64, 70, 96)}
+
+
 def _painted(palette, make, *args):
     """make(*args) drawn in a palette: C is swapped for the call, then put back."""
     saved = {k: C[k] for k in palette}
@@ -1314,8 +1419,11 @@ def backdrop(theme):
     if theme == 1:
         return _painted(LINE_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (viaduct(), 0.25, 0),
                                                        (yard(), 0.55, 8)], pillar()))
-    return _painted(ROAD_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (pylons(), 0.25, 0),
-                                                   (near(), 0.55, 8)], pillar()))
+    if theme == 2:
+        return _painted(ROAD_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (pylons(), 0.25, 0),
+                                                       (near(), 0.55, 8)], pillar()))
+    return _painted(CRADLE_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (cradle(), 0.25, 0),
+                                                     (near(), 0.55, 8)], pillar()))
 
 
 def pillar():
@@ -1352,6 +1460,8 @@ class Atlas:
         self.sapper = foe_frames(mix(C["gold"], C["rust"], 0.45), mix(C["rust"], C["rust_d"], 0.4), pack=True,
                                  V=C["sun"])                                 # hazard yellow, the satchel on its back
         self.sapper_l = mirrored(self.sapper)
+        self.guard = foe_frames(mix(C["rust"], C["red"], 0.5), C["rust_d"], M=mix(C["gold"], C["steel_d"], 0.5))
+        self.guard_l = mirrored(self.guard)                                  # Graive's own: his red, a brass mask
         legion = dict(BASE_PAL, g=mix(C["steel_d"], C["black"], 0.6))
         self.rifle = held(RIFLE, legion)
         self.tube = held(TUBE, legion, ((1, 0, 0), (1, -1, 24)))
@@ -1363,6 +1473,7 @@ class Atlas:
         self.warden = [warden(False), warden(True)]
         self.harrow = [harrow(False), harrow(True)]
         self.harrow_r = [pygame.transform.flip(h, True, False) for h in self.harrow]
+        self.graive = [(t, pygame.transform.flip(t, True, False)) for t in (graive_torso(False), graive_torso(True))]
         self.shield = riot_shield()
         self.caps = {"H": capsule("H", C["red"]), "S": capsule("S", C["blue"]), "R": capsule("R", C["olive"]),
                      "B": capsule("B", C["rust"]), "1": capsule("1", C["green"])}
@@ -1370,7 +1481,7 @@ class Atlas:
         self.crates = [crate_tile(k) for k in range(3)]
         self.containers = {}
         self.girders = {(a, b): girder_tile(a, b) for a in (False, True) for b in (False, True)}
-        self.themes = [backdrop(0), backdrop(1), backdrop(2)]          # one per mission theme (stage.Mission.theme)
+        self.themes = [backdrop(0), backdrop(1), backdrop(2), backdrop(3)]          # one per mission theme (stage.Mission.theme)
         self.sky, self.layers, self.pillar = self.themes[0]
         self.glow_s = glow(7, (120, 80, 36))
         self.glow_l = glow(18, (150, 70, 30))
@@ -1385,7 +1496,8 @@ class Atlas:
         key = (tx % (92 if theme == 1 else 23), ty, top, left, right, theme)
         if key not in self.ground:
             make = (ground_tile, line_ground_tile)[theme == 1]
-            self.ground[key] = _painted(SALT_PALETTE, make, *key[:5]) if theme == 2 else make(*key[:5])
+            paint = {2: SALT_PALETTE, 3: PLANT_PALETTE}.get(theme)
+            self.ground[key] = _painted(paint, make, *key[:5]) if paint else make(*key[:5])
         return self.ground[key]
 
     def crate_at(self, tx, ty, theme=0, left=False, right=False):

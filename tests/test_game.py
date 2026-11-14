@@ -15,7 +15,7 @@ import pygame  # noqa: E402
 pygame.init()
 
 from ironvolt import storage  # noqa: E402
-from ironvolt.actors import SAPPER_FUSE, Foe, Harrow, Hostage, Pickup, Shot, Warden  # noqa: E402
+from ironvolt.actors import SAPPER_FUSE, Bolt, Foe, Graive, Harrow, Hostage, Pickup, Shot, Warden  # noqa: E402
 from ironvolt.app import fit, integer_fit, pace, scanlines  # noqa: E402
 from ironvolt.art import Atlas  # noqa: E402
 from ironvolt.autopilot import BotPad  # noqa: E402
@@ -494,6 +494,59 @@ class Missions(unittest.TestCase):
         for _ in range(40):
             w.boss.step(w)
         self.assertTrue(any(b.kind == "shell" for b in w.bolts))
+
+    def test_a_guard_fires_two_shots_at_once(self):
+        w = World((0,), seed=6)
+        foe = Foe(200.0, GROUND_Y, "guard")
+        foe.fire(w, w.players[0])
+        self.assertEqual(len(w.bolts), 2)
+
+    def graive_fight(self):
+        w = World((0,), seed=7)
+        w.spawn_i = len(w.stage.spawns)
+        w.cam_x, w.locked = 100.0, True
+        w.boss = Graive(w.cam_x + W - 70, GROUND_Y, w.cam_x, w.cam_x + W)
+        w.boss.state = "fight"
+        w.players[0].x, w.players[0].safe = w.cam_x + 60, 0
+        return w, w.boss
+
+    def test_graive_leaps_where_you_stand_and_lands_a_shockwave_both_ways(self):
+        w, g = self.graive_fight()
+        g.mode, g.mt = "crouch", 27
+        for _ in range(120):
+            g.step(w)
+            if g.mode == "land":
+                break
+        self.assertEqual(g.mode, "land")
+        self.assertLess(abs(g.x - w.players[0].x), 4)
+        waves = [b for b in w.bolts if b.kind == "wave"]
+        self.assertEqual(sorted(b.vx > 0 for b in waves), [False, True])
+
+    def test_graive_never_leaps_at_a_player_on_a_catwalk(self):
+        w, g = self.graive_fight()
+        w.players[0].y = 8 * TILE                        # standing on an arena catwalk
+        g.mode, g.mt = "stride", 1000
+        g.step(w)
+        self.assertEqual(g.mode, "stride")
+
+    def test_a_jump_clears_the_shockwave_and_standing_does_not(self):
+        for jump in (False, True):
+            w, g = self.graive_fight()
+            p, pads = w.players[0], [Pad(), Pad()]
+            run(w, pads, 30)
+            w.boss = None
+            w.bolts.append(Bolt(p.x + 40, GROUND_Y - 4, -2.2, 0, 0, "wave"))
+            for f in range(60):
+                run(w, pads, 1, jump=jump and 4 <= f < 30)
+            self.assertEqual(bool(p.dying), not jump)
+
+    def test_the_graive_arena_catwalks_are_above_the_rig(self):
+        for i, m in enumerate(MISSIONS):
+            if m.boss == "graive":
+                st = World((0,), stage=i).stage
+                rows = {r for c in range(m.boss_col, st.cols) for r in range(11) if st.tile(c, r) == WALK}
+                self.assertTrue(rows)
+                self.assertLessEqual(max(rows) * TILE, GROUND_Y - Graive.h - 1)
 
     def warden_charging(self, x, y):
         w, pads = World((0,), seed=3), [Pad(), Pad()]

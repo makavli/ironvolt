@@ -14,7 +14,7 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 ![pygame-ce](https://img.shields.io/badge/pygame--ce-2.5.8-6aa84f)
 ![Players](https://img.shields.io/badge/players-1%E2%80%932-e8742a)
 ![Assets](https://img.shields.io/badge/game%20assets-0%20files-8e44ad)
-![Status](https://img.shields.io/badge/status-v0.8%20%C2%B7%20missions%201%E2%80%933-c0392b)
+![Status](https://img.shields.io/badge/status-v0.9%20%C2%B7%20missions%201%E2%80%934-c0392b)
 
 <img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
 
@@ -42,7 +42,7 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 | | |
 |---|---|
 | <img src="docs/media/play_700.png" alt="Catwalks, troopers and drones" width="400"> | <img src="docs/media/play_2600.png" alt="Rockets against the Legion" width="400"> |
-| **8-way aim, run, jump, slide, stomp, knife up close, drop through catwalks.** Troopers, grenadiers, shield troopers, sappers, drones and turrets come from every side. | **Free the prisoners, take their guns:** heavy gun, spread, rockets, grenades, extra lives. |
+| **8-way aim, run, jump, slide, stomp, knife up close, drop through catwalks.** Troopers, grenadiers, shield troopers, sappers, Graive's guards, drones and turrets come from every side. | **Free the prisoners, take their guns:** heavy gun, spread, rockets, grenades, extra lives. |
 
 <div align="center">
 
@@ -50,7 +50,7 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 
 **BASTION**, the Legion's gate crawler. Two phases. Bring grenades. Then mission 2, **THE PRISONER LINE**, and
 **WARDEN**, an armoured engine that runs down anything on the track. Then mission 3, **PYLON ROAD**, and **HARROW**,
-a gunship that bombs the road.
+a gunship that bombs the road. Then mission 4, **THE CRADLE**, and **GRAIVE** himself.
 
 </div>
 
@@ -96,7 +96,7 @@ Free the prisoners: each one drops a weapon (H heavy gun, S spread, R rockets, B
 screenshots in `shots/`, and a real window for a few seconds. `--exe` also builds `Ironvolt.exe`; `--web` builds
 the browser version and plays it in headless Chrome (`bash tools/web_build.sh --serve` to play it yourself).
 
-`IRONVOLT_STAGE=3 python run.py` starts on mission 3 (or 2), to try it without playing the ones before.
+`IRONVOLT_STAGE=4 python run.py` starts on mission 4 (or 2, 3), to try it without playing the ones before.
 
 `python tools/media.py` re-records the GIFs and pictures in this README (needs ffmpeg).
 
