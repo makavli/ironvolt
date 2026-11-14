@@ -14,7 +14,7 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 ![pygame-ce](https://img.shields.io/badge/pygame--ce-2.5.8-6aa84f)
 ![Players](https://img.shields.io/badge/players-1%E2%80%932-e8742a)
 ![Assets](https://img.shields.io/badge/game%20assets-0%20files-8e44ad)
-![Status](https://img.shields.io/badge/status-v0.11%20%C2%B7%20missions%201%E2%80%934-c0392b)
+![Status](https://img.shields.io/badge/status-v0.12%20%C2%B7%20missions%201%E2%80%934-c0392b)
 
 <img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
 

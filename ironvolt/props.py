@@ -9,6 +9,7 @@ import random
 import pygame
 
 from . import audio, font
+from .actors import STAND
 from .settings import GROUND_Y, TILE, C, W
 
 VENT_LAUNCH = -9.6          # a vent throws a player ~128 px up: from the floor over a catwalk at row 4
@@ -490,8 +491,161 @@ class Gantries(Prop):
         return (W - 60, 56, "DUCK!") if any(x > W - 60 for x in self.beams) else None
 
 
+class Shutter(Prop):
+    """A blast shutter come down over the way, jammed a hand's width off the floor: slide under it (down + jump).
+    It is a wall to anyone standing, and it stops shots both ways."""
+    SLOT, W = 15, 12                    # the gap: over a slide (12 px tall), under anyone standing (21)
+    SIGN = "SLIDE UNDER!"
+
+    def __init__(self, col):
+        self.x0 = col * TILE + 2
+        self.near = False
+
+    def rect(self):
+        return pygame.Rect(self.x0, 0, self.W, GROUND_Y - self.SLOT)
+
+    def step(self, world):
+        r, live = self.rect(), world.live_players()
+        self.near = any(0 < self.x0 - p.x < 110 for p in live)
+        for p in live:
+            if p.slide and r.colliderect(round(p.x - p.w / 2), round(p.y) - STAND, p.w, STAND):
+                p.slide = max(p.slide, 2)               # a slide never ends under it, as under a low ceiling
+            if p.rect().colliderect(r):
+                self.touch(p, world, r)
+        for e in world.foes:
+            if not getattr(e, "dying", 0) and e.rect().colliderect(r):
+                self.touch_foe(e, world, r)
+        for b in self.stops(world):
+            if r.collidepoint(b.x, b.y):
+                b.dead = True
+
+    def stops(self, world):
+        return world.shots + world.bolts
+
+    def touch(self, p, world, r):
+        p.x = r.left - p.w / 2 - 0.5 if p.x < r.centerx else r.right + p.w / 2 + 0.5
+
+    touch_foe = touch
+
+    def draw(self, surf, atlas, cam, frame):
+        x = round(self.x0 - cam)
+        if x < -20 or x > W + 8:
+            return
+        bottom = GROUND_Y - self.SLOT
+        for rx in (x - 3, x + self.W):                         # the guide rails, down to the floor
+            pygame.draw.rect(surf, C["black"], (rx, 0, 3, GROUND_Y))
+        pygame.draw.rect(surf, C["steel_d"], (x, 0, self.W, bottom))
+        for k in range(2, bottom, 5):                          # the slats
+            pygame.draw.line(surf, C["steel"], (x, k), (x + self.W - 1, k))
+        for k in range(-6, self.W, 6):                         # hazard stripes on the jammed edge
+            pygame.draw.line(surf, C["gold"], (x + max(0, k), bottom - 2), (x + min(self.W - 1, k + 4), bottom - 6), 2)
+        pygame.draw.line(surf, C["black"], (x, bottom - 1), (x + self.W - 1, bottom - 1))
+        if self.near and frame % 40 < 26:                      # a chevron along the floor: under here
+            cy = GROUND_Y - 7
+            cx = x - 14 + (frame // 6) % 3
+            pygame.draw.lines(surf, C["sun"], False, [(cx, cy - 4), (cx + 4, cy), (cx, cy + 4)], 2)
+
+    def sign(self):
+        return (self.x0 + self.W // 2, GROUND_Y - 70, self.SIGN) if self.near else None
+
+
+class Laser(Shutter):
+    """A Legion laser fence across the road, its lowest beam a hand's width off the floor: slide under it.
+    Standing in it burns; troopers who walk into it are fried. Shots pass through light."""
+    SIGN = "LASERS: SLIDE!"
+
+    def stops(self, world):
+        return ()
+
+    def touch(self, p, world, r):
+        world.kill_player(p)
+
+    def touch_foe(self, e, world, r):
+        e.damage(99, world, None)
+        world.popups.append([e.x, e.y - 30.0, "FRIED!", 50])
+        audio.play("zap")
+
+    def draw(self, surf, atlas, cam, frame):
+        x = round(self.x0 - cam)
+        if x < -20 or x > W + 8:
+            return
+        bottom = GROUND_Y - self.SLOT
+        for px in (x - 4, x + self.W + 1):                    # the emitter posts, a lamp at each beam
+            pygame.draw.rect(surf, C["black"], (px, 40, 4, GROUND_Y - 40))
+            for by in range(bottom - 2, 44, -10):
+                surf.set_at((px + 1, by), C["red"])
+        rnd = random.Random(frame // 3)
+        for by in range(bottom - 2, 44, -10):                 # the beams: red, flickering, a white core
+            j = rnd.randrange(-1, 2)
+            pygame.draw.line(surf, C["red"], (x - 1, by + j), (x + self.W, by + j), 2)
+            pygame.draw.line(surf, C["white"], (x, by + j), (x + self.W - 1, by + j))
+        for k in range(42, 0, -6):                            # above the posts: a haze of heat
+            if (k + frame // 4) % 12 < 6:
+                surf.set_at((x + self.W // 2 + rnd.randrange(-3, 4), k), C["red"])
+        if self.near and frame % 40 < 26:
+            cy = GROUND_Y - 7
+            cx = x - 16 + (frame // 6) % 3
+            pygame.draw.lines(surf, C["sun"], False, [(cx, cy - 4), (cx + 4, cy), (cx, cy + 4)], 2)
+
+    def lights(self, frame):
+        return [(self.x0 + self.W / 2, GROUND_Y - 60, 40)]
+
+
+class Crumble(Prop):
+    """A rotten catwalk over a pit: it holds a moment, shudders under your boots, and drops. Keep running. The
+    Legion bolts a new one in place after a while."""
+    HOLD, BACK = 32, 300
+
+    def __init__(self, c0, c1, row):
+        self.x0, self.x1, self.y = c0 * TILE, (c1 + 1) * TILE, row * TILE
+        self.t, self.fall, self.near = 0, 0.0, False
+
+    def deck(self):
+        return (self.x0, self.x1, self.y) if self.t <= self.HOLD else None
+
+    def step(self, world):
+        live = world.live_players()
+        self.near = self.t == 0 and any(0 < self.x0 - p.x < 90 for p in live)
+        if self.t == 0:
+            if any(p.riding is self for p in live):
+                self.t = 1
+                audio.play("clank")
+            return
+        self.t += 1
+        if self.t == self.HOLD + 1:
+            audio.play("stomp")
+            world.dust((self.x0 + self.x1) / 2, self.y)
+        if self.t > self.HOLD:
+            self.fall += 0.25 * (self.t - self.HOLD)
+        if self.t > self.BACK and not any(self.x0 - 8 <= p.x <= self.x1 + 8 for p in live):
+            self.t, self.fall = 0, 0.0                       # a new one, bolted in where nobody stands
+
+    def draw(self, surf, atlas, cam, frame):
+        x, x1 = round(self.x0 - cam), round(self.x1 - cam)
+        y = round(self.y + self.fall)
+        if x1 < 0 or x > W or y > GROUND_Y + 60:
+            return
+        if 0 < self.t <= self.HOLD:                          # the shudder: harder as it gives
+            x += (frame % 4 < 2) * (1 + self.t // 12)
+            x1 = x + self.x1 - self.x0
+        w = x1 - x
+        tilt = min(8, round(self.fall / 4))                  # it drops nose first
+        pygame.draw.polygon(surf, C["black"], [(x, y - 1), (x + w, y - 1 + tilt), (x + w, y + 5 + tilt), (x, y + 5)])
+        pygame.draw.polygon(surf, C["rust_d"], [(x + 1, y), (x + w - 1, y + tilt), (x + w - 1, y + 4 + tilt), (x + 1, y + 4)])
+        pygame.draw.line(surf, C["rust"], (x + 1, y), (x + w - 1, y + tilt))
+        for k in range(x + 4, x + w - 2, 7):                 # the rotten slats
+            pygame.draw.line(surf, C["black"], (k, y + 1 + tilt * (k - x) // w), (k + 1, y + 4 + tilt * (k - x) // w))
+        if self.t == 0:                                      # the brackets it hangs on, while it hangs
+            for bx in (x + 2, x + w - 4):
+                pygame.draw.line(surf, C["steel_d"], (bx, y + 5), (bx + 2, y + 12), 2)
+
+    def sign(self):
+        return ((self.x0 + self.x1) // 2, self.y - 50, "IT WON'T HOLD: RUN!") if self.near else None
+
+
 KINDS = {"drain": Drain, "door": Door, "arc": Arc, "trolley": Trolley, "vent": Vent, "piston": Piston, "dark": Dark,
-         "crane": Crane, "crusher": Crusher, "ladder": Ladder, "gantries": Gantries}
+         "crane": Crane, "crusher": Crusher, "ladder": Ladder, "gantries": Gantries, "shutter": Shutter,
+         "laser": Laser, "crumble": Crumble}
 ROOM_KINDS = ("drain", "door", "ladder")         # the props that lead into a room
 
 

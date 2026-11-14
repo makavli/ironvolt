@@ -55,6 +55,7 @@ def _scrapyard():
     pit(108, 110)
     block(126, 127, 9, CRATE)              # 119..124: the car presses
     block(127, 127, 8, CRATE)
+    pit(128, 133)                          # a rotten catwalk at 130..131 (SCRAPYARD_PROPS)
     walk(134, 140, 7)
     walk(142, 148, 4)
     block(152, 156, 9)
@@ -96,7 +97,8 @@ def _waves(placed, edges, kinds, end):
     return out
 
 
-SCRAPYARD_PROPS = [("crane", 42, 51, 11), ("crusher", 119, 0), ("crusher", 122, 50), ("drain", 157, "stash", 165)]
+SCRAPYARD_PROPS = [("crane", 42, 51, 11), ("shutter", 96), ("crusher", 119, 0), ("crusher", 122, 50),
+                   ("crumble", 130, 131, 11), ("drain", 157, "stash", 165)]
 
 
 def _stash():
@@ -159,6 +161,7 @@ def _line():
     walk(198, 204, 8)
     pit(201, 203)
     block(205, 209, 8)
+    pit(210, 214)                          # a rotten catwalk at 211..213 (LINE_PROPS)
     block(215, 216, 10, CRATE)
     walk(230, 235, 8)                      # the arena's gantries: above the engine's roof
     walk(239, 244, 8)
@@ -173,7 +176,7 @@ LINE_SPAWNS = _waves(
     60, ["soldier", "shield", "soldier", "soldier", "drone", "soldier", "shield", "soldier"], 3500)
 
 
-LINE_PROPS = [("ladder", 104, "roofs", 144)]
+LINE_PROPS = [("shutter", 80), ("ladder", 104, "roofs", 144), ("crumble", 211, 213, 11)]
 
 
 def _roofs():
@@ -230,7 +233,8 @@ def _pylon_road():
 
 
 ROAD_PROPS = [("arc", 36, 43, 8, 0), ("drain", 52, "drain", 86), ("arc", 62, 68, 6, 60), ("arc", 71, 75, 8, 140),
-              ("trolley", 100, 127, 11), ("arc", 142, 149, 7, 70), ("arc", 166, 173, 6, 140), ("arc", 176, 180, 8, 0)]
+              ("laser", 94), ("trolley", 100, 127, 11), ("arc", 142, 149, 7, 70), ("arc", 166, 173, 6, 140), ("arc", 176, 180, 8, 0),
+              ("laser", 192)]
 ROAD_SPAWNS = _waves(
     [("hostage", 21, "S"), ("lobber", 40, None), ("hostage", 44, "B"), ("turret", 58, None), ("lobber", 81, None),
      ("hostage", 93, "H"), ("hostage", 136, "R"), ("lobber", 137, None), ("turret", 146, None),
@@ -291,13 +295,14 @@ def _cradle():
     block(170, 172, 9)
     pit(179, 181)
     block(185, 188, 9)
+    pit(192, 197)                          # a rotten catwalk at 194..195, at the end of the dark (CRADLE_PROPS)
     walk(222, 226, 8)                      # the arena's catwalks: above the rig's head
     walk(233, 237, 8)
     return g
 
 
 CRADLE_PROPS = [("vent", 40), ("vent", 60), ("vent", 72), ("piston", 96, 0), ("piston", 100, 28), ("piston", 104, 56),
-                ("piston", 108, 84), ("dark", 120, 192), ("door", 198, "lift", 214)]
+                ("piston", 108, 84), ("laser", 118), ("dark", 120, 192), ("crumble", 194, 195, 11), ("door", 198, "lift", 214)]
 CRADLE_SPAWNS = _waves(
     [("hostage", 20, "H"), ("turret", 34, None), ("hostage", 44, "B"), ("guard", 66, None), ("page", 77, 2),
      ("turret", 88, None), ("hostage", 87, "S"), ("guard", 140, None), ("hostage", 150, "R"), ("turret", 171, None),

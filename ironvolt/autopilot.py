@@ -54,11 +54,15 @@ class BotPad:
         beam = any(-12 < x - p.x < 130 for pr in world.props for x in getattr(pr, "beams", ()))
         if beam:                                               # a gantry coming: duck under it, stay put
             dx, danger, wall, pit = 0, False, False, False
+        slot = [pr for pr in world.props if hasattr(pr, "SLOT") and -4 < pr.x0 - p.x < 60]
+        if slot:                                               # a shutter or a laser fence: never jump into it
+            danger = wall = False
+        slide = bool(slot) and p.on_ground and not p.slide and 0 < slot[0].x0 - p.x < 24 and dx > 0
         if p.on_ground and (wall or pit or danger) and not self.jump_hold:
             self.jump_hold = 22
         drop = bool(boss and not boss.dying and p.on_ground and p.on_catwalk(st) and not self.jump_hold
                     and getattr(boss, "mode", "") not in ("whistle", "charge"))   # fight from the floor
-        if drop and not self.before.get("jump"):
+        if (drop or slide) and not self.before.get("jump"):
             self.jump_hold = 1
         if self.jump_hold:
             s["jump"] = True
@@ -71,7 +75,7 @@ class BotPad:
         elif boss and not boss.dying and boss.state == "fight":
             s["up"] = flying or (world.frame // 60) % 3 == 0     # mix diagonal shots in
         s["right"], s["left"] = dx > 0, dx < 0
-        if drop or beam:
+        if drop or beam or slide:
             s["down"], s["up"] = True, False
             s["jump"] = s["jump"] and not beam                 # down and jump is a slide: up into the beam
         if boss and not flying:                        # a gunship can end a bomb run behind you: walk back

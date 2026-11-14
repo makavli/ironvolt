@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0
+
+More parkour: three new set pieces, spread over all four missions, each with its own bouncing sign.
+- **Blast shutters** (missions 1 and 2): a shutter jammed a hand's width off the floor blocks the way. Slide under
+  it (down + jump). It stops shots both ways, so the troopers behind it wait for you.
+- **Laser fences** (missions 3 and 4): the Legion's fence across the road, its lowest beam just off the floor.
+  Slide under; standing in it burns. Troopers who walk into it get FRIED.
+- **Rotten catwalks** (missions 1, 2 and 4): a wide pit with one rotten catwalk across it. It holds a moment,
+  shudders, and drops: keep running. A new one is bolted in after a while, never under someone.
+- A slide never ends under a shutter or a fence, the same as under a low ceiling.
+- The demo player slides under shutters and fences too.
+
 ## 0.11.1
 
 - **macOS and Linux builds are back**, built on demand: a manual workflow (Actions -> macOS and Linux) builds a
