@@ -8,8 +8,10 @@ soft-clipping master then run once over the whole song. render() returns 16-bit 
 build() is the same work as a generator that yields every few thousand samples: a browser has no
 threads, so audio.tick() runs it a few milliseconds a frame and the game never stalls.
 
-A song's FLAVOR picks its band: "arcade" (synths, drum machine), "east" (koto, bamboo flute, taiko, gong) or
-"rain" (electric piano, sub bass, metal clanks, rain hiss).
+A song's FLAVOR picks its band: "arcade" (synths, drum machine: the title), "rock" (mission 1: distorted guitar,
+chugging power chords), "rail" (2: harmonica, boom-chick bass, ticking train beat, banjo), "wide" (3: brass,
+swelling strings, timpani, harp), "machine" (4: pipe organ, clanks, sixteenth hats), "east" (5: koto, bamboo
+flute, taiko, gong) or "rain" (6: electric piano, sub bass, metal clanks, rain hiss).
 """
 
 import math
@@ -120,37 +122,37 @@ LEVI = ["G5 - - - . G5 A#5 - A5 - G5 - D5 - . D5", "G#5 - - - . G#5 C6 - A#5 - G
 SONGS = {   # bpm, sections: (chords, style, lead: (bars, a TIMBRES name, doubled an octave up) or None)
     "title": (120, [("Am F C G Am F C G", "title", (HOOK, "bell", False))]),
     "stage": (120, [("Am F C G", "intro", None),
-                    ("Am F C G Am F C G", "drive", (HOOK, "lead", False)),
-                    ("Dm Am F E Dm Am F E", "lift", (LIFT, "lead", False)),
+                    ("Am F C G Am F C G", "drive", (HOOK, "guitar", False)),
+                    ("Dm Am F E Dm Am F E", "lift", (LIFT, "guitar", False)),
                     ("F G Am", "break", ([HOOK[1], HOOK[3], HOOK[0]], "bell", False)),   # the hook, remembered
                     ("Am", "rise", None),
-                    ("Am F C G Am F C E", "drive", (HOOK, "lead", True))]),
+                    ("Am F C G Am F C E", "drive", (HOOK, "guitar", True))]),
     "boss": (140, [("Am Bb Am E Am Bb C E", "boss", None),
-                   ("Am Bb Am E Am Bb C E", "boss", (SIEGE, "lead", True))]),
+                   ("Am Bb Am E Am Bb C E", "boss", (SIEGE, "guitar", True))]),
     "line": (128, [("Em C G D", "intro", None),
-                   ("Em C G D Em C G B", "drive", (RAIL, "lead", False)),
-                   ("C D Em Em C D B B", "lift", (SIGNAL, "lead", False)),
+                   ("Em C G D Em C G B", "drive", (RAIL, "harmonica", False)),
+                   ("C D Em Em C D B B", "lift", (SIGNAL, "harmonica", False)),
                    ("C D Em", "break", ([RAIL[1], RAIL[3], RAIL[0]], "bell", False)),
                    ("Em", "rise", None),
-                   ("Em C G D Em C G B", "drive", (RAIL, "lead", True))]),
+                   ("Em C G D Em C G B", "drive", (RAIL, "harmonica", True))]),
     "warden": (146, [("Em F Em B Em F G B", "boss", None),
-                     ("Em F Em B Em F G B", "boss", (RAM, "lead", True))]),
+                     ("Em F Em B Em F G B", "boss", (RAM, "guitar", True))]),
     "pylon": (124, [("Dm Bb F C", "intro", None),
-                    ("Dm Bb F C Dm Bb Gm A", "drive", (PYLON, "lead", False)),
-                    ("Bb C Dm Dm Bb C A A", "lift", (SPAN, "lead", False)),
+                    ("Dm Bb F C Dm Bb Gm A", "drive", (PYLON, "brass", False)),
+                    ("Bb C Dm Dm Bb C A A", "lift", (SPAN, "brass", False)),
                     ("Bb C Dm", "break", ([PYLON[1], PYLON[3], PYLON[0]], "bell", False)),
                     ("Dm", "rise", None),
-                    ("Dm Bb F C Dm Bb Gm A", "drive", (PYLON, "lead", True))]),
+                    ("Dm Bb F C Dm Bb Gm A", "drive", (PYLON, "brass", True))]),
     "harrow": (150, [("Dm Eb Dm A Dm Eb F A", "boss", None),
-                     ("Dm Eb Dm A Dm Eb F A", "boss", (ROTOR, "lead", True))]),
+                     ("Dm Eb Dm A Dm Eb F A", "boss", (ROTOR, "brass", True))]),
     "cradle": (126, [("Cm Ab Eb Bb", "intro", None),
-                     ("Cm Ab Eb Bb Cm Ab Fm G", "drive", (CRADLE, "lead", False)),
+                     ("Cm Ab Eb Bb Cm Ab Fm G", "drive", (CRADLE, "organ", False)),
                      ("Ab Bb Cm Cm Ab Bb G G", "lift", (HEART, "lead", False)),
                      ("Ab Bb Cm", "break", ([CRADLE[1], CRADLE[3], CRADLE[0]], "bell", False)),
                      ("Cm", "rise", None),
-                     ("Cm Ab Eb Bb Cm Ab Fm G", "drive", (CRADLE, "lead", True))]),
+                     ("Cm Ab Eb Bb Cm Ab Fm G", "drive", (CRADLE, "organ", True))]),
     "graive": (154, [("Cm Db Cm G Cm Db Eb G", "boss", None),
-                     ("Cm Db Cm G Cm Db Eb G", "boss", (CROWN, "lead", True))]),
+                     ("Cm Db Cm G Cm Db Eb G", "boss", (CROWN, "organ", True))]),
     "sakura": (128, [("Am F G Em", "intro", None),
                      ("Am F G Em Am F G Am", "drive", (SAKURA, "flute", False)),
                      ("F G Am Am F G E E", "lift", (PETAL, "koto", False)),
@@ -168,8 +170,10 @@ SONGS = {   # bpm, sections: (chords, style, lead: (bars, a TIMBRES name, double
     "leviathan": (144, [("Gm Ab Gm D Gm Ab Bb D", "boss", None),
                         ("Gm Ab Gm D Gm Ab Bb D", "boss", (LEVI, "lead", True))]),
 }
-FLAVOR = {"sakura": "east", "blademaster": "east", "harbour": "rain", "leviathan": "rain"}    # the rest: "arcade"
-TIMBRES = ("lead", "bell", "koto", "flute", "keys")
+FLAVOR = {"stage": "rock", "boss": "rock", "line": "rail", "warden": "rail", "pylon": "wide", "harrow": "wide",
+          "cradle": "machine", "graive": "machine", "sakura": "east", "blademaster": "east", "harbour": "rain",
+          "leviathan": "rain"}    # the rest (the title): "arcade"
+TIMBRES = ("lead", "bell", "koto", "flute", "keys", "guitar", "brass", "harmonica", "organ")
 CHUNK = 512                 # samples between yields
 
 
@@ -288,12 +292,12 @@ def _make_drums(flavor="arcade"):
             out[len(out) - k + i] *= 1 - (i + 1) / k
         return out
 
-    def taiko():                                          # a big barrel drum: a deep boom and the stick's slap
+    def taiko(base=60, decay=0.3, slap=0.3):              # a big barrel drum: a deep boom and the stick's slap
         out, ph = _zeros(int(0.6 * RATE)), 0.0
         for i in range(len(out)):
             t = i / RATE
-            ph += (60 + 45 * math.exp(-t / 0.04)) / RATE
-            v = math.sin(2 * math.pi * ph) * math.exp(-t / 0.3) + noise[i] * 0.3 * math.exp(-t / 0.008)
+            ph += (base + 45 * math.exp(-t / 0.04)) / RATE
+            v = math.sin(2 * math.pi * ph) * math.exp(-t / decay) + noise[i] * slap * math.exp(-t / 0.008)
             out[i] = math.tanh(1.5 * v) * 0.7
         return out
 
@@ -329,6 +333,14 @@ def _make_drums(flavor="arcade"):
             out[i] = v + noise[i + 7000] * 0.4 * math.exp(-t / 0.006)
         return out
 
+    def brush():                                          # a brush on the snare: soft, no ring
+        out, lo = _zeros(int(0.12 * RATE)), 0.0
+        for i in range(len(out)):
+            t = i / RATE
+            lo += _lp(3000) * (noise[i + 9000] - lo)
+            out[i] = lo * 0.55 * math.exp(-t / 0.05) * min(1.0, i / 60)
+        return out
+
     sn, tails = snare()
     kit = {"kick": kick(), "snare": sn, "tails": tails, "hat": hat(0.03, 0.008, 0.16, 100),
             "ohat": hat(0.16, 0.05, 0.11, 2000, fc=3500), "crash": (crash(0), crash(11000))}
@@ -337,6 +349,12 @@ def _make_drums(flavor="arcade"):
                    crash=(gong(1.0), gong(1.004)))
     elif flavor == "rain":
         kit.update(snare=clank(), hat=hat(0.03, 0.006, 0.12, 500, fc=8000))
+    elif flavor == "rail":
+        kit.update(snare=brush(), tails=(_zeros(1), _zeros(1)), hat=hat(0.03, 0.012, 0.09, 300, fc=5000))
+    elif flavor == "wide":
+        kit.update(kick=taiko(85, 0.5, 0.08))                # timpani
+    elif flavor == "machine":
+        kit.update(snare=clank(), hat=hat(0.02, 0.005, 0.12, 700, fc=7000))
     for v in kit.values():
         for out in (v if isinstance(v, (tuple, list)) else (v,)):
             fade(out)
@@ -354,9 +372,19 @@ PATTERNS = {   # drums: kicks, snares, open hats (16th steps), closed hats every
     ("rain", "full"): ((0, 7, 10), (4, 12), (), 2),                            # laid back, hats ticking like rain
     ("rain", "half"): ((0, 10), (12,), (), 4),
     ("rain", "boss"): ((0, 3, 6, 8, 11, 14), (4, 12), (2, 10), 2),
+    ("rock", "full"): ((0, 6, 8, 10), (4, 12), (14,), 2),                       # eighths on the hat, a push on 6
+    ("rock", "boss"): ((0, 3, 6, 8, 11, 14), (4, 12), (), 2),
+    ("rail", "full"): ((0, 8), (4, 12), (), 1),                                 # every sixteenth: the wheels
+    ("rail", "half"): ((0, 8), (12,), (), 2),
+    ("rail", "boss"): ((0, 6, 8, 14), (4, 12), (), 1),
+    ("wide", "full"): ((0, 3, 8, 10), (4, 12), (), 4),                          # timpani rolling under
+    ("machine", "full"): ((0, 4, 8, 12), (4, 12), (), 1),                       # the turbine never stops
+    ("machine", "boss"): ((0, 3, 4, 6, 8, 11, 12, 14), (4, 12), (), 1),
 }
-DUCK = {"arcade": 0.6, "east": 0.3, "rain": 0.45}                                # how deep the kick pumps the rest
-ARP_STEPS = {"arcade": range(16), "east": (0, 3, 6, 8, 11, 14), "rain": (0, 3, 8, 11)}
+DUCK = {"arcade": 0.6, "east": 0.3, "rain": 0.45, "rock": 0.4, "rail": 0.35, "wide": 0.3, "machine": 0.7}
+ARP_STEPS = {"arcade": range(16), "east": (0, 3, 6, 8, 11, 14), "rain": (0, 3, 8, 11), "rock": (),
+             "rail": (2, 6, 10, 14), "wide": range(0, 16, 2), "machine": range(16)}
+PLUCKED = ("east", "rail", "wide")                    # arpeggio on a plucked string, left to ring
 
 
 # ------------------------------------------------------------------ one bar of backing
@@ -375,11 +403,13 @@ def _bed(chord, style, per, kit, flavor="arcade"):
                 yield
             duck[i] = min(duck[i], 1 - DUCK[flavor] * math.exp(-(i - k * per) / (0.08 * RATE)))
 
-    # pad: four chord tones, two detuned saws each (east: softer triangles, like a reed organ), one per side
-    tones = [hz(root + x) for x in iv] + [hz(root + 12)]
-    a, tri = _lp(pad_fc), flavor == "east"
-    pad_vol = 0.07 if tri else 0.045
-    for side, det, out in ((0, -0.1, L), (1, 0.1, R)):
+    # pad: four chord tones, two detuned saws each, one per side. east, rail: softer triangles (a reed organ);
+    # rock: a distorted power chord chugging on the eighths; wide: strings, wider and swelling in; machine: organ
+    tones = [hz(root + x) for x in ((0, 7, 12, 19) if flavor == "rock" else iv)] + ([] if flavor == "rock" else [hz(root + 12)])
+    a, tri, organ = _lp(pad_fc), flavor in ("east", "rail"), flavor == "machine"
+    pad_vol = {"east": 0.07, "rail": 0.06, "rock": 0.05, "machine": 0.05, "wide": 0.05}.get(flavor, 0.045)
+    spread = 0.18 if flavor == "wide" else 0.1
+    for side, det, out in ((0, -spread, L), (1, spread, R)):
         incs = [f * 2 ** (det / 12) / RATE for f in tones]
         phs = [(0.31 * j + 0.5 * side) % 1 for j in range(4)]
         y1 = y2 = 0.0
@@ -390,23 +420,35 @@ def _bed(chord, style, per, kit, flavor="arcade"):
             for j in range(4):
                 p = (phs[j] + incs[j]) % 1.0
                 phs[j] = p
-                s += 4 * abs(p - 0.5) - 1 if tri else 2 * p - 1 - _blep(p, incs[j])
+                if organ:
+                    s += math.sin(2 * math.pi * p) + 0.35 * math.sin(4 * math.pi * p)
+                else:
+                    s += 4 * abs(p - 0.5) - 1 if tri else 2 * p - 1 - _blep(p, incs[j])
             y1 += a * (s - y1)
             y2 += a * (y1 - y2)
-            env = min(1.0, i / (0.05 * RATE), (n - i) / (0.02 * RATE))
-            out[i] += y2 * pad_vol * env * duck[i]
+            env = min(1.0, i / ((0.3 if flavor == "wide" else 0.05) * RATE), (n - i) / (0.02 * RATE))
+            if flavor == "rock":
+                v = math.tanh(3 * y2) * (0.35 + 0.65 * math.exp(-(i % (2 * per)) / (0.05 * RATE)))
+            elif organ:
+                v = y2 * (1 + 0.1 * math.sin(2 * math.pi * 6.5 * i / RATE))     # the rotating speaker
+            else:
+                v = y2
+            out[i] += v * pad_vol * env * duck[i]
 
     # bass: a saw on the 8ths, root then octave, each note a soft filter pluck (east: a triangle on the beats,
     # rain: a long sine sub twice a bar)
     if bass_n:
         b = hz((root % 12) + 36)
-        step = {"east": 4, "rain": 8}.get(flavor, 16 // bass_n)
+        step = {"east": 4, "rain": 8, "rail": 4, "wide": 8}.get(flavor, 16 // bass_n)
         bass_vol = 0.4 if flavor == "rain" else 0.32
+        held = flavor in ("rain", "wide")                 # long notes that swell in
         for s in range(0, 16, step):
             yield
             f = b * (2 if s % 4 == 2 else 1)
+            if flavor == "rail" and s % 8 == 4:
+                f = b * 1.5                               # boom-chick: root, fifth, root, fifth
             ph, y = 0.0, 0.0
-            m = int(per * step * (0.95 if flavor == "rain" else 0.85))
+            m = int(per * step * (0.95 if held else 0.85))
             for i in range(m):
                 if i % CHUNK == 0:
                     yield
@@ -418,9 +460,11 @@ def _bed(chord, style, per, kit, flavor="arcade"):
                     x = 4 * abs(ph - 0.5) - 1
                 else:
                     x = 2 * ph - 1 - _blep(ph, f / RATE)
+                    if flavor == "rock":
+                        x = math.tanh(2.5 * x)
                 y += _lp(160 + 650 * math.exp(-t / 0.08)) * (x - y)
                 j = s * per + i
-                v = y * bass_vol * min(1.0, i / (400 if flavor == "rain" else 40), (m - i) / 60) * duck[j]
+                v = y * bass_vol * min(1.0, i / (400 if held else 40), (m - i) / 60) * duck[j]
                 L[j] += v
                 R[j] += v
 
@@ -433,12 +477,12 @@ def _bed(chord, style, per, kit, flavor="arcade"):
             yield
             f, ph = notes[order[k % 8]], 0.0
             pan = 0.45 if k % 2 else -0.45
-            m = per if flavor == "arcade" else min(n - s * per, 4 * per)
+            m = min(n - s * per, 4 * per) if flavor in PLUCKED or flavor == "rain" else per
             for i in range(m):
                 if i % CHUNK == 0:
                     yield
                 t = i / RATE
-                if flavor == "east":
+                if flavor in PLUCKED:
                     v = _koto(f, t) * 0.05 * min(1.0, i / 20, (m - i) / 200)
                 elif flavor == "rain":
                     v = _keys(f, t) * 0.045 * min(1.0, i / 20, (m - i) / 200)
@@ -522,11 +566,12 @@ def _lead(bars, at, per, L, R, S, up=0, vol=0.11, pan=0.0, t0=0, timbre="lead"):
         ph1 = ph2 = y1 = y2 = 0.0
         rnd = random.Random(s)
         wet = 0.8 if timbre == "bell" else 0.5
+        hp = _lp(450)
         for i in range(n):
             if i % CHUNK == 0:
                 yield
             t = i / RATE
-            if timbre != "lead":
+            if timbre not in ("lead", "guitar", "brass"):
                 if timbre == "bell":                      # two-operator FM: a bright strike that melts away
                     ph1 = (ph1 + f1 / RATE) % 1.0
                     v = math.sin(2 * math.pi * ph1 + 1.2 * math.exp(-t / 0.15) * math.sin(6 * math.pi * ph1))
@@ -535,6 +580,19 @@ def _lead(bars, at, per, L, R, S, up=0, vol=0.11, pan=0.0, t0=0, timbre="lead"):
                     v = _koto(f1, t) * vol * 1.1 * min(1.0, i / 20, (n - i) / 200)
                 elif timbre == "keys":
                     v = _keys(f1, t) * vol * 1.2 * min(1.0, i / 20, (n - i) / 300)
+                elif timbre == "organ":                   # drawbars and the rotating speaker
+                    ph1 = (ph1 + f1 / RATE) % 1.0
+                    w = 2 * math.pi * ph1
+                    v = (math.sin(w) + 0.5 * math.sin(2 * w) + 0.3 * math.sin(3 * w) + 0.15 * math.sin(4 * w))
+                    v *= (1 + 0.1 * math.sin(2 * math.pi * 6.5 * t)) * vol * 0.6 * min(1.0, i / 60, (n - i) / 300)
+                elif timbre == "harmonica":               # a thin reed: a narrow pulse, the low end cut, a wobble
+                    f = f1 * (1 + 0.02 * math.sin(2 * math.pi * 6 * t) * min(1.0, t / 0.15))
+                    ph1 = (ph1 + f / RATE) % 1.0
+                    d = f / RATE
+                    sq = (1.0 if ph1 < 0.3 else -1.0) + _blep(ph1, d) - _blep((ph1 - 0.3) % 1.0, d)
+                    y1 += hp * (sq - y1)
+                    y2 += a * ((sq - y1) - y2)
+                    v = y2 * vol * 1.4 * min(1.0, t / 0.03, (n - i) / 300)
                 else:                                     # flute: scoops up into the note, breath, a late vibrato
                     f = f1 * 2 ** (-0.7 * math.exp(-t / 0.06) / 12)
                     f *= 1 + 0.014 * min(1.0, max(0.0, (t - 0.2) / 0.3)) * math.sin(2 * math.pi * 5 * t)
@@ -556,10 +614,11 @@ def _lead(bars, at, per, L, R, S, up=0, vol=0.11, pan=0.0, t0=0, timbre="lead"):
             d1, d2 = f / RATE, f * 1.007 / RATE
             sq = (1.0 if ph1 < duty else -1.0) + _blep(ph1, d1) - _blep((ph1 - duty) % 1.0, d1)
             x = sq * 0.55 + (2 * ph2 - 1 - _blep(ph2, d2)) * 0.45
-            y1 += a * (x - y1)
-            y2 += a * (y1 - y2)
+            c = _lp(500 + 2600 * min(1.0, t / 0.07)) if timbre == "brass" else a     # brass: the tone opens up
+            y1 += c * (x - y1)
+            y2 += c * (y1 - y2)
             env = min(1.0, i / 120 if frm is None else 1.0, (n - i) / 300)
-            v = y2 * vol * env
+            v = (math.tanh(4 * y2) * 0.45 if timbre == "guitar" else y2) * vol * env
             j = at + s * per + i
             L[j] += v * (1 - pan)
             R[j] += v * (1 + pan)

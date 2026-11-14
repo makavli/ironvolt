@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0
+
+Every mission has its own band now (the songs are still made in code, no audio files):
+- **Mission 1, the scrapyard:** arcade rock. A distorted guitar lead over chugging power chords.
+- **Mission 2, the prisoner line:** the train. A harmonica, a boom-chick bass, the wheels ticking on the hats.
+- **Mission 3, the pylon road:** wide open. Brass, swelling strings, timpani and a harp.
+- **Mission 4, the Cradle:** a dark cathedral machine. A pipe organ, steel clanks, the turbine's hats.
+- Each boss plays in its mission's band. The title keeps the old synths.
+
 ## 0.12.0
 
 More parkour: three new set pieces, spread over all four missions, each with its own bouncing sign.
