@@ -355,6 +355,7 @@ class World:
         self.props = [props.build(spec) for spec in self.stage.props]
         self.switch(40.0, float(self.stage.drop_y) if self.stage.drop_y > 0 else 150.0)
         audio.play("drop" if room == "drain" else "lift")
+        self.popups.append([W / 2, 60.0, "DOWN WE GO!" if room == "drain" else "GOING UP!", 90])
 
     def surface(self):
         """Back on the road from a room, at the column the room comes out at. What was skipped stays skipped."""
@@ -369,6 +370,7 @@ class World:
             self.spawn_i += 1
         for p in self.live_players():
             p.vy = -4.0                                            # up out of the hatch
+        self.popups.append([self.cam_x + W / 2, 60.0, "BACK UP TOP!", 90])
         audio.play("jump")
 
     def switch(self, x, y, keep_cam=False):
@@ -580,8 +582,12 @@ class World:
                 if -30 < px < W + 30:
                     game.blit(pillar, (px, 0))
         from . import font
+        for x, y, text in filter(None, (pr.sign() for pr in self.props)):
+            font.wobble(game, text, (round(x - cam), y), self.frame)
         for x, y, text, life in self.popups:
-            if life > 10 or life % 4 < 2:
+            if text.endswith("!"):                                 # a shout: the bouncing sign
+                font.wobble(game, text, (round(x - cam), round(y)), self.frame)
+            elif life > 10 or life % 4 < 2:
                 font.draw(game, text, (round(x - cam), round(y)), C["cream"], center=True)
         if self.fade:
             veil = pygame.Surface((W, H), pygame.SRCALPHA)

@@ -33,6 +33,10 @@ Missions 3 and 4 play differently, not only look different, and there is more to
   grenade spam.
 - New mission art: the salt road has its own near layer (poles, salt mounds, a bucket truck), and the Cradle its
   own (pipe racks, tanks, a venting stack). New sounds for the arcs, vents, the drain and the lift.
+- **The knife reaches further:** fire with a trooper in your face or a long arm away and it is a stab, not a shot.
+- **Bouncing signs:** "DUCK HERE: GO DOWN!" over the drain grate and "WALK IN: GOING UP!" at the lift, and a shout
+  as you go down, up and back out.
+- Mission 4's high catwalks now run on over the pits beyond them: walking off the end no longer drops you in one.
 
 ## 0.9.0
 

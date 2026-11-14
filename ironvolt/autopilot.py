@@ -2,7 +2,7 @@
 
 import math
 
-from .settings import RESPAWN_SAFE, TILE
+from .settings import TILE
 from .controls import BUTTONS
 
 
@@ -41,7 +41,8 @@ class BotPad:
         if world.stage.timed and world.foes:                  # on the lift: face whoever is nearest
             f = min(world.foes, key=lambda f: abs(f.x - p.x))
             dx = (1 if f.x > p.x else -1) if abs(f.x - p.x) > 40 or (f.x - p.x) * p.facing < 0 else 0
-        if p.safe > RESPAWN_SAFE - 40 and not p.on_ground:     # dropping back in: straight down, onto the ground
+        self.dropping = (getattr(self, "dropping", False) or p.y < 0) and not p.on_ground
+        if self.dropping:                                     # dropping back in: straight down, onto the ground
             dx = 0
         ahead = p.x + 12 * (dx or 1)
         wall = any(st.solid(int(ahead // TILE), int((p.y - k) // TILE)) for k in (4, 18))

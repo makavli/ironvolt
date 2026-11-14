@@ -86,7 +86,7 @@ COYOTE, BUFFER = 6, 6                      # frames of forgiveness at ledges and
 FIRE_BUFFER = 8                            # a tap between two shots still fires, as soon as the gun allows
 STAND, DUCK = 21, 12                       # body heights: rifle fire flies 15 px up, over a crouch
 SLIDE, SLIDE_V, SLIDE_DRAG = 22, 3.2, 0.95  # down + jump on solid ground: a low dash under rifle fire
-KNIFE_REACH, KNIFE_DMG, KNIFE_RATE = 18, 3, 14   # fire with a foe this close: a stab that downs any trooper
+KNIFE_REACH, KNIFE_DMG, KNIFE_RATE = 30, 3, 14   # fire with a foe this close: a stab that downs any trooper
 SAPPER_FUSE = 40                           # frames from a sapper lighting up beside you to the blast: time to knife it
 STOMP_DMG, STOMP_BOUNCE = 2, -4.6          # landing on a foe's head; hold jump to bounce high
 
@@ -249,7 +249,7 @@ class Player(Body):
 
     def in_reach(self, world):
         """The foe a knife would reach: in front, at body height. Not the boss: a blade is no answer to a tank."""
-        x0 = self.x if self.facing > 0 else self.x - KNIFE_REACH
+        x0 = self.x - 4 if self.facing > 0 else self.x + 4 - KNIFE_REACH     # from inside the body: a foe in your face counts
         box = pygame.Rect(round(x0), round(self.y - STAND), KNIFE_REACH, STAND)
         return next((e for e in world.foes if not getattr(e, "dying", 0) and box.colliderect(e.rect())), None)
 

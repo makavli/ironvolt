@@ -227,15 +227,17 @@ class Feel(unittest.TestCase):
             self.assertEqual(p.lives == 3 and not p.dying, crouch)
 
     def test_fire_up_close_is_a_knife(self):
-        run(self.w, self.pads, 5)
-        foe = Foe(self.p.x + 12, GROUND_Y)
-        foe.timer = 10_000
-        self.w.foes.append(foe)
-        self.pads[0].press(fire=True)
-        self.w.step(self.pads)
-        self.assertTrue(foe.dying)                    # one stab downs a trooper...
-        self.assertFalse(self.w.shots)                # ...and no bullet left the gun
-        self.assertEqual(self.p.score, 100)
+        for gap in (12, 2, 26):                       # a step off, in your face, a long arm away
+            run(self.w, self.pads, 30)
+            self.w.foes.clear()
+            foe = Foe(self.p.x + gap, GROUND_Y)
+            foe.timer = 10_000
+            self.w.foes.append(foe)
+            self.pads[0].press(fire=True)
+            self.w.step(self.pads)
+            self.assertTrue(foe.dying, gap)           # one stab downs a trooper...
+            self.assertFalse(self.w.shots)            # ...and no bullet left the gun
+        self.assertGreaterEqual(self.p.score, 300)
 
     def test_down_and_jump_on_the_ground_slides_low_and_fast(self):
         run(self.w, self.pads, 30, right=True)

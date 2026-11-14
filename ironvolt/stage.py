@@ -233,10 +233,10 @@ def _cradle():
     pit(25, 27)
     block(31, 35, 9)                       # a reactor block
     block(33, 35, 7)
-    walk(36, 46, 4)                        # a high catwalk: the vent at 40 throws you up to it
+    walk(36, 52, 4)                        # a high catwalk: the vent at 40 throws you up to it, over the pit
     pit(49, 51)
     block(55, 56, 10, CRATE)
-    walk(57, 78, 4)                        # the skyway: vents at 60 and 72, a map page at its end
+    walk(57, 84, 4)                        # the skyway: vents at 60 and 72, a map page; off its end over the pit
     walk(64, 68, 8)
     pit(81, 83)
     block(86, 90, 8)

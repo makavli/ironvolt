@@ -8,7 +8,7 @@ import random
 
 import pygame
 
-from . import audio
+from . import audio, font
 from .settings import GROUND_Y, TILE, C, W
 
 VENT_LAUNCH = -9.6          # a vent throws a player ~128 px up: from the floor over a catwalk at row 4
@@ -30,6 +30,10 @@ class Prop:
         """(x, y, radius) of the light it throws in the dark."""
         return ()
 
+    def sign(self):
+        """(world x, y, text) of a bouncing sign over everything (what to do here), or None."""
+        return None
+
 
 def _standing(p, x0, x1, y):
     return p.on_ground and abs(p.y - y) < 1 and x0 <= p.x <= x1
@@ -45,7 +49,7 @@ class Drain(Prop):
 
     def step(self, world):
         live = world.live_players()
-        self.near = any(abs(p.x - self.x0 - TILE) < 40 for p in live)
+        self.near = any(abs(p.x - self.x0 - TILE) < 70 for p in live)
         if not self.used and any(p.crouch and _standing(p, self.x0 + 2, self.x0 + 2 * TILE - 2, GROUND_Y)
                                  for p in live):
             self.used = True                              # one way: the drain comes up past its own grate
@@ -64,14 +68,19 @@ class Drain(Prop):
             pygame.draw.lines(surf, C["sun"], False, [(cx - 5, cy), (cx, cy + 5), (cx + 5, cy)], 2)
 
 
+    def sign(self):
+        return (self.x0 + 16, GROUND_Y - 62, "DUCK HERE: GO DOWN!") if self.near and not self.used else None
+
+
 class Door(Prop):
     """A lift cage: walk in and the team rides it up through the tower (a room of its own)."""
 
     def __init__(self, col, room, exit_col):
         self.x0, self.room, self.exit_col = col * TILE, room, exit_col
-        self.used = False
+        self.used = self.near = False
 
     def step(self, world):
+        self.near = any(-60 < p.x - self.x0 < 8 for p in world.live_players())
         if not self.used and any(self.x0 + 8 < p.x < self.x0 + 40 and p.on_ground for p in world.live_players()):
             self.used = True
             world.enter(self.room, self.exit_col)
@@ -89,6 +98,10 @@ class Door(Prop):
         pygame.draw.rect(surf, lit, (x + 14, top - 7, 12, 5))
         cy = top + 24 + (frame // 6) % 3                  # an arrow: up
         pygame.draw.lines(surf, C["sun"], False, [(x + 14, cy), (x + 20, cy - 6), (x + 26, cy)], 2)
+
+
+    def sign(self):
+        return (self.x0 + 20, GROUND_Y - 78, "WALK IN: GOING UP!") if self.near and not self.used else None
 
 
 class Arc(Prop):
@@ -197,7 +210,6 @@ class Trolley(Prop):
             pygame.draw.line(surf, C["steel_d"], (k, self.y - 10), (k, self.y))
         pygame.draw.line(surf, C["steel"], (x, self.y - 10), (x + self.W - 1, self.y - 10))
         if getattr(self, "need", False) and frame % 40 < 26:
-            from . import font
             font.draw(surf, "ALL ABOARD", (x + self.W // 2, self.y - 40), C["sun"], center=True)
 
 
