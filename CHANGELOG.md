@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.12.0
+
+More parkour: three new set pieces, spread over all four missions, each with its own bouncing sign.
+- **Blast shutters** (missions 1 and 2): a shutter jammed a hand's width off the floor blocks the way. Slide under
+  it (down + jump). It stops shots both ways, so the troopers behind it wait for you.
+- **Laser fences** (missions 3 and 4): the Legion's fence across the road, its lowest beam just off the floor.
+  Slide under; standing in it burns. Troopers who walk into it get FRIED.
+- **Rotten catwalks** (missions 1, 2 and 4): a wide pit with one rotten catwalk across it. It holds a moment,
+  shudders, and drops: keep running. A new one is bolted in after a while, never under someone.
+- **Every mission is longer:** a new last stretch before each boss, built from that mission's own pieces:
+  - Mission 1, **the gate yard:** a shutter, a rotten catwalk over the slurry, a car press, a prisoner.
+  - Mission 2, **the signal gantry:** a gantry over a gap with a turret on it, a shutter at the yard's gate.
+  - Mission 3, **the last pylon:** one more live arm, then two Legion fences either side of a culvert.
+  - Mission 4, **the turbine hall:** a vent up to a catwalk, a crusher, a laser fence, the hall's last gap.
+- Shutters have hazard-painted rails and a warning lamp, so they never read as a background girder.
+- A slide never ends under a shutter or a fence, the same as under a low ceiling.
+- The demo player slides under shutters and fences too.
+
+Two new missions, over the sea to the old Eastern grid (story in docs/STORY.md):
+- **Mission 5, HANAKIRI:** a temple island under the cherry blossom, held by the Kagenui blade clan. Stone steps,
+  rope bridges that drop, a grove dark under the blossom, a gate up the bell tower (a climb while the clan drops
+  in), petals falling all the way. Boss: **SORAKAGE, clan blademaster**: a dash across the courtyard (watch for the
+  glint), a leap that throws a fan of blades, and once wounded he vanishes in petals and cuts from behind you.
+- **Mission 6, YAMIMINATO:** the island's harbour city at night, in the rain. Fire escapes, live neon cables,
+  the harbour crane over a flooded dock, the storm sewers under the street, a rotten pier. Boss: **TIDEBREAKER,
+  gantry walker**: a walking container crane that drops its hook where a red mark blinks, calls shells down where
+  its searchlight stops, and once its cab cracks swings a container along the quay (duck it).
+- New backdrops for both (blossom island at dusk; neon skyline, cranes and wet asphalt). Each has its own band: mission 5 plays bamboo flute, koto, taiko drums and a gong; mission 6 slows down for a rainy night of electric piano, deep bass, clanking metal and rain.
+- The Voltline map crosses the sea to the two new stops; six map pages to find.
+
+New enemies:
+- **Cutters** (missions 5 and 6 only, the Kagenui clan): blade troopers in black wraps and red scarves. They run in, throw one star, crouch, and dive at you.
+- **Snipers** (every mission): a red laser line tracks you, blinks, locks, then fires along it. Move when it blinks.
+- **Trikes:** a siren and a warning at the screen's edge, then an armoured trike that jumps gaps and ramps walls.
+- **Oil drums:** one shot and they blow, hurting everyone near, you included.
+
 ## 0.11.1
 
 - **macOS and Linux builds are back**, built on demand: a manual workflow (Actions -> macOS and Linux) builds a

@@ -7,6 +7,9 @@ soft-clipping master then run once over the whole song. render() returns 16-bit 
 
 build() is the same work as a generator that yields every few thousand samples: a browser has no
 threads, so audio.tick() runs it a few milliseconds a frame and the game never stalls.
+
+A song's FLAVOR picks its band: "arcade" (synths, drum machine), "east" (koto, bamboo flute, taiko, gong) or
+"rain" (electric piano, sub bass, metal clanks, rain hiss).
 """
 
 import math
@@ -86,7 +89,35 @@ CROWN = ["C5 - - - . C5 D#5 - D5 - C5 - A#4 - G4 -", "C#5 - - - . C#5 F5 - D#5 -
          "C5 - - - . C5 D#5 - D5 - C5 - A#4 - G4 -", "G#5 - - - G5 - F5 - D#5 - - - C#5 - F5 -",
          "D#5 - - - G5 - A#5 - G5 - - - D#5 - A#4 -", "B4 - - - D5 - F5 - G5 - - - - - . ."]
 
-SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doubled an octave up) or None)
+# Mission 5, the blossom island: A in the hirajoshi scale (A B C E F), temple bells in the break; the blademaster in A with Bb.
+SAKURA = ["A5 - - - C6 - B5 - A5 - E5 - . E5 F5 -", "E5 - - - A5 - - - C6 - - - B5 - A5 -",
+          "F5 - - - E5 - C5 - E5 - - - F5 - A5 -", "B5 - - - A5 - - - E5 - - - . . . .",
+          "A5 - - - C6 - B5 - A5 - E5 - . E5 F5 -", "E6 - - - C6 - B5 - A5 - - - C6 - E6 -",
+          "F6 - - - E6 - C6 - B5 - - - A5 - F5 -", "E5 - - - A5 - - - - - - - . . . ."]
+PETAL = ["C6 - E6 - C6 - B5 - A5 - - - E5 - F5 -", "A5 - - - B5 - C6 - E6 - - - C6 - B5 -",
+         "F6 - E6 - C6 - B5 - A5 - - - F5 - E5 -", "B5 - - - - - C6 - E6 - - - - - . .",
+         "C6 - E6 - C6 - B5 - A5 - - - E5 - F5 -", "E6 - - - F6 - E6 - C6 - B5 - A5 - - -",
+         "B5 - C6 - E6 - F6 - E6 - - - C6 - B5 -", "A5 - - - - - - - - - - - . . . ."]
+BLADE = ["A5 - . A5 C6 - A5 - B5 - A5 - E5 - . E5", "F5 - . F5 A5 - F5 - E5 - F5 - A5 - . A5",
+         "A5 - . A5 C6 - E6 - F6 - E6 - C6 - A5 -", "B5 - - - E6 - - - G#5 - - - E5 - . .",
+         "A5 - . A5 C6 - A5 - B5 - A5 - E5 - . E5", "A#5 - - - A5 - F5 - A5 - - - A#5 - C6 -",
+         "D6 - - - C6 - A#5 - G5 - - - D6 - C6 -", "G#5 - - - B5 - E6 - E5 - E5 - E5 - . ."]
+
+# Mission 6, the neon harbour: G minor, slow synth lines in the rain; the harbour machine in G with a Phrygian Ab.
+HARBOUR = ["G5 - - - . . D5 - G5 - - - A#5 - A5 -", "G5 - - - - - D#5 - G5 - - - A#5 - D6 -",
+           "D6 - - - - - A#5 - F5 - - - A#5 - D6 -", "C6 - - - A5 - F5 - A5 - - - . . . .",
+           "G5 - - - . . D5 - G5 - - - A#5 - A5 -", "G5 - - - A#5 - D6 - D#6 - - - D6 - A#5 -",
+           "C6 - - - D#5 - G5 - C6 - - - G5 - D#5 -", "F#5 - - - A5 - D6 - A5 - - - . . . ."]
+NEON = ["D#5 - - - G5 - A#5 - D#6 - - - D6 - A#5 -", "F5 - - - A5 - C6 - F6 - - - D#6 - C6 -",
+        "G5 - - - A#5 - D6 - G6 - - - F6 - D6 -", "D6 - - - A#5 - G5 - D5 - - - . . . .",
+        "D#6 - - - D6 - A#5 - G5 - - - A#5 - D6 -", "F6 - - - D#6 - C6 - A5 - - - C6 - F6 -",
+        "F#5 - - - A5 - C6 - D6 - - - - - - -", "A5 - - - - - - - - - - - . . . ."]
+LEVI = ["G5 - - - . G5 A#5 - A5 - G5 - D5 - . D5", "G#5 - - - . G#5 C6 - A#5 - G#5 - G5 - D#5 -",
+        "G5 - - - . G5 D6 - D#6 - - - D6 - A#5 -", "F#5 - - - A5 - - - D6 - - - - - . .",
+        "G5 - - - . G5 A#5 - A5 - G5 - D5 - . D5", "D#6 - - - D6 - A#5 - G5 - - - G#5 - G5 -",
+        "A#5 - - - D6 - F6 - D6 - - - A#5 - F5 -", "F#5 - - - A5 - C6 - D6 - - - - - . ."]
+
+SONGS = {   # bpm, sections: (chords, style, lead: (bars, a TIMBRES name, doubled an octave up) or None)
     "title": (120, [("Am F C G Am F C G", "title", (HOOK, "bell", False))]),
     "stage": (120, [("Am F C G", "intro", None),
                     ("Am F C G Am F C G", "drive", (HOOK, "lead", False)),
@@ -120,7 +151,25 @@ SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doub
                      ("Cm Ab Eb Bb Cm Ab Fm G", "drive", (CRADLE, "lead", True))]),
     "graive": (154, [("Cm Db Cm G Cm Db Eb G", "boss", None),
                      ("Cm Db Cm G Cm Db Eb G", "boss", (CROWN, "lead", True))]),
+    "sakura": (128, [("Am F G Em", "intro", None),
+                     ("Am F G Em Am F G Am", "drive", (SAKURA, "flute", False)),
+                     ("F G Am Am F G E E", "lift", (PETAL, "koto", False)),
+                     ("F G Am", "break", ([SAKURA[1], SAKURA[3], SAKURA[0]], "bell", False)),
+                     ("Am", "rise", None),
+                     ("Am F G Em Am F G Am", "drive", (SAKURA, "flute", True))]),
+    "blademaster": (148, [("Am Bb Am E Am Bb G E", "boss", None),
+                          ("Am Bb Am E Am Bb G E", "boss", (BLADE, "koto", True))]),
+    "harbour": (104, [("Gm Eb Bb F", "intro", None),
+                      ("Gm Eb Bb F Gm Eb Cm D", "drive", (HARBOUR, "keys", False)),
+                      ("Eb F Gm Gm Eb F D D", "lift", (NEON, "lead", False)),
+                      ("Eb F Gm", "break", ([HARBOUR[1], HARBOUR[3], HARBOUR[0]], "bell", False)),
+                      ("Gm", "rise", None),
+                      ("Gm Eb Bb F Gm Eb Cm D", "drive", (HARBOUR, "keys", True))]),
+    "leviathan": (144, [("Gm Ab Gm D Gm Ab Bb D", "boss", None),
+                        ("Gm Ab Gm D Gm Ab Bb D", "boss", (LEVI, "lead", True))]),
 }
+FLAVOR = {"sakura": "east", "blademaster": "east", "harbour": "rain", "leviathan": "rain"}    # the rest: "arcade"
+TIMBRES = ("lead", "bell", "koto", "flute", "keys")
 CHUNK = 512                 # samples between yields
 
 
@@ -153,6 +202,20 @@ def _lp(fc):
     return 1 - math.exp(-2 * math.pi * fc / RATE)
 
 
+def _koto(f, t):
+    """A plucked string: bright at the strike, the upper harmonics dying first."""
+    w = 2 * math.pi * f * t
+    return (math.sin(w) + 0.5 * math.sin(2 * w) * math.exp(-6 * t) + 0.33 * math.sin(3 * w) * math.exp(-9 * t)
+            + 0.2 * math.sin(4 * w) * math.exp(-12 * t)) * math.exp(-3.5 * t)
+
+
+def _keys(f, t):
+    """An electric piano: FM bark at the attack, a long soft tail with a slow tremolo."""
+    w = 2 * math.pi * f * t
+    return (math.sin(w + 1.4 * math.exp(-t / 0.25) * math.sin(w)) * math.exp(-t / 0.9)
+            * (1 + 0.12 * math.sin(2 * math.pi * 4.5 * t)))
+
+
 def _add(dst, src, at, gain=1.0):
     n = min(len(src), len(dst) - at)
     for i in range(n):
@@ -163,17 +226,16 @@ def _add(dst, src, at, gain=1.0):
 
 # ------------------------------------------------------------------ drums (rendered once)
 
-_kit = None
+_kits = {}
 
 
-def _drums():
-    global _kit
-    if _kit is None:
-        _kit = _make_drums()
-    return _kit
+def _drums(flavor="arcade"):
+    if flavor not in _kits:
+        _kits[flavor] = _make_drums(flavor)
+    return _kits[flavor]
 
 
-def _make_drums():
+def _make_drums(flavor="arcade"):
     rnd = random.Random(7)
     noise = [rnd.uniform(-1, 1) for _ in range(int(1.6 * RATE))]
 
@@ -226,9 +288,55 @@ def _make_drums():
             out[len(out) - k + i] *= 1 - (i + 1) / k
         return out
 
+    def taiko():                                          # a big barrel drum: a deep boom and the stick's slap
+        out, ph = _zeros(int(0.6 * RATE)), 0.0
+        for i in range(len(out)):
+            t = i / RATE
+            ph += (60 + 45 * math.exp(-t / 0.04)) / RATE
+            v = math.sin(2 * math.pi * ph) * math.exp(-t / 0.3) + noise[i] * 0.3 * math.exp(-t / 0.008)
+            out[i] = math.tanh(1.5 * v) * 0.7
+        return out
+
+    def shime():                                          # the small tight drum on the backbeat
+        out, ph = _zeros(int(0.15 * RATE)), 0.0
+        for i in range(len(out)):
+            t = i / RATE
+            ph += (380 + 120 * math.exp(-t / 0.01)) / RATE
+            out[i] = (math.sin(2 * math.pi * ph) * 0.5 + noise[i + 5000] * 0.35 * math.exp(-t / 0.004)) * math.exp(-t / 0.045)
+        return out
+
+    def block(vol):                                       # a wood block
+        out = _zeros(int(0.06 * RATE))
+        for i in range(len(out)):
+            t = i / RATE
+            out[i] = (math.sin(2 * math.pi * 1250 * t) + 0.4 * math.sin(2 * math.pi * 3100 * t)) * vol * math.exp(-t / 0.018) * min(1.0, i / 8)
+        return out
+
+    def gong(det):                                        # inharmonic partials, a slow swell and a long ring
+        out = _zeros(int(1.4 * RATE))
+        parts = ((98, 1.0), (147, 0.6), (211, 0.5), (283, 0.35), (367, 0.25))
+        for i in range(len(out)):
+            t = i / RATE
+            v = sum(a * math.sin(2 * math.pi * f * det * t) for f, a in parts)
+            out[i] = v * 0.12 * math.exp(-t / 0.7) * min(1.0, t / 0.015)
+        return out
+
+    def clank():                                          # a wrench on a steel pipe: the harbour's snare
+        out = _zeros(int(0.2 * RATE))
+        for i in range(len(out)):
+            t = i / RATE
+            v = sum(math.sin(2 * math.pi * f * t) for f in (523, 1187, 1913, 2741)) * 0.16 * math.exp(-t / 0.07)
+            out[i] = v + noise[i + 7000] * 0.4 * math.exp(-t / 0.006)
+        return out
+
     sn, tails = snare()
     kit = {"kick": kick(), "snare": sn, "tails": tails, "hat": hat(0.03, 0.008, 0.16, 100),
             "ohat": hat(0.16, 0.05, 0.11, 2000, fc=3500), "crash": (crash(0), crash(11000))}
+    if flavor == "east":
+        kit.update(kick=taiko(), snare=shime(), tails=(_zeros(1), _zeros(1)), hat=block(0.18), ohat=block(0.3),
+                   crash=(gong(1.0), gong(1.004)))
+    elif flavor == "rain":
+        kit.update(snare=clank(), hat=hat(0.03, 0.006, 0.12, 500, fc=8000))
     for v in kit.values():
         for out in (v if isinstance(v, (tuple, list)) else (v,)):
             fade(out)
@@ -241,14 +349,21 @@ PATTERNS = {   # drums: kicks, snares, open hats (16th steps), closed hats every
     "boss": ((0, 3, 6, 8, 11, 14), (4, 12), (2, 6, 10, 14), 0),
     "rise": ((), (), (), 0),
     "none": ((), (), (), 0),
+    ("east", "full"): ((0, 3, 8, 11), (4, 12), (2, 6, 10, 14), 0),             # taiko: don . . don-don
+    ("east", "boss"): ((0, 2, 3, 6, 8, 10, 11, 14), (4, 12), (7, 15), 0),      # war drums
+    ("rain", "full"): ((0, 7, 10), (4, 12), (), 2),                            # laid back, hats ticking like rain
+    ("rain", "half"): ((0, 10), (12,), (), 4),
+    ("rain", "boss"): ((0, 3, 6, 8, 11, 14), (4, 12), (2, 10), 2),
 }
+DUCK = {"arcade": 0.6, "east": 0.3, "rain": 0.45}                                # how deep the kick pumps the rest
+ARP_STEPS = {"arcade": range(16), "east": (0, 3, 6, 8, 11, 14), "rain": (0, 3, 8, 11)}
 
 
 # ------------------------------------------------------------------ one bar of backing
 
-def _bed(chord, style, per, kit):
+def _bed(chord, style, per, kit, flavor="arcade"):
     drums, bass_n, pad_fc, arp = STYLES[style]
-    kicks, snares, ohats, hat_every = PATTERNS[drums]
+    kicks, snares, ohats, hat_every = PATTERNS.get((flavor, drums), PATTERNS[drums])
     n = 16 * per
     L, R, S = _zeros(n), _zeros(n), _zeros(n)
     root, iv = CHORDS[chord]
@@ -258,11 +373,12 @@ def _bed(chord, style, per, kit):
         for i in range(k * per, n):
             if i % CHUNK == 0:
                 yield
-            duck[i] = min(duck[i], 1 - 0.6 * math.exp(-(i - k * per) / (0.08 * RATE)))
+            duck[i] = min(duck[i], 1 - DUCK[flavor] * math.exp(-(i - k * per) / (0.08 * RATE)))
 
-    # pad: four chord tones, two detuned saws each, one per side, through a low-pass
+    # pad: four chord tones, two detuned saws each (east: softer triangles, like a reed organ), one per side
     tones = [hz(root + x) for x in iv] + [hz(root + 12)]
-    a = _lp(pad_fc)
+    a, tri = _lp(pad_fc), flavor == "east"
+    pad_vol = 0.07 if tri else 0.045
     for side, det, out in ((0, -0.1, L), (1, 0.1, R)):
         incs = [f * 2 ** (det / 12) / RATE for f in tones]
         phs = [(0.31 * j + 0.5 * side) % 1 for j in range(4)]
@@ -274,45 +390,61 @@ def _bed(chord, style, per, kit):
             for j in range(4):
                 p = (phs[j] + incs[j]) % 1.0
                 phs[j] = p
-                s += 2 * p - 1 - _blep(p, incs[j])
+                s += 4 * abs(p - 0.5) - 1 if tri else 2 * p - 1 - _blep(p, incs[j])
             y1 += a * (s - y1)
             y2 += a * (y1 - y2)
             env = min(1.0, i / (0.05 * RATE), (n - i) / (0.02 * RATE))
-            out[i] += y2 * 0.045 * env * duck[i]
+            out[i] += y2 * pad_vol * env * duck[i]
 
-    # bass: a saw on the 8ths, root then octave, each note a soft filter pluck
+    # bass: a saw on the 8ths, root then octave, each note a soft filter pluck (east: a triangle on the beats,
+    # rain: a long sine sub twice a bar)
     if bass_n:
         b = hz((root % 12) + 36)
-        step = 16 // bass_n
+        step = {"east": 4, "rain": 8}.get(flavor, 16 // bass_n)
+        bass_vol = 0.4 if flavor == "rain" else 0.32
         for s in range(0, 16, step):
             yield
             f = b * (2 if s % 4 == 2 else 1)
             ph, y = 0.0, 0.0
-            m = int(per * step * 0.85)
+            m = int(per * step * (0.95 if flavor == "rain" else 0.85))
             for i in range(m):
                 if i % CHUNK == 0:
                     yield
                 t = i / RATE
                 ph = (ph + f / RATE) % 1.0
-                y += _lp(160 + 650 * math.exp(-t / 0.08)) * ((2 * ph - 1 - _blep(ph, f / RATE)) - y)
+                if flavor == "rain":
+                    x = math.sin(2 * math.pi * ph)
+                elif flavor == "east":
+                    x = 4 * abs(ph - 0.5) - 1
+                else:
+                    x = 2 * ph - 1 - _blep(ph, f / RATE)
+                y += _lp(160 + 650 * math.exp(-t / 0.08)) * (x - y)
                 j = s * per + i
-                v = y * 0.32 * min(1.0, i / 40, (m - i) / 60) * duck[j]
+                v = y * bass_vol * min(1.0, i / (400 if flavor == "rain" else 40), (m - i) / 60) * duck[j]
                 L[j] += v
                 R[j] += v
 
-    # arpeggio: a soft triangle up and down the chord, two octaves up, alternating sides, into the delay
+    # arpeggio: up and down the chord, two octaves up, alternating sides, into the delay. A soft triangle on
+    # every 16th; east: koto plucks, rain: electric piano, fewer notes left to ring
     if arp:
         notes = [hz(root + 12 + x) for x in iv] + [hz(root + 24)]
         order = (0, 1, 2, 3, 2, 1, 2, 3)
-        for s in range(16):
+        for k, s in enumerate(ARP_STEPS[flavor]):
             yield
-            f, ph = notes[order[s % 8]], 0.0
-            pan = 0.45 if s % 2 else -0.45
-            for i in range(per):
+            f, ph = notes[order[k % 8]], 0.0
+            pan = 0.45 if k % 2 else -0.45
+            m = per if flavor == "arcade" else min(n - s * per, 4 * per)
+            for i in range(m):
                 if i % CHUNK == 0:
                     yield
-                ph = (ph + f / RATE) % 1.0
-                v = (4 * abs(ph - 0.5) - 1) * 0.05 * math.exp(-i / (0.12 * RATE)) * min(1.0, i / 150, (per - i) / 200)
+                t = i / RATE
+                if flavor == "east":
+                    v = _koto(f, t) * 0.05 * min(1.0, i / 20, (m - i) / 200)
+                elif flavor == "rain":
+                    v = _keys(f, t) * 0.045 * min(1.0, i / 20, (m - i) / 200)
+                else:
+                    ph = (ph + f / RATE) % 1.0
+                    v = (4 * abs(ph - 0.5) - 1) * 0.05 * math.exp(-i / (0.12 * RATE)) * min(1.0, i / 150, (per - i) / 200)
                 v *= 0.6 + 0.4 * duck[s * per + i]
                 j = s * per + i
                 L[j] += v * (1 - pan)
@@ -350,12 +482,23 @@ def _bed(chord, style, per, kit):
             yr += c * (rnd.uniform(-1, 1) - yr)
             L[i] += yl * 0.35 * x
             R[i] += yr * 0.35 * x
+    if flavor == "rain":                                  # the rain itself: band-passed hiss, a different one a side
+        rnd = random.Random(5)
+        a1, a2 = _lp(5000), _lp(1200)
+        for out in (L, R):
+            lo = hi = 0.0
+            for i in range(n):
+                if i % CHUNK == 0:
+                    yield
+                lo += a1 * (rnd.uniform(-1, 1) - lo)
+                hi += a2 * (lo - hi)
+                out[i] += (lo - hi) * 0.06
     return L, R, S
 
 
 # ------------------------------------------------------------------ the lead
 
-def _lead(bars, at, per, L, R, S, up=0, vol=0.11, pan=0.0, t0=0, bell=False):
+def _lead(bars, at, per, L, R, S, up=0, vol=0.11, pan=0.0, t0=0, timbre="lead"):
     tokens = []
     for bar in bars:
         bar = bar.split()
@@ -377,18 +520,32 @@ def _lead(bars, at, per, L, R, S, up=0, vol=0.11, pan=0.0, t0=0, bell=False):
         f1 = hz(m)
         f0 = hz(frm) if frm is not None else f1
         ph1 = ph2 = y1 = y2 = 0.0
+        rnd = random.Random(s)
+        wet = 0.8 if timbre == "bell" else 0.5
         for i in range(n):
             if i % CHUNK == 0:
                 yield
             t = i / RATE
-            if bell:                                      # two-operator FM: a bright strike that melts away
-                ph1 = (ph1 + f1 / RATE) % 1.0
-                v = math.sin(2 * math.pi * ph1 + 1.2 * math.exp(-t / 0.15) * math.sin(6 * math.pi * ph1))
-                v *= vol * 1.3 * math.exp(-t / 0.5) * min(1.0, i / 120, (n - i) / 200)
+            if timbre != "lead":
+                if timbre == "bell":                      # two-operator FM: a bright strike that melts away
+                    ph1 = (ph1 + f1 / RATE) % 1.0
+                    v = math.sin(2 * math.pi * ph1 + 1.2 * math.exp(-t / 0.15) * math.sin(6 * math.pi * ph1))
+                    v *= vol * 1.3 * math.exp(-t / 0.5) * min(1.0, i / 120, (n - i) / 200)
+                elif timbre == "koto":
+                    v = _koto(f1, t) * vol * 1.1 * min(1.0, i / 20, (n - i) / 200)
+                elif timbre == "keys":
+                    v = _keys(f1, t) * vol * 1.2 * min(1.0, i / 20, (n - i) / 300)
+                else:                                     # flute: scoops up into the note, breath, a late vibrato
+                    f = f1 * 2 ** (-0.7 * math.exp(-t / 0.06) / 12)
+                    f *= 1 + 0.014 * min(1.0, max(0.0, (t - 0.2) / 0.3)) * math.sin(2 * math.pi * 5 * t)
+                    ph1 = (ph1 + f / RATE) % 1.0
+                    y1 += a * (rnd.uniform(-1, 1) - y1)
+                    tone = math.sin(2 * math.pi * ph1) + 0.2 * math.sin(4 * math.pi * ph1)
+                    v = (tone * 0.8 + y1 * (0.5 * math.exp(-t / 0.07) + 0.12)) * vol * 1.2 * min(1.0, t / 0.05, (n - i) / 300)
                 j = at + s * per + i
                 L[j] += v * (1 - pan)
                 R[j] += v * (1 + pan)
-                S[j] += v * 0.8
+                S[j] += v * wet
                 continue
             g = min(1.0, t / 0.04)                        # glide from the note before when legato
             vib = 1 + 0.009 * min(1.0, max(0.0, (t - 0.18) / 0.25)) * math.sin(2 * math.pi * 5.5 * t)
@@ -427,11 +584,12 @@ def build(name):
     bar = 16 * per
     total = sum(len(c.split()) for c, *_ in sections) * bar
     L, R, S = _zeros(total), _zeros(total), _zeros(total)
-    kit, beds, at = _drums(), {}, 0
+    flavor = FLAVOR.get(name, "arcade")
+    kit, beds, at = _drums(flavor), {}, 0
     for chords, style, _ in sections:                      # backings first: plain copies, the bars never overlap
         for chord in chords.split():
             if (chord, style) not in beds:
-                beds[chord, style] = yield from _bed(chord, style, per, kit)
+                beds[chord, style] = yield from _bed(chord, style, per, kit, flavor)
             for dst, src in zip((L, R, S), beds[chord, style]):
                 dst[at:at + bar] = src
             at += bar
@@ -442,9 +600,9 @@ def build(name):
             yield from _add(R, kit["crash"][1], at)
         if lead:
             bars, timbre, double = lead
-            yield from _lead(bars, at, per, L, R, S, t0=at, bell=timbre == "bell")
+            yield from _lead(bars, at, per, L, R, S, t0=at, timbre=timbre)
             if double:
-                yield from _lead(bars, at, per, L, R, S, up=12, vol=0.035, pan=0.3, t0=at)
+                yield from _lead(bars, at, per, L, R, S, up=12, vol=0.035, pan=0.3, t0=at, timbre=timbre)
         at += len(chords.split()) * bar
 
     # ping-pong delay on a dotted 8th, darker on every repeat

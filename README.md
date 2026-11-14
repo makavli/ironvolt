@@ -14,7 +14,7 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 ![pygame-ce](https://img.shields.io/badge/pygame--ce-2.5.8-6aa84f)
 ![Players](https://img.shields.io/badge/players-1%E2%80%932-e8742a)
 ![Assets](https://img.shields.io/badge/game%20assets-0%20files-8e44ad)
-![Status](https://img.shields.io/badge/status-v0.11%20%C2%B7%20missions%201%E2%80%934-c0392b)
+![Status](https://img.shields.io/badge/status-v0.12%20%C2%B7%20missions%201%E2%80%936-c0392b)
 
 <img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
 
@@ -51,12 +51,15 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 
 **BASTION**, the Legion's gate crawler. Two phases. Bring grenades. Then mission 2, **THE PRISONER LINE**, and
 **WARDEN**, an armoured engine that runs down anything on the track. Then mission 3, **PYLON ROAD**, and **HARROW**,
-a gunship that bombs the road. Then mission 4, **THE CRADLE**, and **GRAIVE** himself.
+a gunship that bombs the road. Then mission 4, **THE CRADLE**, and **GRAIVE** himself. Then over the sea: mission 5, **HANAKIRI**, a temple
+island under the blossom held by a blade clan, and **SORAKAGE**, its blademaster; mission 6, **YAMIMINATO**, a
+harbour city of neon and rain, and **TIDEBREAKER**, a gantry crane that walks.
 
 Each mission plays its own way: a magnet crane over a flooded pit, car presses, a run along a moving train's roofs
 under the signal gantries, live cross-arms that arc on a beat, a storm drain under the road, a cable trolley
-over a gully, steam vents that throw you to the high catwalks, crushers, a stretch with the lights out, and a lift
-ride up the tower. Between missions, a map of the old grid lights up behind you; every mission ends with a rank,
+over a gully, steam vents that throw you to the high catwalks, crushers, a stretch with the lights out, a lift
+ride up the tower, blast shutters and laser fences to slide under, rotten catwalks that drop, a bell tower to
+climb and a flooded dock to cross on the harbour crane. Between missions, a map of the old grid lights up behind you; every mission ends with a rank,
 S to C, and hides a page of the brother's maps.
 
 </div>
@@ -105,7 +108,7 @@ Crouch on a grate in the road to go under it.
 screenshots in `shots/`, and a real window for a few seconds. `--exe` also builds `Ironvolt.exe`; `--web` builds
 the browser version and plays it in headless Chrome (`bash tools/web_build.sh --serve` to play it yourself).
 
-`IRONVOLT_STAGE=4 python run.py` starts on mission 4 (or 2, 3), to try it without playing the ones before.
+`IRONVOLT_STAGE=4 python run.py` starts on mission 4 (or 2 to 6), to try it without playing the ones before.
 
 `python tools/media.py` re-records the GIFs and pictures in this README (needs ffmpeg).
 

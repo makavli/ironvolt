@@ -35,7 +35,7 @@ LEVEL_LINES = {"RELAXED": "NINE LIVES. FEWER FOES, FEWER SHOTS.", "EASY": "FIVE 
 GRADE_BONUS = {"S": 30000, "A": 15000, "B": 5000, "C": 0}
 GRADE_COLOUR = {"S": "gold", "A": "cyan", "B": "cream", "C": "steel_l"}
 # The between-missions map of the Voltline: one node per mission, the towns around each that get their light back.
-MAP_NODES = [(46, 150), (114, 116), (190, 142), (264, 88)]
+MAP_NODES = [(34, 152), (88, 118), (146, 146), (200, 96), (256, 132), (292, 72)]   # 5 and 6: over the sea
 MAP_TOWNS = [[(x + dx, y + dy) for dx, dy in ((-20, -14), (14, -18), (22, 10), (-14, 16), (4, 24), (-28, 4))]
              for x, y in MAP_NODES]
 

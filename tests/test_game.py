@@ -407,6 +407,61 @@ class Combat(unittest.TestCase):
         self.assertFalse(self.p.out)
 
 
+class SlideAndRun(unittest.TestCase):
+    def setUp(self):
+        self.w = World((0,), seed=1)
+        self.w.spawn_i = len(self.w.stage.spawns)
+        self.pads = [Pad(), Pad()]
+        self.p = self.w.players[0]
+        self.p.safe = 0
+        run(self.w, self.pads, 30)
+
+    def place(self, prop):
+        self.w.props = [prop]
+        return prop
+
+    def slide_through(self):
+        run(self.w, self.pads, 10, right=True)
+        self.pads[0].press(down=True, jump=True)
+        self.w.step(self.pads)
+        run(self.w, self.pads, 40)
+
+    def test_a_shutter_stops_a_runner_and_a_slide_gets_under(self):
+        sh = self.place(props.Shutter(int(self.p.x // TILE) + 3))
+        run(self.w, self.pads, 60, right=True)
+        self.assertLess(self.p.x, sh.x0)
+        self.slide_through()
+        self.assertGreater(self.p.x, sh.x0 + sh.W)
+
+    def test_a_laser_burns_whoever_stands_and_a_slide_gets_under(self):
+        la = self.place(props.Laser(int(self.p.x // TILE) + 3))
+        self.slide_through()
+        self.assertGreater(self.p.x, la.x0 + la.W)
+        self.assertFalse(self.p.dying)
+        run(self.w, self.pads, 60, left=True)
+        self.assertTrue(self.p.dying)
+
+    def test_a_laser_fries_a_trooper(self):
+        la = self.place(props.Laser(int(self.p.x // TILE) + 8))
+        foe = Foe(la.x0 + 6.0, GROUND_Y, "soldier")
+        self.w.foes.append(foe)
+        self.w.step(self.pads)
+        self.assertTrue(foe.dying or foe.dead)
+
+    def test_a_rotten_catwalk_drops_after_a_moment_and_comes_back(self):
+        c = int(self.p.x // TILE)
+        cr = self.place(props.Crumble(c - 1, c + 1, 11))
+        run(self.w, self.pads, 5)
+        self.assertIsNotNone(cr.deck())                 # it holds a moment...
+        run(self.w, self.pads, cr.HOLD)
+        self.assertIsNone(cr.deck())                    # ...then drops
+        run(self.w, self.pads, cr.BACK)
+        self.assertIsNone(cr.deck())                    # never bolted back under someone
+        self.p.x += 80
+        run(self.w, self.pads, 2)
+        self.assertIsNotNone(cr.deck())
+
+
 class Stage(unittest.TestCase):
     def test_the_bot_finishes_every_mission(self):
         for i, m in enumerate(MISSIONS):
@@ -777,6 +832,23 @@ class BrowserPad(unittest.TestCase):
 
 
 class Music(unittest.TestCase):
+    def test_every_mission_song_is_built(self):
+        from ironvolt import audio, music, stage
+        for m in stage.MISSIONS:
+            for song in m.song:
+                self.assertIn(song, audio.ORDER, m.name)
+                self.assertIn(song, audio.VOLUME, m.name)
+        self.assertEqual(set(audio.ORDER), set(music.SONGS))      # the baked folder holds what ORDER loads
+
+    def test_ninjas_only_in_the_eastern_missions(self):
+        from ironvolt import stage
+        for i, m in enumerate(stage.MISSIONS):
+            if m.theme in (7, 8):
+                continue
+            rooms = [p[2] for p in m.props if p[0] in stage.INTO]
+            for st in [stage.Stage(i)] + [stage.Stage(i, r) for r in rooms]:
+                self.assertNotIn("cutter", [s[1] for s in st.spawns], (m.name, st.room))
+
     def test_song_never_clips(self):
         from ironvolt import music
         data = music.render("title")
@@ -789,6 +861,8 @@ class Music(unittest.TestCase):
         for name, (bpm, sections) in music.SONGS.items():
             for chords, style, lead in sections:
                 self.assertIn(style, music.STYLES)
+                if lead:
+                    self.assertIn(lead[1], music.TIMBRES, name)
                 for c in chords.split():
                     self.assertIn(c, music.CHORDS)
                 if lead:
@@ -1095,7 +1169,7 @@ class SetPieces(unittest.TestCase):
 
     def test_the_drain_holds_prisoners_and_a_map_page(self):
         w, pads, p = self.world(2)
-        self.assertEqual(w.hostage_total, 8)             # the road's six and the drain's two
+        self.assertEqual(w.hostage_total, 9)             # the road's six, the last pylon's one, the drain's two
         w.enter("drain", 86)
         kinds = [s[1] for s in w.stage.spawns]
         self.assertIn("page", kinds)

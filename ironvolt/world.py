@@ -6,7 +6,8 @@ import random
 import pygame
 
 from . import audio, props
-from .actors import Bastion, Drone, Foe, Graive, Harrow, Hostage, Pickup, Player, Turret, Warden
+from .actors import (PINK, Barrel, Bastion, Cutter, Drone, Foe, Graive, Harrow, Hostage, Pickup, Player, Sniper,
+                     Sorakage, Tidebreaker, Trike, Turret, Warden)
 from .settings import CHAIN_FRAMES, CHAIN_MAX, DIFFICULTY, GRENADES, GROUND_Y, TILE, C, H, W
 from .stage import AIR, CRATE, GROUND, WALK, Stage
 
@@ -260,6 +261,8 @@ class World:
             self.hostages.append(Hostage(x, y, extra))
         elif kind == "turret":
             self.foes.append(Turret(x, y))
+        elif kind in ("cutter", "sniper", "trike", "barrel"):
+            self.foes.append({"cutter": Cutter, "sniper": Sniper, "trike": Trike, "barrel": Barrel}[kind](x, y))
         else:
             self.foes.append(Foe(x, y, kind))       # soldier, lobber, shield, sapper or guard
 
@@ -323,6 +326,12 @@ class World:
             self.cleared = 1
         if self.cleared:
             self.cleared += 1
+        if self.stage.theme == 7 and self.frame % 3 == 0:          # blossom falling on the temple island
+            self.part(self.cam_x + random.uniform(0, W + 120), -4.0, -random.uniform(0.2, 0.7),
+                      random.uniform(0.35, 0.7), 480, "petal")
+        elif self.stage.theme == 8:                                # the harbour's rain
+            for _ in range(3):
+                self.part(self.cam_x + random.uniform(0, W + 80), random.uniform(-10, 0), -1.0, 6.5, 36, "rain")
         if self.frame % 7 == 0:                                   # embers drifting on the wind
             self.part(self.cam_x + W + 4, random.uniform(20, 170), -random.uniform(0.4, 0.9),
                       -random.uniform(0.05, 0.25), 600, "ember")
@@ -420,8 +429,8 @@ class World:
             self.cam_x = float(self.stage.boss_x)
             self.locked = True
             self.foes = [f for f in self.foes if f.x > self.cam_x]
-            kind = {"bastion": Bastion, "warden": Warden, "harrow": Harrow,
-                    "graive": Graive}[self.stage.mission.boss]
+            kind = {"bastion": Bastion, "warden": Warden, "harrow": Harrow, "graive": Graive,
+                    "sorakage": Sorakage, "tidebreaker": Tidebreaker}[self.stage.mission.boss]
             self.boss = kind(self.cam_x + W + 60, 176, self.cam_x, self.cam_x + W)
             self.boss.HP = self.boss.hp = self.boss_hp
             audio.play("alarm")
@@ -515,6 +524,8 @@ class World:
                 q[3] += 0.15
             elif kind == "ember":
                 q[2] += math.sin((self.frame + q[1]) * 0.05) * 0.01
+            elif kind == "petal":
+                q[2] += math.sin((self.frame + q[1]) * 0.06) * 0.02
         self.parts = [q for q in self.parts if q[4] > 0 and q[0] > self.cam_x - 30][-700:]
         for q in self.popups:
             q[1] -= 0.4
@@ -660,6 +671,12 @@ class World:
                 surf.set_at((px, py), C["gold"])
             elif kind == "dust":
                 pygame.draw.circle(surf, C["steel"], (px, py), 1 + (life < 8))
+            elif kind == "petal":
+                surf.set_at((px, py), PINK)
+                if life % 20 < 12:                                 # it turns as it falls
+                    surf.set_at((px + 1, py), C["cream"])
+            elif kind == "rain":
+                pygame.draw.line(surf, (110, 130, 190), (px, py), (px + 1, py - 6))
             elif kind == "ember":
                 if life % 30 < 24:
                     surf.set_at((px, py), C["ember"] if life % 60 < 30 else C["sun"])
