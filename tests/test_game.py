@@ -95,7 +95,7 @@ class Physics(unittest.TestCase):
 
     def test_coyote_jump_after_leaving_a_ledge(self):
         p = self.p
-        p.x, p.y = 42 * TILE + 4, GROUND_Y        # 2 px of boot still on the lip of the first pit
+        p.x, p.y = 80 * TILE + 4, GROUND_Y        # 2 px of boot still on the lip of a pit
         self.w.cam_x = p.x - 100
         run(self.w, self.pads, 1)
         run(self.w, self.pads, 4, right=True)
@@ -1203,12 +1203,91 @@ class SetPieces(unittest.TestCase):
 
     def test_every_room_draws(self):
         s = pygame.Surface((W, H))
-        for stage, room in ((2, "drain"), (3, "lift")):
+        for stage, room in ((2, "drain"), (3, "lift"), (0, "stash"), (1, "roofs")):
             w, pads, p = self.world(stage)
             w.enter(room, 100)
             run(w, pads, 30)
             w.draw(s, ATLAS)
             self.assertGreater(len({tuple(s.get_at((x, 120))) for x in range(0, W, 8)}), 2)
+
+
+    def test_the_crane_carries_a_rider_over_and_swings_back_empty(self):
+        w, pads, p = self.world(0)
+        cr = self.prop(w, props.Crane)
+        w.cam_x = cr.x - 100.0
+        p.x, p.y = cr.x + 20.0, cr.y - 4.0
+        for _ in range(1500):
+            pads[0].press()
+            w.step(pads)
+            if cr.done:
+                break
+        self.assertTrue(cr.done and not p.dying)
+        self.assertGreater(p.x, cr.x_end)
+        p.x, p.y = cr.x_end + cr.W + 30.0, float(GROUND_Y)      # step off onto the far bank
+        run(w, pads, 30, right=True)
+        for _ in range(1500):
+            pads[0].press()
+            w.step(pads)
+            if not cr.done:
+                break
+        self.assertEqual(cr.x, cr.x0)                   # back at the near bank for the next rider
+
+    def test_the_car_press_squashes_troopers(self):
+        w, pads, p = self.world(0)
+        pr = self.prop(w, props.Crusher)
+        foe = Foe(pr.x0 + 8.0, GROUND_Y, "soldier")
+        foe.timer = 10 ** 6
+        w.foes.append(foe)
+        w.cam_x = pr.x0 - 100.0
+        w.frame = pr.PERIOD * 2 + pr.SLAM - pr.phase - 2
+        run(w, pads, 12)
+        self.assertTrue(foe.dying)
+        self.assertIn("SQUASHED!", [q[2] for q in w.popups])
+
+    def test_rooms_put_their_people_under_the_roof(self):
+        for stage, room in ((0, "stash"), (2, "drain")):
+            w, pads, p = self.world(stage)
+            w.enter(room, 100)
+            w.cam_x = 200.0
+            w.camera()
+            self.assertTrue(w.hostages)
+            for h in w.hostages:
+                self.assertGreater(h.y, w.stage.drop_y)    # on the floor, not on top of the ceiling
+
+    def test_mission_one_and_two_each_hide_a_map_page(self):
+        from ironvolt.stage import ROOMS
+        for room in ("stash", "roofs"):
+            self.assertIn("page", [s[1] for s in ROOMS[room]["spawns"]])
+        w, pads, p = self.world(0)
+        self.assertEqual(w.hostage_total, sum(s[1] == "hostage" for s in MISSIONS[0].spawns) + 3)
+
+    def test_the_ladder_puts_the_team_on_the_train_roofs(self):
+        w, pads, p = self.world(1)
+        lad = self.prop(w, props.Ladder)
+        w.cam_x = lad.x0 - 100.0
+        p.x, p.y = lad.x0 + 20.0, float(GROUND_Y)
+        run(w, pads, 3)
+        self.assertEqual(w.stage.room, "roofs")
+        p.god = True
+        for _ in range(w.stage.timed + 1000):
+            w.foes.clear()
+            w.step(pads)
+            if not w.stage.room:
+                break
+        self.assertIsNone(w.stage.room)
+        self.assertGreater(p.x, 140 * TILE)
+
+    def test_a_gantry_hits_a_standing_player_and_passes_over_a_crouch(self):
+        for crouch in (False, True):
+            w, pads, p = self.world(1)
+            w.enter("roofs", 144)
+            w.spawn_i = len(w.stage.spawns)
+            run(w, pads, 40, down=crouch)                 # land on the roof first
+            p.safe = 0
+            gan = self.prop(w, props.Gantries)
+            gan.beams = [p.x + 30.0]
+            run(w, pads, 20, down=crouch)
+            self.assertEqual(bool(p.dying), not crouch)
 
 
 class Gentler(unittest.TestCase):

@@ -74,6 +74,7 @@ class Drain(Prop):
 
 class Door(Prop):
     """A lift cage: walk in and the team rides it up through the tower (a room of its own)."""
+    SIGN = "WALK IN: GOING UP!"
 
     def __init__(self, col, room, exit_col):
         self.x0, self.room, self.exit_col = col * TILE, room, exit_col
@@ -101,7 +102,7 @@ class Door(Prop):
 
 
     def sign(self):
-        return (self.x0 + 20, GROUND_Y - 78, "WALK IN: GOING UP!") if self.near and not self.used else None
+        return (self.x0 + 20, GROUND_Y - 78, self.SIGN) if self.near and not self.used else None
 
 
 class Arc(Prop):
@@ -230,6 +231,7 @@ class Vent(Prop):
             if not self.charge:
                 for p in on:
                     p.vy, p.on_ground, p.coyote, p.flung = VENT_LAUNCH, False, 0, 40
+                    world.popups.append([p.x, p.y - 30.0, "WHEE!", 40])
                 self.cool, self.puff = 36, 30
                 audio.play("vent")
         elif on:
@@ -298,6 +300,8 @@ class Piston(Prop):
             for e in world.foes:
                 if not getattr(e, "dying", 0) and e.rect().colliderect(r):
                     e.damage(99, world, None)
+                    world.popups.append([e.x, e.y - 30.0, "SQUASHED!", 50])
+                    audio.play("squash")
 
     def draw(self, surf, atlas, cam, frame):
         x = round(self.x0 - cam)
@@ -336,7 +340,159 @@ class Dark(Prop):
             world.popups.append([world.cam_x + W / 2, 70.0, "LIGHTS OUT", 120])
 
 
-KINDS = {"drain": Drain, "door": Door, "arc": Arc, "trolley": Trolley, "vent": Vent, "piston": Piston, "dark": Dark}
+class Crane(Trolley):
+    """The scrapyard's magnet crane: a car wreck hangs from it, and it carries whoever stands on the wreck over the
+    flooded pit. The magnet holds your boots (the trolley's cage). Empty at the far end, it swings back."""
+
+    def __init__(self, c0, c1, row):
+        super().__init__(c0, c1, row)
+        self.x0, self.wait = self.x, 0
+
+    def step(self, world):
+        super().step(world)
+        if not self.done:
+            return
+        if any(p.riding is self for p in world.live_players()):
+            self.wait = 0
+            return
+        self.wait += 1
+        if self.wait > 60:                                   # nobody aboard: back for the next rider
+            self.dx = -min(TROLLEY_V, self.x - self.x0)
+            self.x += self.dx
+            if self.x <= self.x0:
+                self.done, self.v, self.wait = False, 0.0, 0
+                audio.play("clank")
+
+    def draw(self, surf, atlas, cam, frame):
+        a, b = round(self.cable0 - cam), round(self.cable1 - cam)
+        if b < -10 or a > W + 10:
+            return
+        ry = self.y - 92                                     # the crane's rail, on two lattice towers
+        for mx in (a, b):
+            pygame.draw.rect(surf, C["black"], (mx - 4, ry, 8, GROUND_Y - ry + 30))
+            for k in range(ry, GROUND_Y, 10):
+                pygame.draw.line(surf, C["steel_d"], (mx - 4, k), (mx + 3, k + 9))
+        pygame.draw.rect(surf, C["black"], (a - 6, ry - 4, b - a + 12, 7))
+        for k in range(a, b, 12):
+            pygame.draw.line(surf, C["gold"], (k, ry - 3), (k + 6, ry + 2), 2)
+        x = round(self.x - cam)
+        cx = x + self.W // 2
+        pygame.draw.rect(surf, C["steel_d"], (cx - 9, ry + 3, 18, 7))          # the carriage on the rail
+        pygame.draw.line(surf, C["ink"], (cx, ry + 10), (cx, self.y - 44), 2)  # the cable down to the magnet
+        hum = 1 if self.going and frame % 6 < 3 else 0
+        pygame.draw.ellipse(surf, C["black"], (cx - 14, self.y - 46 + hum, 28, 10))
+        pygame.draw.ellipse(surf, C["red"], (cx - 12, self.y - 44 + hum, 24, 6))
+        for k in (-10, 10):                                  # chains from the magnet to the wreck's corners
+            pygame.draw.line(surf, C["steel"], (cx + k // 2, self.y - 36 + hum), (cx + k * 2, self.y))
+        pygame.draw.rect(surf, C["black"], (x - 1, self.y - 1, self.W + 2, 13))   # the wreck: a car, on its back
+        pygame.draw.rect(surf, C["olive"], (x, self.y, self.W, 7))
+        pygame.draw.rect(surf, C["rust_d"], (x + 3, self.y + 7, self.W - 6, 4))
+        pygame.draw.line(surf, C["sun"], (x, self.y), (x + self.W - 1, self.y))
+        for wx in (x + 9, x + self.W - 9):
+            pygame.draw.circle(surf, C["black"], (wx, self.y + 12), 4)
+            pygame.draw.circle(surf, C["steel_d"], (wx, self.y + 12), 2)
+        if getattr(self, "need", False) and frame % 40 < 26:
+            font.draw(surf, "ALL ABOARD", (cx, self.y - 60), C["sun"], center=True)
+
+    def sign(self):
+        if not self.going and not self.done and not getattr(self, "need", False) and self.x == self.x0:
+            return (self.x + self.W // 2, self.y - 70, "HOP ON THE WRECK!")
+        return None
+
+
+class Crusher(Piston):
+    """The scrapyard's car press: a crusher's beat, flattening wrecks (and troopers) under a yellow slab."""
+
+    def draw(self, surf, atlas, cam, frame):
+        x = round(self.x0 - cam)
+        if x < -self.W - 8 or x > W + 8:
+            return
+        for px in (x - 6, x + self.W + 1):                    # the press's posts, hazard-striped
+            pygame.draw.rect(surf, C["black"], (px, self.TOP - 8, 5, GROUND_Y - self.TOP + 8))
+            for k in range(self.TOP - 8, GROUND_Y, 8):
+                pygame.draw.line(surf, C["gold"], (px, k + 4), (px + 4, k), 2)
+        pygame.draw.rect(surf, C["black"], (x - 6, self.TOP - 12, self.W + 12, 6))
+        pygame.draw.rect(surf, C["rust_d"], (x + 2, GROUND_Y - 4, self.W - 4, 4))   # what is left of the last car
+        t = (frame + self.phase) % self.PERIOD
+        jig = 1 if self.SHAKE <= t < self.SLAM and frame % 4 < 2 else 0
+        r = self.head(frame).move(-round(cam) + jig, 0)
+        pygame.draw.rect(surf, C["steel_d"], (x + 12 + jig, self.TOP - 6, 8, max(0, r.top - self.TOP + 6)))
+        pygame.draw.rect(surf, C["black"], r)
+        pygame.draw.rect(surf, C["gold"], r.inflate(-2, -2))
+        pygame.draw.line(surf, C["sun"], (r.left + 1, r.top + 1), (r.right - 2, r.top + 1))
+        pygame.draw.line(surf, C["black"], (r.left, r.bottom - 1), (r.right - 1, r.bottom - 1))
+        if self.SHAKE <= t < self.SLAM and t % 10 < 5:
+            pygame.draw.circle(surf, C["red"], (x + 16 + jig, self.TOP - 16), 2)
+
+
+class Ladder(Door):
+    """A boxcar rolling slowly on the next track, its ladder down: walk to it and the team climbs onto the roofs
+    of the moving train (a room of its own)."""
+    SIGN = "HOP ON THE TRAIN!"
+
+    def draw(self, surf, atlas, cam, frame):
+        x = round(self.x0 - cam)
+        if x < -70 or x > W + 8:
+            return
+        top = GROUND_Y - 60
+        pygame.draw.rect(surf, C["black"], (x - 12, top, 64, 54))
+        pygame.draw.rect(surf, C["rust_d"], (x - 10, top + 2, 60, 50))
+        for k in range(x - 6, x + 48, 8):                     # the boxcar's planks
+            pygame.draw.line(surf, C["rust"], (k, top + 4), (k, top + 49))
+        for wx in (x - 2, x + 42):
+            pygame.draw.circle(surf, C["black"], (wx, GROUND_Y - 4), 5)
+            pygame.draw.circle(surf, C["steel"], (wx, GROUND_Y - 4), 2 + (frame // 8) % 2)
+        pygame.draw.line(surf, C["steel_l"], (x + 14, top - 8), (x + 14, GROUND_Y - 2))
+        pygame.draw.line(surf, C["steel_l"], (x + 26, top - 8), (x + 26, GROUND_Y - 2))
+        for k in range(top - 6, GROUND_Y - 2, 6):             # the ladder, bright: climb here
+            pygame.draw.line(surf, C["sun"], (x + 14, k), (x + 26, k))
+
+
+class Gantries(Prop):
+    """On the train's roofs: signal gantries come at you at head height. A bell, a DUCK! sign, then the beam sweeps
+    the roof. Crouch under it; troopers who stand get knocked off."""
+    SPEED, BOTTOM, BEAM = 4.0, GROUND_Y - 15, 10
+
+    def __init__(self, first, every, last):
+        self.times = set(range(first, last, every))
+        self.beams = []                                     # each beam's left edge; the room's camera stays at 0
+
+    def step(self, world):
+        if world.room_t in self.times:
+            self.beams.append(float(W + 240))                # 60 frames off screen: the warning's time
+            audio.play("bell")
+        self.beams = [x - self.SPEED for x in self.beams if x > -20]
+        for x in self.beams:
+            r = pygame.Rect(round(x), 0, self.BEAM, self.BOTTOM)
+            for p in world.live_players():
+                if p.rect().colliderect(r):
+                    world.kill_player(p)
+            for e in world.foes:
+                if not getattr(e, "dying", 0) and e.rect().colliderect(r):
+                    e.damage(99, world, None, push=-1)
+                    world.popups.append([e.x, e.y - 30.0, "BONK!", 50])
+
+    def draw(self, surf, atlas, cam, frame):
+        for x in self.beams:
+            x = round(x - cam)
+            if x > W:
+                continue
+            pygame.draw.rect(surf, C["black"], (x, 0, self.BEAM, self.BOTTOM))
+            for k in range(0, self.BOTTOM, 8):
+                pygame.draw.line(surf, C["steel_d"], (x + 1, k), (x + self.BEAM - 2, k + 7))
+            pygame.draw.rect(surf, C["gold"], (x - 2, self.BOTTOM - 4, self.BEAM + 4, 4))
+            for k in range(x - 2, x + self.BEAM + 2, 4):
+                pygame.draw.line(surf, C["black"], (k, self.BOTTOM - 4), (k + 2, self.BOTTOM - 1))
+            lamp = C["red"] if frame % 20 < 10 else C["green"]
+            pygame.draw.circle(surf, lamp, (x + self.BEAM // 2, self.BOTTOM - 26), 2)
+
+    def sign(self):
+        return (W - 60, 56, "DUCK!") if any(x > W - 60 for x in self.beams) else None
+
+
+KINDS = {"drain": Drain, "door": Door, "arc": Arc, "trolley": Trolley, "vent": Vent, "piston": Piston, "dark": Dark,
+         "crane": Crane, "crusher": Crusher, "ladder": Ladder, "gantries": Gantries}
+ROOM_KINDS = ("drain", "door", "ladder")         # the props that lead into a room
 
 
 def build(spec):

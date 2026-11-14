@@ -251,7 +251,7 @@ class World:
         if kind in ("page", "gift"):                  # a map page placed in the level, or a capsule dropped in
             self.pickups.append(Pickup(x, extra * TILE if kind == "page" else -10, "M" if kind == "page" else extra))
             return
-        y = self.stage.floor_y(x)
+        y = self.stage.floor_y(x, max(0, self.stage.drop_y))     # under a room's roof, not on top of it
         if y is None:
             return
         if self.stage.timed and kind != "hostage":
@@ -354,8 +354,8 @@ class World:
         self.stage = Stage(self.stage.index, room)
         self.props = [props.build(spec) for spec in self.stage.props]
         self.switch(40.0, float(self.stage.drop_y) if self.stage.drop_y > 0 else 150.0)
-        audio.play("drop" if room == "drain" else "lift")
-        self.popups.append([W / 2, 60.0, "DOWN WE GO!" if room == "drain" else "GOING UP!", 90])
+        audio.play(self.stage.sound)
+        self.popups.append([W / 2, 60.0, self.stage.shout, 90])
 
     def surface(self):
         """Back on the road from a room, at the column the room comes out at. What was skipped stays skipped."""
@@ -539,10 +539,10 @@ class World:
         cam = round(view) - sx              # whole pixels: the tiles and all that stands on them move as one
         sky, layers, pillar = atlas.themes[self.stage.theme]
         surf.blit(sky, (0, 0))
-        climb = (self.room_t * 2 - (1 - self.blend) * 2) if self.stage.timed else 0   # the lift: the shaft slides down
+        climb = (self.room_t * 2 - (1 - self.blend) * 2) if self.stage.timed and not self.stage.run else 0   # the lift: the shaft slides down
         for layer, factor, yoff in layers:
             lw, lh = layer.get_width(), layer.get_height()
-            ox = -int((view - sx) * factor) % lw
+            ox = -int((view - sx + self.room_t * self.stage.run) * factor) % lw     # on the train the yard rushes by
             oy = int(climb * factor) % lh if climb else 0
             for dy in ((oy - lh, oy) if climb else (0,)):
                 surf.blit(layer, (ox - lw, yoff + sy + dy))

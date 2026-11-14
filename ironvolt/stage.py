@@ -42,8 +42,7 @@ def _scrapyard():
     block(15, 15, 10, CRATE)
     block(24, 29, 9)                       # a raised slab
     walk(32, 37, 7)
-    pit(42, 44)
-    block(52, 53, 9, CRATE)
+    pit(42, 53)                            # the flooded pit: the magnet crane carries you over (SCRAPYARD_PROPS)
     walk(58, 63, 8)
     walk(64, 69, 5)
     block(72, 74, 8)
@@ -54,12 +53,12 @@ def _scrapyard():
     walk(106, 112, 8)
     block(113, 118, 8)
     pit(108, 110)
-    block(126, 127, 9, CRATE)
+    block(126, 127, 9, CRATE)              # 119..124: the car presses
     block(127, 127, 8, CRATE)
     walk(134, 140, 7)
     walk(142, 148, 4)
     block(152, 156, 9)
-    pit(162, 164)                          # pits stay 3 tiles: a running jump clears ~3.4
+    pit(162, 164)                          # the grate at 157 leads down into the scrap tunnel                          # pits stay 3 tiles: a running jump clears ~3.4
     block(170, 171, 10, CRATE)
     walk(176, 182, 8)
     block(186, 190, 9)
@@ -79,7 +78,7 @@ SCRAPYARD_SPAWNS = [
     (980, "drone", "edge", None), (1040, "soldier", "edge", None), (1100, "soldier", "edge", None),
     (1140, "hostage", 88 * TILE, "S"), (1200, "soldier", "edge", None), (1260, "lobber", 103 * TILE, None),
     (1300, "turret", 116 * TILE, None), (1380, "drone", "edge", None), (1420, "soldier", "edge", None),
-    (1440, "soldier", "edge", None), (1500, "soldier", "edge", None), (1560, "hostage", 122 * TILE, "R"),
+    (1440, "soldier", "edge", None), (1500, "soldier", "edge", None), (1560, "hostage", 125 * TILE, "R"),
     (1640, "turret", 137 * TILE, None), (1660, "drone", "edge", None), (1700, "turret", 145 * TILE, None),
     (1760, "soldier", "edge", None), (1800, "lobber", 154 * TILE, None), (1850, "drone", "edge", None),
     (1900, "soldier", "edge", None), (1940, "soldier", "edge", None), (2000, "hostage", 168 * TILE, "H"),
@@ -88,6 +87,37 @@ SCRAPYARD_SPAWNS = [
     (2340, "soldier", "edge", None), (2400, "hostage", 200 * TILE, "1"), (2440, "drone", "edge", None),
     (2480, "soldier", "edge", None), (2520, "soldier", "edge", None),
 ]
+
+
+def _waves(placed, edges, kinds, end):
+    """Spawns from a plan: `placed` (kind, column, extra) appear in view ahead, `kinds` cycle in from the edge."""
+    out = [(c * TILE - 270, kind, c * TILE, extra) for kind, c, extra in placed]
+    out += [(cam, kinds[i % len(kinds)], "edge", None) for i, cam in enumerate(range(edges, end, 70))]
+    return out
+
+
+SCRAPYARD_PROPS = [("crane", 42, 51, 11), ("crusher", 119, 0), ("crusher", 122, 50), ("drain", 157, "stash", 165)]
+
+
+def _stash():
+    """Under the scrapyard: an old tunnel the Legion fills with what it strips from the wrecks. Prisoners kept here,
+    and the brother's first map page."""
+    g, pit, block, walk = _ground(60)
+    for c in range(60):
+        for r in range(0, 4):
+            g[r][c] = AIR if (1 <= c <= 4 or 54 <= c <= 57) else GROUND
+    block(12, 13, 9, CRATE)
+    walk(18, 24, 7)
+    pit(27, 29)
+    block(33, 36, 9)
+    block(35, 36, 8, CRATE)
+    walk(40, 46, 6)                        # a shelf of scrap, the map page on it
+    pit(48, 49)
+    return g
+
+
+STASH_SPAWNS = _waves([("hostage", 16, "S"), ("lobber", 30, None), ("hostage", 38, "1"), ("page", 44, 4),
+                       ("hostage", 51, "B")], 40, ["soldier", "soldier", "shield"], 850)
 
 
 def _line():
@@ -109,7 +139,7 @@ def _line():
     block(84, 89, 8)                       # the loading platform
     walk(90, 97, 8)
     pit(93, 95)
-    block(98, 103, 8)
+    block(98, 103, 8)                      # the boxcar's ladder at 104: up onto the train's roofs
     block(110, 111, 9, CRATE)
     block(112, 113, 10, CRATE)
     walk(118, 124, 7)
@@ -135,19 +165,27 @@ def _line():
     return g
 
 
-def _waves(placed, edges, kinds, end):
-    """Spawns from a plan: `placed` (kind, column, extra) appear in view ahead, `kinds` cycle in from the edge."""
-    out = [(c * TILE - 270, kind, c * TILE, extra) for kind, c, extra in placed]
-    out += [(cam, kinds[i % len(kinds)], "edge", None) for i, cam in enumerate(range(edges, end, 70))]
-    return out
-
-
 LINE_SPAWNS = _waves(
     [("hostage", 22, "H"), ("lobber", 40, None), ("turret", 50, None), ("hostage", 61, "S"), ("lobber", 87, None),
      ("hostage", 96, "B"), ("turret", 101, None), ("turret", 129, None), ("lobber", 140, None),
      ("hostage", 152, "R"), ("turret", 161, None), ("lobber", 168, None), ("hostage", 170, "H"),
      ("turret", 184, None), ("hostage", 195, "1"), ("lobber", 207, None)],
     60, ["soldier", "shield", "soldier", "soldier", "drone", "soldier", "shield", "soldier"], 3500)
+
+
+LINE_PROPS = [("ladder", 104, "roofs", 144)]
+
+
+def _roofs():
+    """On the moving train: one screen of boxcar roofs; the yard rushes past and the gantries come at head height."""
+    g, _, _, _ = _ground(21)
+    return g
+
+
+ROOFS_SPAWNS = [(80, "soldier", 280, None), (200, "shield", 260, None), (300, "gift", 160, "S"),
+                (420, "soldier", 40, None), (480, "drone", 300, None), (620, "soldier", 270, None),
+                (700, "page", 200, 2), (760, "lobber", 60, None), (880, "soldier", 290, None),
+                (980, "drone", 20, None), (1060, "shield", 250, None), (1180, "soldier", 60, None)]
 
 
 def _pylon_road():
@@ -285,7 +323,10 @@ LIFT_SPAWNS = [(60, "guard", 250, None), (120, "soldier", 70, None), (220, "dron
 # the lights in a dark room; timed: frames it lasts (spawns by frame, not by camera); ceil: feet y under its roof.
 ROOMS = {
     "drain": dict(build=_drain, spawns=DRAIN_SPAWNS, theme=4, dark=150, lamps=(40, 330, 640, 900, 1080), ceil=86),
-    "lift": dict(build=_lift, spawns=LIFT_SPAWNS, theme=5, timed=1200),
+    "lift": dict(build=_lift, spawns=LIFT_SPAWNS, theme=5, timed=1200, shout="GOING UP!"),
+    "stash": dict(build=_stash, spawns=STASH_SPAWNS, theme=4, dark=110, lamps=(40, 300, 560, 820), ceil=86),
+    "roofs": dict(build=_roofs, spawns=ROOFS_SPAWNS, theme=6, timed=1300, run=6, shout="RIDE THE TRAIN!",
+                  sound="whistle", props=[("gantries", 150, 190, 1200)]),
 }
 
 
@@ -300,10 +341,10 @@ class Mission:
 MISSIONS = [
     Mission(1, "SCRAPYARD DUSK", _scrapyard, SCRAPYARD_SPAWNS, 212, "bastion", "BASTION  LEGION GATE CRAWLER",
             ("stage", "boss"), 0, ["FREE THE CAPTURED TECHNICIANS.", "BREAK THE LEGION GATE."],
-            ["THE GATE IS DOWN.", "THE PRISONERS WERE MOVED BY RAIL."]),
+            ["THE GATE IS DOWN.", "THE PRISONERS WERE MOVED BY RAIL."], SCRAPYARD_PROPS),
     Mission(2, "THE PRISONER LINE", _line, LINE_SPAWNS, 228, "warden", "WARDEN  PRISONER LINE ENGINE",
             ("line", "warden"), 1, ["THE LEGION SHIPS ITS PRISONERS BY RAIL.", "STOP THE TRAIN."],
-            ["THE PRISONER CARS ARE OPEN.", "KES'S BROTHER WAS NOT ABOARD."]),
+            ["THE PRISONER CARS ARE OPEN.", "KES'S BROTHER WAS NOT ABOARD."], LINE_PROPS),
     Mission(3, "PYLON ROAD", _pylon_road, ROAD_SPAWNS, 220, "harrow", "HARROW  LINE SURVEY GUNSHIP",
             ("pylon", "harrow"), 2, ["THE LAST LIVE LINE RUNS TO THE CRADLE.", "FOLLOW IT. DOWN THE GUNSHIP."],
             ["HARROW'S LOG CARRIES THE BROTHER'S MAPS.", "GRAIVE IS RELIGHTING THE OLD GRID."], ROAD_PROPS),
@@ -327,11 +368,13 @@ class Stage:
         self.spawns = sorted(r["spawns"], key=lambda s: s[0])
         self.theme, self.props = r["theme"], r.get("props", ())
         self.dark, self.lamps, self.timed = r.get("dark", 0), r.get("lamps", ()), r.get("timed", 0)
+        self.run, self.shout = r.get("run", 0), r.get("shout", "DOWN WE GO!")      # run: px a frame the world rushes past
+        self.sound = r.get("sound", "lift" if self.timed else "drop")
         self.drop_y = r.get("ceil", -10)          # where a player drops back in: from the sky, or under the roof
 
     def hostage_count(self):
         """Every prisoner in the mission: on the road and in its rooms."""
-        rooms = [ROOMS[p[2]] for p in self.mission.props if p[0] in ("drain", "door")]
+        rooms = [ROOMS[p[2]] for p in self.mission.props if p[0] in ("drain", "door", "ladder")]
         return sum(s[1] == "hostage" for r in [dict(spawns=self.mission.spawns)] + rooms for s in r["spawns"])
 
     @property

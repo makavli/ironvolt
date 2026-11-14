@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.11.0
+
+Missions 1 and 2 get set pieces of their own, and a hidden map page each: all four pages can now be found.
+- **Mission 1, SCRAPYARD DUSK:**
+  - **The magnet crane:** the first pit is now wide and flooded. Hop on the car wreck hanging from the crane's
+    magnet and it carries the team over. Its magnet holds your boots; empty at the far side, it swings back.
+  - **The car presses:** two presses stamp the yard floor on a beat. Run under between blows; troopers caught under
+    one get SQUASHED.
+  - **The scrap tunnel:** a grate near the end of the yard leads down to where the Legion keeps what it strips from
+    the wrecks: three prisoners and the brother's first map page, up on a shelf of scrap.
+- **Mission 2, THE PRISONER LINE:**
+  - **The train roofs:** halfway along the yard, a boxcar rolls by with its ladder down. Climb on and the team rides
+    the moving train's roofs while the yard rushes past and troopers drop in. Signal gantries sweep the roof at head
+    height: a bell, a DUCK! sign, then the beam. Crouch under it; troopers who stand get BONKED off. A map page rides
+    along too.
+- **Shouts:** WHEE! off a steam vent, SQUASHED! under a crusher, and a bouncing sign over the crane.
+- The demo bot ducks under the gantries.
+
 ## 0.10.0
 
 Missions 3 and 4 play differently, not only look different, and there is more to do between missions.

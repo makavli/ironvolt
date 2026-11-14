@@ -1573,6 +1573,7 @@ DRAIN_PALETTE = {"night": (16, 18, 30), "dusk": (36, 42, 60), "rose": (90, 104, 
 DRAIN_FLOOR = {"rust": (60, 70, 84), "rust_d": (30, 36, 50)}
 SHAFT_PALETTE = {"night": (18, 16, 28), "dusk": (70, 56, 70), "rose": (220, 150, 90)}
 SHAFT_FLOOR = {"rust": (120, 110, 100), "rust_d": (70, 60, 60)}
+ROOF_FLOOR = {"rust": (128, 58, 44), "rust_d": (66, 30, 28)}            # a boxcar's roof plates
 
 
 def _painted(palette, make, *args):
@@ -1600,6 +1601,8 @@ def backdrop(theme):
                                                          (plant_near(), 0.55, 8)], pillar()))
     if theme == 4:
         return drain_sky(), [(drain_wall(), 0.5, 0)], pillar()
+    if theme == 6:                                       # the train's roofs: the rail yard's dusk, rushing past
+        return backdrop(1)
     return shaft_sky(), [(shaft(), 1.0, 0)], pillar()
 
 
@@ -1658,7 +1661,7 @@ class Atlas:
         self.crates = [crate_tile(k) for k in range(3)]
         self.containers = {}
         self.girders = {(a, b): girder_tile(a, b) for a in (False, True) for b in (False, True)}
-        self.themes = [backdrop(k) for k in range(6)]     # one per mission theme (stage.Mission.theme), then the rooms
+        self.themes = [backdrop(k) for k in range(7)]     # one per mission theme (stage.Mission.theme), then the rooms
         self.sky, self.layers, self.pillar = self.themes[0]
         self.glow_s = glow(7, (120, 80, 36))
         self.glow_l = glow(18, (150, 70, 30))
@@ -1673,7 +1676,7 @@ class Atlas:
         key = (tx % (92 if theme == 1 else 23), ty, top, left, right, theme)
         if key not in self.ground:
             make = (ground_tile, line_ground_tile)[theme == 1]
-            paint = {2: SALT_PALETTE, 3: PLANT_PALETTE, 4: DRAIN_FLOOR, 5: SHAFT_FLOOR}.get(theme)
+            paint = {2: SALT_PALETTE, 3: PLANT_PALETTE, 4: DRAIN_FLOOR, 5: SHAFT_FLOOR, 6: ROOF_FLOOR}.get(theme)
             self.ground[key] = _painted(paint, make, *key[:5]) if paint else make(*key[:5])
         return self.ground[key]
 

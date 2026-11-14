@@ -51,6 +51,9 @@ class BotPad:
             pit = False                                        # the trolley's cage: ride it out
         danger = any(abs(b.x - p.x) < 34 and abs(b.y - (p.y - 10)) < 30 and (b.x - p.x) * b.vx < 0 or
                      (b.kind == "shell" and abs(b.x - p.x) < 20) for b in world.bolts)
+        beam = any(-12 < x - p.x < 130 for pr in world.props for x in getattr(pr, "beams", ()))
+        if beam:                                               # a gantry coming: duck under it, stay put
+            dx, danger, wall, pit = 0, False, False, False
         if p.on_ground and (wall or pit or danger) and not self.jump_hold:
             self.jump_hold = 22
         drop = bool(boss and not boss.dying and p.on_ground and p.on_catwalk(st) and not self.jump_hold
@@ -68,8 +71,9 @@ class BotPad:
         elif boss and not boss.dying and boss.state == "fight":
             s["up"] = flying or (world.frame // 60) % 3 == 0     # mix diagonal shots in
         s["right"], s["left"] = dx > 0, dx < 0
-        if drop:
+        if drop or beam:
             s["down"], s["up"] = True, False
+            s["jump"] = s["jump"] and not beam                 # down and jump is a slide: up into the beam
         if boss and not flying:                        # a gunship can end a bomb run behind you: walk back
             s["left"] = s["left"] and not s["up"]
         s["fire"] = (world.frame // 4) % 2 == 0

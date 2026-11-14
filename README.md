@@ -14,7 +14,7 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 ![pygame-ce](https://img.shields.io/badge/pygame--ce-2.5.8-6aa84f)
 ![Players](https://img.shields.io/badge/players-1%E2%80%932-e8742a)
 ![Assets](https://img.shields.io/badge/game%20assets-0%20files-8e44ad)
-![Status](https://img.shields.io/badge/status-v0.10%20%C2%B7%20missions%201%E2%80%934-c0392b)
+![Status](https://img.shields.io/badge/status-v0.11%20%C2%B7%20missions%201%E2%80%934-c0392b)
 
 <img src="docs/media/run.gif" alt="Two players running and gunning through the scrapyard" width="640">
 
@@ -52,7 +52,8 @@ you reach. Break the Legion's gate. Turn the lights back on. *([The full story](
 **WARDEN**, an armoured engine that runs down anything on the track. Then mission 3, **PYLON ROAD**, and **HARROW**,
 a gunship that bombs the road. Then mission 4, **THE CRADLE**, and **GRAIVE** himself.
 
-Each mission plays its own way: live cross-arms that arc on a beat, a storm drain under the road, a cable trolley
+Each mission plays its own way: a magnet crane over a flooded pit, car presses, a run along a moving train's roofs
+under the signal gantries, live cross-arms that arc on a beat, a storm drain under the road, a cable trolley
 over a gully, steam vents that throw you to the high catwalks, crushers, a stretch with the lights out, and a lift
 ride up the tower. Between missions, a map of the old grid lights up behind you; every mission ends with a rank,
 S to C, and hides a page of the brother's maps.

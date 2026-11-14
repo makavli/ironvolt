@@ -81,6 +81,9 @@ def _effects():
                     _tone(0.22, 1800, 400, noise=0.8, vol=0.28, decay=5, seed=14)),
         "vent": _tone(0.5, 2400, 600, noise=0.95, vol=0.3, decay=4, seed=15),
         "drop": _cat(_tone(0.12, 400, 150, duty=0.5, vol=0.25, decay=4), _tone(0.3, 140, 60, noise=0.6, vol=0.3, seed=16)),
+        "bell": _cat(*(_tone(0.16, 1568, 1568, wave="tri", vol=0.35, decay=3) for _ in range(3))),
+        "squash": _cat(_tone(0.06, 300, 120, noise=0.5, vol=0.3, decay=6, seed=18),
+                       _tone(0.25, 520, 90, wave="tri", vol=0.35, decay=3)),
         "lift": _cat(_tone(0.1, 180, 180, duty=0.3, vol=0.22, decay=1),
                      _tone(0.45, 90, 120, noise=0.4, vol=0.25, decay=2, seed=17)),
     }
