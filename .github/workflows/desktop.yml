@@ -1,0 +1,160 @@
+name: macOS and Linux
+
+# Manual only: Actions -> macOS and Linux -> Run workflow (or `gh workflow run desktop.yml`).
+#   tag        empty = the latest release
+#   platforms  both, or one of macos / linux
+#   itch       also push the builds to the itch.io page (channels mac and linux)
+# Builds the release's own source on GitHub's macOS and Linux machines, checks each build starts, plays and quits,
+# then adds Ironvolt-macos.zip and Ironvolt-linux.tar.gz to that GitHub release (replacing older ones).
+# Kept apart from the release on main on purpose: a slow Mac queue can never hold up the Windows and browser release.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (empty = latest)"
+        required: false
+        default: ""
+      platforms:
+        description: "Which builds"
+        type: choice
+        options: [both, macos, linux]
+        default: both
+      itch:
+        description: "Also upload to itch.io"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.pick.outputs.tag }}
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANTED: ${{ inputs.tag }}
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          tag="$WANTED"
+          [ -z "$tag" ] && tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::'$tag' is not a release tag"; exit 1; }
+          gh release view "$tag" -R "$GITHUB_REPOSITORY" > /dev/null || { echo "::error::no release $tag"; exit 1; }
+          mac='{"os":"macos-latest","name":"macos"}'
+          lin='{"os":"ubuntu-latest","name":"linux"}'
+          case "$PLATFORMS" in
+            macos) m="[$mac]" ;;
+            linux) m="[$lin]" ;;
+            *)     m="[$mac,$lin]" ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "matrix=$m" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve
+    strategy:
+      fail-fast: false               # one platform failing still ships the other
+      matrix:
+        include: ${{ fromJSON(needs.resolve.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt pyinstaller==6.22.3
+      - name: The source is the release's version
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          v=$(python -c "import ironvolt; print(ironvolt.__version__)")
+          [ "v$v" = "$TAG" ] || { echo "::error::source says $v, tag is $TAG"; exit 1; }
+      - name: Build
+        run: python -m PyInstaller --noconfirm --clean --windowed --name Ironvolt run.py
+      - name: The build starts, plays 120 frames and quits
+        timeout-minutes: 3             # the game quits itself after IRONVOLT_FRAMES; macOS has no `timeout`
+        env:
+          IRONVOLT_FRAMES: "120"
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy         # as the old CI builds: no screen on the runner
+          NAME: ${{ matrix.name }}
+        run: |
+          if [ "$NAME" = macos ]; then dist/Ironvolt.app/Contents/MacOS/Ironvolt
+          else dist/Ironvolt/Ironvolt; fi
+      - name: Pack
+        env:
+          NAME: ${{ matrix.name }}
+        run: |
+          mkdir out
+          if [ "$NAME" = macos ]; then (cd dist && ditto -c -k --keepParent Ironvolt.app ../out/Ironvolt-macos.zip)
+          else tar czf out/Ironvolt-linux.tar.gz -C dist Ironvolt; fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: build-${{ matrix.name }}
+          path: out/*
+          retention-days: 3
+
+  publish:
+    needs: [resolve, build]
+    if: ${{ !cancelled() && needs.resolve.result == 'success' }}    # ship whatever built, even if one platform failed
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write                # adds the files to the release
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      ITCH_GAME: ${{ vars.ITCH_GAME }}
+      ITCH: ${{ inputs.itch }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: build-*
+          merge-multiple: true
+          path: out
+      - name: Add the builds to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls out/* > /dev/null 2>&1 || { echo "::error::no build succeeded"; exit 1; }
+          gh release upload "$TAG" out/* --clobber -R "$GITHUB_REPOSITORY"
+          { echo "### $TAG: macOS and Linux"; echo; echo '```'; (cd out && sha256sum *); echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Unpack for itch
+        if: inputs.itch
+        run: |
+          mkdir -p itch/mac itch/linux
+          [ -f out/Ironvolt-macos.zip ] && unzip -q out/Ironvolt-macos.zip -d itch/mac
+          [ -f out/Ironvolt-linux.tar.gz ] && tar xzf out/Ironvolt-linux.tar.gz -C itch/linux
+          ls itch/*
+      - name: Install butler
+        if: inputs.itch
+        run: |
+          # pinned and checked, as in itch.yml: this job later holds the itch key
+          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/15.32.0/archive/default
+          echo "2335971394ef6596f95ded0833e85ee28755e13761716ef4c91d6b11f69162f5  butler.zip" | sha256sum -c -
+          unzip -q butler.zip -d butler && chmod +x butler/butler && butler/butler -V
+      - name: Upload to itch (only this step sees the key)
+        if: inputs.itch
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          [ -n "$ITCH_GAME" ] && [ -n "$BUTLER_API_KEY" ] || { echo "::error::set ITCH_GAME and BUTLER_API_KEY first"; exit 1; }
+          v="${TAG#v}"
+          if [ -d itch/mac/Ironvolt.app ]; then butler/butler push itch/mac "$ITCH_GAME:mac" --userversion "$v"
+          else echo "::warning::no macOS build: itch channel mac not updated"; fi
+          if [ -d itch/linux/Ironvolt ]; then butler/butler push itch/linux "$ITCH_GAME:linux" --userversion "$v"
+          else echo "::warning::no Linux build: itch channel linux not updated"; fi
+          butler/butler status "$ITCH_GAME"
+          echo "itch.io: https://${ITCH_GAME%%/*}.itch.io/${ITCH_GAME#*/}" >> "$GITHUB_STEP_SUMMARY"
