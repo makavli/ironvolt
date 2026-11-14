@@ -915,6 +915,409 @@ class Barrel(Body):
         surf.set_at((x + 6, y + 8), C["black"])
 
 
+PINK = (255, 176, 204)
+
+
+class Sorakage(Body):
+    """SORAKAGE, the Kagenui's blademaster, in lacquered red plate and a white mask. He stands his ground, then
+    strikes: a dash across the courtyard at body height (a glint first: jump it, or be up on a roof), a leap that
+    throws a fan of blades from the top, and once wounded he vanishes in petals and cuts from behind you (the petals
+    gather there first), and dashes there and back."""
+    w, h = 20, 44
+    HP = 130
+    _frames = None
+
+    def __init__(self, x, y, left, right):
+        super().__init__(x, y)
+        self.hp, self.left, self.right = self.HP, left, right
+        self.state, self.t, self.hurt, self.dying = "enter", 0, 0, 0
+        self.mode, self.mt, self.facing = "idle", 50, -1
+        self.marks = []                              # world.boss_down() clears it
+        self.trail, self.dashes, self.spot, self.thrown = [], 0, None, False
+
+    @property
+    def angry(self):
+        return self.hp <= self.HP // 2
+
+    def petals(self, world, n):
+        for _ in range(n):
+            world.part(self.x + random.uniform(-10, 10), self.y - random.uniform(4, 40), random.uniform(-1.5, 1.5),
+                       random.uniform(-1.5, 0.5), random.randint(40, 90), "petal")
+
+    def step(self, world):
+        self.t += 1
+        self.hurt = max(0, self.hurt - 1)
+        self.trail = (self.trail + [self.x])[-5:] if self.mode == "dashing" else []
+        if self.dying:
+            self.dying -= 1
+            if self.dying % 10 == 0:
+                self.petals(world, 6)
+            if self.dying == 1:
+                self.petals(world, 40)
+                self.dead = True
+            return
+        if self.state == "enter":
+            self.x -= 1.2
+            if self.x <= self.right - 60:
+                self.state, self.mt = "fight", 40
+                world.popups.append([world.cam_x + W / 2, 60.0, "THE KAGENUI WATCH.", 100])
+            self.fall(world)
+            return
+        target = world.nearest(self.x)
+        if target is None:
+            return
+        self.mt = max(0, self.mt - 1)
+        m = self.mode
+        if m == "idle":
+            self.vx = 0
+            self.facing = 1 if target.x > self.x else -1
+            if not self.mt:
+                move = random.choice(["dash", "dash", "fan"] + (["vanish", "vanish"] if self.angry else []))
+                self.dashes = 2 if self.angry else 1
+                self.mode, self.mt = {"dash": ("stance", 36), "fan": ("crouch", 18), "vanish": ("vanish", 40)}[move]
+                if move == "vanish":
+                    self.petals(world, 24)
+                    audio.play("vent")
+                    side = -target.facing if abs(target.x - self.left) > 50 and abs(self.right - target.x) > 50 \
+                        else (1 if target.x - self.left < 50 else -1)
+                    self.spot = max(self.left + 16, min(self.right - 16, target.x + side * 34))
+                else:
+                    audio.play("fuse")
+        elif m == "stance":                          # the glint: a dash is coming
+            if self.mt % 8 == 4:
+                world.flash(self.x + self.facing * 14, self.y - 26, small=True)
+            if not self.mt:
+                self.mode = "dashing"
+                audio.play("jump")
+        elif m == "dashing":
+            self.vx = self.facing * 6.5
+            if (self.facing < 0 and self.x <= self.left + 20) or (self.facing > 0 and self.x >= self.right - 20):
+                self.dashes -= 1
+                self.vx = 0
+                if self.dashes:                      # wounded: the shadow cut, straight back
+                    self.facing, self.mode, self.mt = -self.facing, "stance", 14
+                else:
+                    self.mode, self.mt = "idle", 40 if self.angry else 60
+        elif m == "crouch":
+            if not self.mt:
+                self.mode, self.vy, self.thrown, self.on_ground = "leap", -6.2, False, False
+                audio.play("jump")
+        elif m == "leap":
+            if not self.thrown and self.vy >= 0:     # the top of the leap: a fan of blades
+                self.thrown = True
+                n = 5 if self.angry else 3
+                base = math.atan2(target.y - 12 - (self.y - 30), target.x - self.x)
+                for k in range(n):
+                    a = base + (k - (n - 1) / 2) * 0.22
+                    world.bolts.append(Bolt(self.x, self.y - 30, math.cos(a) * 2.6 * world.fire,
+                                            math.sin(a) * 2.6 * world.fire, 0, "star"))
+                audio.play("enemy_shot")
+            if self.on_ground and self.thrown:
+                self.mode, self.mt = "idle", 50
+                world.dust(self.x, self.y)
+        elif m == "vanish":
+            if not self.mt:                          # out of the petals, behind you: a low cut
+                self.x = self.spot
+                self.facing = 1 if target.x > self.x else -1
+                self.petals(world, 16)
+                self.mode, self.mt = "cut", 16
+        elif m == "cut":
+            if self.mt % 6 == 3:
+                world.flash(self.x + self.facing * 12, self.y - 24, small=True)
+            if not self.mt:
+                self.mode, self.vx, self.vy, self.on_ground = "slash", self.facing * 3.6, -2.6, False
+                audio.play("jump")
+        elif m == "slash":
+            if self.on_ground:
+                self.mode, self.mt, self.vx = "idle", 50, 0
+                world.dust(self.x, self.y)
+        self.fall(world)
+        self.x = max(self.left + 10, min(self.right - 10, self.x))
+
+    def fall(self, world):
+        self.vy = min(MAX_FALL, self.vy + GRAVITY)
+        self.drop = 2                                # the courtyard roofs are yours, not his
+        self.move(world.stage)
+
+    def damage(self, dmg, world, owner, push=0.0):
+        if self.dying or self.state == "enter" or self.mode == "vanish":
+            return True
+        calm = not self.angry
+        self.hp -= dmg
+        self.hurt = 3
+        if self.hp <= 0:
+            self.dying, self.vx, self.mode = 120, 0, "idle"
+            world.award(owner, SCORE["boss"], self.x, self.y - 50)
+            world.boss_down()
+        elif calm and self.angry:                    # wounded: a beat to see that the fight has changed
+            self.petals(world, 30)
+            world.hitstop(8)
+            world.shake = max(world.shake, 6)
+            audio.play("alarm")
+            self.mode, self.mt, self.vx = "idle", 30, 0
+        return True
+
+    def hitbox(self):
+        if self.mode == "vanish" and not self.dying:
+            return pygame.Rect(-9999, -9999, 1, 1)
+        return pygame.Rect(round(self.x - 10), round(self.y - 44), 20, 44)
+
+    @classmethod
+    def frames(cls):
+        if cls._frames is None:
+            from .art import foe_frames, mirrored
+            f = foe_frames((150, 30, 40), (70, 14, 24), M=C["cream"], m=C["steel_l"], V=C["red"], P=(40, 30, 50),
+                           p=(70, 60, 80), Q=C["black"], U=C["black"], u=(40, 30, 50))
+            big = {k: pygame.transform.scale2x(f[k]) for k in ("stand", "run2", "run5", "hurt")}
+            cls._frames = (big, mirrored(big))
+        return cls._frames
+
+    def draw(self, surf, atlas, cam):
+        if self.mode == "vanish" and not self.dying:
+            if self.spot is not None and self.mt < 30:     # the petals gather where he will come out
+                sx = round(self.spot - cam)
+                for k in range(8):
+                    a = self.t * 0.2 + k * 0.8
+                    r = 6 + self.mt // 2
+                    surf.set_at((sx + round(math.cos(a) * r), round(self.y - 22 + math.sin(a) * r)), PINK)
+            return
+        right, left = self.frames()
+        frames = right if self.facing > 0 else left
+        if self.dying:
+            img = frames["hurt"]
+        elif self.mode in ("dashing", "slash"):
+            img = frames["run2"]
+        elif self.mode == "leap":
+            img = frames["run5"]
+        else:
+            img = frames["stand"]
+        x, y = round(self.x - cam), round(self.y)
+        sink = 6 if self.mode in ("stance", "crouch", "cut") else 0
+        top = y - img.get_height() + 2 + sink
+        for i, tx in enumerate(self.trail[:-1]):      # the afterimages of a dash
+            ghost = img.copy()
+            ghost.set_alpha(40 + i * 25)
+            surf.blit(ghost, (round(tx - cam) - img.get_width() // 2, top))
+        surf.blit(atlas.flash(img) if self.hurt and self.hurt % 2 else img, (x - img.get_width() // 2, top))
+        for dx in (-5, 5):                            # the crest on his helm
+            pygame.draw.line(surf, C["gold"], (x + dx, top + 8), (x + dx * 2, top), 2)
+        hy = y - 26 + sink
+        if self.dying:                                # the sword, lowered
+            pygame.draw.line(surf, C["steel_l"], (x + self.facing * 4, y - 2), (x + self.facing * 24, y - 2), 2)
+            return
+        if self.mode in ("dashing", "slash"):
+            pygame.draw.line(surf, C["cyan"], (x + self.facing * 6, hy), (x + self.facing * 30, hy + 4), 3)
+            pygame.draw.line(surf, C["white"], (x + self.facing * 7, hy), (x + self.facing * 29, hy + 4))
+        else:
+            tip = (x - self.facing * 22, hy - 14) if self.mode in ("stance", "cut") else (x + self.facing * 6, hy - 26)
+            pygame.draw.line(surf, C["steel_l"], (x + self.facing * 4, hy), tip, 2)
+            if self.mode in ("stance", "cut") and self.t % 6 < 3:
+                pygame.draw.circle(surf, C["white"], tip, 2)
+
+
+class Tidebreaker(Body):
+    """TIDEBREAKER, the harbour's gantry walker: a container crane on four legs, its cab high over the quay. It drops
+    its hook where a red mark blinks, sweeps a searchlight that calls a shell down where it stops, and once its cab
+    cracks it swings a container along the quay at head height: duck, slide or jump it. Shoot the cab: up from under
+    it, or level from the gantries."""
+    FLY = True                                   # the autopilot fights it from under the cab, firing up
+    w, h = 56, 34
+    HP = 170
+
+    def __init__(self, x, y, left, right):
+        super().__init__(x, y)
+        self.hp, self.left, self.right, self.ground = self.HP, left, right, y
+        self.state, self.t, self.hurt, self.dying = "enter", 0, 0, 0
+        self.goal, self.walk = right - 90, 0.0
+        self.marks, self.hooks = [], []              # marks: [x, frames to the drop]; hooks: [x, frames since]
+        self.light, self.lock = None, 0
+        self.swing, self.warn = None, 0
+
+    @property
+    def angry(self):
+        return self.hp <= self.HP // 2
+
+    def cab(self):
+        return pygame.Rect(round(self.x - 28), round(self.ground - 120), 56, 34)
+
+    def hooks_due(self):
+        """The marks whose hook is about to drop (for the autopilot): [x, frames to the drop]."""
+        return self.marks
+
+    def hook_y(self, h):
+        top, t = self.ground - 128, h[1]
+        if t < 10:
+            return top + (self.ground - top) * t / 10
+        if t < 32:
+            return self.ground
+        return self.ground - (self.ground - top) * (t - 32) / 28
+
+    def hook_rect(self, h):
+        y = self.hook_y(h)
+        return pygame.Rect(round(h[0]) - 8, round(y) - 18, 16, 18)
+
+    def smash(self, world, r):
+        for p in world.live_players():
+            if p.rect().colliderect(r):
+                world.kill_player(p)
+        for e in world.foes:
+            if not getattr(e, "dying", 0) and e.rect().colliderect(r):
+                e.damage(99, world, None)
+
+    def step(self, world):
+        self.t += 1
+        self.hurt = max(0, self.hurt - 1)
+        if self.dying:
+            self.dying -= 1
+            if self.dying % 7 == 0:
+                world.explode(self.x + random.uniform(-40, 40), self.ground - random.uniform(30, 120), 18, 0, None)
+            if self.dying == 1:
+                world.explode(self.x, self.ground - 100, 60, 0, None, big=True)
+                self.dead = True
+            return
+        if self.angry and self.t % 5 == 0:
+            world.smoke(self.x + random.uniform(-20, 20), self.ground - random.uniform(100, 120), 1.0)
+        if self.state == "enter":
+            self.x -= 0.6
+            self.walk += 0.6
+            if self.x <= self.goal:
+                self.state, self.t = "fight", 0
+                world.popups.append([world.cam_x + W / 2, 60.0, "WATCH THE CRANE HOOKS!", 100])
+            return
+        if abs(self.goal - self.x) < 2:
+            self.goal = random.uniform(self.left + 110, self.right - 60)
+        dx = max(-0.5, min(0.5, self.goal - self.x)) * (1.5 if self.angry else 1.0)
+        self.x += dx
+        self.walk += abs(dx)
+        target = world.nearest(self.x)
+        if target is None:
+            return
+        if self.t % (120 if self.angry else 160) == 30:             # the hook: a mark, then the drop
+            self.marks.append([target.x, 50])
+            audio.play("alarm")
+        for m in self.marks:
+            m[1] -= 1
+            if m[1] == 0:
+                self.hooks.append([m[0], 0])
+        self.marks = [m for m in self.marks if m[1] > 0]
+        for h in self.hooks:
+            h[1] += 1
+            if h[1] == 10:
+                world.shake = max(world.shake, 6)
+                audio.play("stomp")
+                world.dust(h[0], self.ground)
+            if 6 <= h[1] < 32:
+                self.smash(world, self.hook_rect(h))
+        self.hooks = [h for h in self.hooks if h[1] < 60]
+        beat = self.t % 220                                          # the searchlight: it finds you, it stops
+        if beat == 100:
+            self.light = float(self.x - 30)
+        if self.light is not None and not self.lock:
+            self.light += max(-3.0, min(3.0, target.x - self.light))
+            if beat == 160:
+                self.lock = 24
+                audio.play("fuse")
+        if self.lock:
+            self.lock -= 1
+            if not self.lock:
+                sx, sy, t = self.x - 30, self.ground - 96, 50.0
+                for off in ((-36, 0, 36) if self.angry else (0,)):
+                    world.bolts.append(Bolt(sx, sy, (self.light + off - sx) / t,
+                                            (self.ground - sy) / t - 0.5 * 0.14 * t, 0.14, "shell"))
+                world.flash(sx, sy)
+                audio.play("rocket")
+                self.light = None
+        if self.angry and self.t % 260 == 200 and self.swing is None and not self.warn:
+            self.warn = 50                                           # the container: a bell, then the swing
+            audio.play("bell")
+            world.popups.append([world.cam_x + W / 2, 60.0, "DUCK!", 60])
+        if self.warn:
+            self.warn -= 1
+            if not self.warn:
+                self.swing = float(self.right + 20)
+        if self.swing is not None:
+            self.swing -= 4.0
+            self.smash(world, pygame.Rect(round(self.swing) - 14, round(self.ground) - 30, 28, 16))
+            if self.swing < self.left - 30:
+                self.swing = None
+
+    def damage(self, dmg, world, owner, push=0.0):
+        if self.dying or self.state == "enter":
+            return True
+        calm = not self.angry
+        self.hp -= dmg
+        self.hurt = 3
+        if self.hp <= 0:
+            self.dying = 150
+            self.hooks.clear()
+            self.swing, self.light, self.lock, self.warn = None, None, 0, 0
+            world.award(owner, SCORE["boss"], self.x, self.ground - 130)
+            world.boss_down()
+        elif calm and self.angry:
+            world.explode(self.x, self.ground - 104, 20, 0, None)
+            world.hitstop(8)
+            world.shake = max(world.shake, 10)
+            audio.play("alarm")
+            world.popups.append([world.cam_x + W / 2, 70.0, "THE CAB IS CRACKED!", 90])
+        return True
+
+    def hitbox(self):
+        return self.cab()
+
+    def draw(self, surf, atlas, cam):
+        x, g, ink = round(self.x - cam), round(self.ground), C["ink"]
+        cab = self.cab().move(-round(cam), 0)
+        by, bl = g - 128, round(self.left - cam) - 10
+        pygame.draw.rect(surf, ink, (bl, by - 4, x - bl + 20, 8))                 # the boom over the quay
+        for k in range(bl, x + 20, 10):
+            pygame.draw.line(surf, C["gold"], (k, by - 3), (k + 6, by + 3), 2)
+        for i, off in enumerate((-40, -30, 30, 40)):                              # the legs, striding
+            lift = round(4 * max(0.0, math.sin(self.walk * 0.15 + i * math.pi / 2)))
+            fx = x + off + (6 if off > 0 else -6)
+            pygame.draw.line(surf, ink, (x + off // 2, cab.bottom), (fx, g - lift), 6)
+            pygame.draw.line(surf, C["steel"] if i % 2 else C["steel_d"], (x + off // 2, cab.bottom), (fx, g - lift), 3)
+            pygame.draw.rect(surf, ink, (fx - 5, g - lift - 3, 10, 4))
+        body = C["white"] if self.hurt and self.hurt % 2 else (C["rust_d"] if self.angry else C["rust"])
+        pygame.draw.rect(surf, ink, cab.inflate(4, 4))
+        pygame.draw.rect(surf, body, cab)
+        pygame.draw.rect(surf, C["gold"], (cab.left, cab.bottom - 5, cab.w, 3))
+        pygame.draw.rect(surf, ink, (cab.left + 6, cab.top + 6, cab.w - 12, 12))
+        win = C["sun"] if self.angry and (self.t // 10) % 2 else C["cyan"]
+        pygame.draw.rect(surf, win, (cab.left + 8, cab.top + 8, cab.w - 16, 8))
+        if self.angry:                                                            # the crack
+            pygame.draw.lines(surf, ink, False, [(cab.left + 14, cab.top + 6), (cab.left + 20, cab.top + 14),
+                                                 (cab.left + 17, cab.top + 20), (cab.left + 25, cab.bottom - 6)], 2)
+        lamp = (cab.left - 2, cab.top + 24)
+        pygame.draw.circle(surf, ink, lamp, 5)
+        pygame.draw.circle(surf, C["sun"], lamp, 3)
+        if self.light is not None and (not self.lock or self.lock % 6 < 3):      # the searchlight's beam
+            lx = round(self.light - cam)
+            pygame.draw.line(surf, C["sun"], lamp, (lx - 10, g))
+            pygame.draw.line(surf, C["sun"], lamp, (lx + 10, g))
+            pygame.draw.ellipse(surf, C["cream"] if self.lock else C["sun"], (lx - 12, g - 3, 24, 5),
+                                0 if self.lock else 1)
+        for h in self.hooks:                                                      # trolley, cable, hook block
+            hx, hy = round(h[0] - cam), round(self.hook_y(h))
+            pygame.draw.rect(surf, C["steel_d"], (hx - 6, by - 6, 12, 6))
+            pygame.draw.line(surf, ink, (hx, by), (hx, hy - 18), 2)
+            pygame.draw.rect(surf, ink, (hx - 8, hy - 18, 16, 18))
+            pygame.draw.rect(surf, C["gold"], (hx - 7, hy - 17, 14, 16))
+            for k in range(hx - 7, hx + 7, 4):
+                pygame.draw.line(surf, ink, (k, hy - 3), (k + 2, hy - 1))
+        for mx, frames in self.marks:                                             # where the hook will drop
+            if frames % 8 < 5:
+                px = round(mx - cam)
+                pygame.draw.line(surf, C["red"], (px - 6, g - 2), (px + 6, g - 2), 2)
+                pygame.draw.polygon(surf, C["red"], [(px, g - 5), (px - 4, g - 11), (px + 4, g - 11)])
+        if self.swing is not None:                                                # the container on its chain
+            sx = round(self.swing - cam)
+            pygame.draw.line(surf, ink, (x, by), (sx, g - 30), 2)
+            pygame.draw.rect(surf, ink, (sx - 15, g - 31, 30, 18))
+            pygame.draw.rect(surf, C["blue"], (sx - 14, g - 30, 28, 16))
+            for k in range(sx - 12, sx + 14, 4):
+                pygame.draw.line(surf, C["night"], (k, g - 29), (k, g - 16))
+
+
 class Drone(Body):
     w, h = 16, 9
 

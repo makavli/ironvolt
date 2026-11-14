@@ -86,6 +86,34 @@ CROWN = ["C5 - - - . C5 D#5 - D5 - C5 - A#4 - G4 -", "C#5 - - - . C#5 F5 - D#5 -
          "C5 - - - . C5 D#5 - D5 - C5 - A#4 - G4 -", "G#5 - - - G5 - F5 - D#5 - - - C#5 - F5 -",
          "D#5 - - - G5 - A#5 - G5 - - - D#5 - A#4 -", "B4 - - - D5 - F5 - G5 - - - - - . ."]
 
+# Mission 5, the blossom island: A in the hirajoshi scale (A B C E F), temple bells in the break; the blademaster in A with Bb.
+SAKURA = ["A5 - - - C6 - B5 - A5 - E5 - . E5 F5 -", "E5 - - - A5 - - - C6 - - - B5 - A5 -",
+          "F5 - - - E5 - C5 - E5 - - - F5 - A5 -", "B5 - - - A5 - - - E5 - - - . . . .",
+          "A5 - - - C6 - B5 - A5 - E5 - . E5 F5 -", "E6 - - - C6 - B5 - A5 - - - C6 - E6 -",
+          "F6 - - - E6 - C6 - B5 - - - A5 - F5 -", "E5 - - - A5 - - - - - - - . . . ."]
+PETAL = ["C6 - E6 - C6 - B5 - A5 - - - E5 - F5 -", "A5 - - - B5 - C6 - E6 - - - C6 - B5 -",
+         "F6 - E6 - C6 - B5 - A5 - - - F5 - E5 -", "B5 - - - - - C6 - E6 - - - - - . .",
+         "C6 - E6 - C6 - B5 - A5 - - - E5 - F5 -", "E6 - - - F6 - E6 - C6 - B5 - A5 - - -",
+         "B5 - C6 - E6 - F6 - E6 - - - C6 - B5 -", "A5 - - - - - - - - - - - . . . ."]
+BLADE = ["A5 - . A5 C6 - A5 - B5 - A5 - E5 - . E5", "F5 - . F5 A5 - F5 - E5 - F5 - A5 - . A5",
+         "A5 - . A5 C6 - E6 - F6 - E6 - C6 - A5 -", "B5 - - - E6 - - - G#5 - - - E5 - . .",
+         "A5 - . A5 C6 - A5 - B5 - A5 - E5 - . E5", "A#5 - - - A5 - F5 - A5 - - - A#5 - C6 -",
+         "D6 - - - C6 - A#5 - G5 - - - D6 - C6 -", "G#5 - - - B5 - E6 - E5 - E5 - E5 - . ."]
+
+# Mission 6, the neon harbour: G minor, slow synth lines in the rain; the harbour machine in G with a Phrygian Ab.
+HARBOUR = ["G5 - - - . . D5 - G5 - - - A#5 - A5 -", "G5 - - - - - D#5 - G5 - - - A#5 - D6 -",
+           "D6 - - - - - A#5 - F5 - - - A#5 - D6 -", "C6 - - - A5 - F5 - A5 - - - . . . .",
+           "G5 - - - . . D5 - G5 - - - A#5 - A5 -", "G5 - - - A#5 - D6 - D#6 - - - D6 - A#5 -",
+           "C6 - - - D#5 - G5 - C6 - - - G5 - D#5 -", "F#5 - - - A5 - D6 - A5 - - - . . . ."]
+NEON = ["D#5 - - - G5 - A#5 - D#6 - - - D6 - A#5 -", "F5 - - - A5 - C6 - F6 - - - D#6 - C6 -",
+        "G5 - - - A#5 - D6 - G6 - - - F6 - D6 -", "D6 - - - A#5 - G5 - D5 - - - . . . .",
+        "D#6 - - - D6 - A#5 - G5 - - - A#5 - D6 -", "F6 - - - D#6 - C6 - A5 - - - C6 - F6 -",
+        "F#5 - - - A5 - C6 - D6 - - - - - - -", "A5 - - - - - - - - - - - . . . ."]
+LEVI = ["G5 - - - . G5 A#5 - A5 - G5 - D5 - . D5", "G#5 - - - . G#5 C6 - A#5 - G#5 - G5 - D#5 -",
+        "G5 - - - . G5 D6 - D#6 - - - D6 - A#5 -", "F#5 - - - A5 - - - D6 - - - - - . .",
+        "G5 - - - . G5 A#5 - A5 - G5 - D5 - . D5", "D#6 - - - D6 - A#5 - G5 - - - G#5 - G5 -",
+        "A#5 - - - D6 - F6 - D6 - - - A#5 - F5 -", "F#5 - - - A5 - C6 - D6 - - - - - . ."]
+
 SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doubled an octave up) or None)
     "title": (120, [("Am F C G Am F C G", "title", (HOOK, "bell", False))]),
     "stage": (120, [("Am F C G", "intro", None),
@@ -120,6 +148,22 @@ SONGS = {   # bpm, sections: (chords, style, lead: (bars, "lead" or "bell", doub
                      ("Cm Ab Eb Bb Cm Ab Fm G", "drive", (CRADLE, "lead", True))]),
     "graive": (154, [("Cm Db Cm G Cm Db Eb G", "boss", None),
                      ("Cm Db Cm G Cm Db Eb G", "boss", (CROWN, "lead", True))]),
+    "sakura": (128, [("Am F G Em", "intro", None),
+                     ("Am F G Em Am F G Am", "drive", (SAKURA, "lead", False)),
+                     ("F G Am Am F G E E", "lift", (PETAL, "lead", False)),
+                     ("F G Am", "break", ([SAKURA[1], SAKURA[3], SAKURA[0]], "bell", False)),
+                     ("Am", "rise", None),
+                     ("Am F G Em Am F G Am", "drive", (SAKURA, "lead", True))]),
+    "blademaster": (148, [("Am Bb Am E Am Bb G E", "boss", None),
+                          ("Am Bb Am E Am Bb G E", "boss", (BLADE, "lead", True))]),
+    "harbour": (124, [("Gm Eb Bb F", "intro", None),
+                      ("Gm Eb Bb F Gm Eb Cm D", "drive", (HARBOUR, "lead", False)),
+                      ("Eb F Gm Gm Eb F D D", "lift", (NEON, "lead", False)),
+                      ("Eb F Gm", "break", ([HARBOUR[1], HARBOUR[3], HARBOUR[0]], "bell", False)),
+                      ("Gm", "rise", None),
+                      ("Gm Eb Bb F Gm Eb Cm D", "drive", (HARBOUR, "lead", True))]),
+    "leviathan": (144, [("Gm Ab Gm D Gm Ab Bb D", "boss", None),
+                        ("Gm Ab Gm D Gm Ab Bb D", "boss", (LEVI, "lead", True))]),
 }
 CHUNK = 512                 # samples between yields
 

@@ -1576,6 +1576,578 @@ SHAFT_FLOOR = {"rust": (120, 110, 100), "rust_d": (70, 60, 60)}
 ROOF_FLOOR = {"rust": (128, 58, 44), "rust_d": (66, 30, 28)}            # a boxcar's roof plates
 
 
+# ---------------------------------------------------------------- mission 5: the blossom island
+
+# mission 5: the old Eastern grid's island; still the Long Dusk, but pink and gold against the ash
+SAKURA_PALETTE = {"night": (50, 30, 68), "dusk": (116, 60, 108), "rose": (218, 112, 142), "ember": (246, 158, 126),
+                  "sun": (255, 212, 150), "cream": (255, 240, 234)}
+BLOOM = ((120, 52, 92), (196, 98, 140), (240, 156, 188), (255, 214, 226))     # blossom from deep shade to sunlit
+VERMILION = (196, 58, 46)
+
+
+def _wrapped(width, draw, x):
+    """draw(x) and its copies one width over, so whatever straddles the seam of a looping layer stays whole."""
+    for ox in (0, -width, width):
+        draw(x + ox)
+
+
+def _eaves(s, cx, y, half, colour, rim):
+    """A curved roof's eave seen side on: a long dark line, its ends swept up, its top lit."""
+    pygame.draw.line(s, colour, (cx - half, y), (cx + half, y), 2)
+    for d in (-1, 1):
+        pygame.draw.line(s, colour, (cx + d * half, y), (cx + d * (half + 2), y - 2))
+    pygame.draw.line(s, rim, (cx - half + 2, y - 1), (cx + half - 2, y - 1))
+
+
+def _tiers(s, cx, foot, tiers, width, step, body, roof, rim, light=None, shrink=3):
+    """A pagoda or a keep: stacked storeys, each under its own swept roof, a spire on top. light: lit windows."""
+    y, w = foot, width
+    for i in range(tiers):
+        pygame.draw.rect(s, body, (cx - w // 2, y - step, w, step))
+        pygame.draw.line(s, rim, (cx + w // 2 - 1, y - step), (cx + w // 2 - 1, y - 1))
+        if light:
+            for wx in range(cx - w // 2 + 2, cx + w // 2 - 2, 4):
+                s.set_at((wx, y - step // 2), light)
+        pygame.draw.polygon(s, roof, [(cx - w // 2 - 4, y - step + 1), (cx - w // 2 + 2, y - step - 3),
+                                      (cx + w // 2 - 2, y - step - 3), (cx + w // 2 + 4, y - step + 1)])
+        _eaves(s, cx, y - step + 1, w // 2 + 5, roof, rim)
+        y, w = y - step - 3, max(4, w - shrink)
+    pygame.draw.line(s, roof, (cx, y), (cx, y - 9))
+    for k in (3, 5, 7):
+        s.set_at((cx - 1, y - k), roof)
+        s.set_at((cx + 1, y - k), rim)
+
+
+def _torii(s, x, foot, h, w, red, dark, rim):
+    """A gate of two posts under a swept top beam, a tie beam below it, a plaque between."""
+    for px in (x, x + w):
+        pygame.draw.rect(s, red, (px - 1, foot - h, 3, h))
+        pygame.draw.line(s, mix(red, C["sun"], 0.4), (px + 1, foot - h), (px + 1, foot - 1))
+        pygame.draw.rect(s, dark, (px - 2, foot - 3, 5, 3))
+    pygame.draw.rect(s, red, (x - 4, foot - h + 6, w + 9, 2))
+    pygame.draw.rect(s, red, (x - 5, foot - h + 1, w + 11, 2))
+    _eaves(s, x + w // 2, foot - h, w // 2 + 7, dark, rim)
+    pygame.draw.rect(s, dark, (x + w // 2 - 1, foot - h + 2, 3, 5))
+
+
+def _lantern(s, x, foot, stone, lit, glow):
+    """A stone lantern: foot, post, a fire box with its light, a wide roof, a jewel on top."""
+    pygame.draw.rect(s, stone, (x - 3, foot - 2, 7, 2))
+    pygame.draw.rect(s, stone, (x - 1, foot - 9, 3, 7))
+    pygame.draw.rect(s, stone, (x - 3, foot - 10, 7, 1))
+    pygame.draw.rect(s, stone, (x - 2, foot - 14, 5, 4))
+    pygame.draw.rect(s, glow, (x - 1, foot - 13, 3, 2))
+    pygame.draw.polygon(s, stone, [(x - 5, foot - 14), (x - 1, foot - 17), (x + 1, foot - 17), (x + 5, foot - 14)])
+    pygame.draw.line(s, lit, (x, foot - 17), (x + 5, foot - 14))
+    s.set_at((x, foot - 18), stone)
+
+
+def _blossom(s, clouds, bloom, rnd=None):
+    """A heap of blossom clouds (x, y, r): deep pink underneath, sunlit pale on top toward the low sun."""
+    deep, shade, pink, pale = bloom
+    for cx, cy, r in clouds:
+        pygame.draw.circle(s, deep, (cx, cy + 2), r + 1)
+    for cx, cy, r in clouds:
+        pygame.draw.circle(s, shade, (cx, cy), r)
+    for cx, cy, r in clouds:
+        pygame.draw.circle(s, pink, (cx + 1, cy - 1), max(1, r - 2))
+    for cx, cy, r in clouds:
+        if r > 3:
+            pygame.draw.circle(s, pale, (cx + r // 3, cy - r // 2), max(1, r // 3))
+    for cx, cy, r in clouds if rnd else ():              # single flecks: blossom, not cloud
+        for _ in range(r):
+            fx, fy = cx + rnd.randrange(-r, r + 1), cy + rnd.randrange(-r, r + 1)
+            if 0 <= fx < s.get_width() and 0 <= fy < s.get_height() and s.get_at((fx, fy))[3]:
+                s.set_at((fx, fy), pale if rnd.random() < 0.5 else shade)
+
+
+def _sakura(s, x, foot, size, rnd, trunk, rim, bloom=BLOOM):
+    """A cherry in full blossom: a leaning trunk forking into a crown of blossom, dark boughs showing through."""
+    lean = rnd.randrange(-size // 4, size // 4 + 1)
+    top = (x + lean, foot - size)
+    pygame.draw.line(s, trunk, (x, foot), top, max(2, size // 9))
+    pygame.draw.line(s, rim, (x + 1, foot), (top[0] + 1, top[1] + size // 2))
+    boughs = [(top[0] + rnd.randrange(-size, size + 1), top[1] + rnd.randrange(-size // 3, size // 4))
+              for _ in range(4)]
+    for b in boughs:
+        pygame.draw.line(s, trunk, top, b, 2)
+    clouds = [(top[0] + rnd.randrange(-size, size + 1) * 9 // 10, top[1] + rnd.randrange(-size // 2, size // 3),
+               rnd.randrange(size // 5 + 2, size // 3 + 4)) for _ in range(size // 2 + 4)]
+    _blossom(s, clouds, bloom, rnd)
+    for b in boughs[:2]:                                 # a bough through a gap in the blossom
+        pygame.draw.line(s, trunk, ((top[0] + b[0]) // 2, (top[1] + b[1]) // 2), b)
+
+
+def peak(width=640):
+    """Mission 5's far layer: the island's mountain, its snow lit pink by the low sun, and on the ridge before it
+    the castle's walls and keep and the roofs of temples, tier on tier."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(61)
+    body, shade = C["dusk"], mix(C["dusk"], C["night"], 0.55)
+    snow, snow_d = C["cream"], mix(C["rose"], C["dusk"], 0.3)
+    cx, top, foot, line = 210, 30, 150, 74
+    left, right = [], []
+    for y in range(top, foot + 1):                       # the cone: a concave flank either side, a little broken
+        t = (y - top) / (foot - top)
+        half = 5 + 220 * t ** 1.7
+        left.append((int(cx - half) - (y % 5 == 0), y))
+        right.append((int(cx + half) + (y % 7 == 0), y))
+    for ox in (0, -width, width):
+        cone = [(px + ox, py) for px, py in left[::-1] + [(cx - 3, top - 1), (cx + 4, top - 1)] + right]
+        pygame.draw.polygon(s, body, cone + [(cx + 240 + ox, H), (cx - 240 + ox, H)])
+        for (x0, y0), (x1, _) in zip(left, right):
+            mid = cx + ox + (y0 - top) // 5              # the crest line: away from the sun, shade
+            pygame.draw.line(s, shade, (x0 + ox, y0), (mid, y0))
+            for x in range(x0, x1 + 1) if y0 < line + 10 else ():      # the snow, a ragged hem
+                if y0 <= line + 5 * math.sin(x * 0.23) + 3 * math.sin(x * 0.61):
+                    s.set_at((x + ox, y0), snow_d if x + ox < mid else snow)
+        for k in (-4, -3, -1, 1, 2, 3, 4):              # snow running down the gullies in tongues
+            gx = cx + ox + k * 9 + k % 3
+            y0 = line + 4 + int(6 * math.sin(gx * 0.21))
+            n = 4 + (k * 7) % 7
+            pygame.draw.polygon(s, snow if k > 0 else snow_d, [(gx - 2, y0 - 2), (gx + 2, y0 - 2), (gx + k // 3, y0 + n)])
+    ridge_c, rim = C["night"], C["dusk"]
+    pts = _ridge(width, 138, 12, rnd, 3)
+    pygame.draw.polygon(s, ridge_c, pts + [(width, H), (0, H)])
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        if y1 > y0:
+            pygame.draw.line(s, rim, (x0, y0), (x1, y1))
+    wall = mix(C["night"], C["rose"], 0.3)
+    for x0, tiers, w in ((380, 3, 32), (540, 2, 22)):   # the castle: a sloped stone base, white walls, the keeps
+        base = pts[x0 // 4][1] + 2
+        pygame.draw.rect(s, wall, (x0 - 64, base - 8, 128, 3))
+        for bx in range(x0 - 64, x0 + 64, 4):            # the wall's coping
+            s.set_at((bx, base - 9), ridge_c)
+        pygame.draw.polygon(s, ridge_c, [(x0 - 26, base), (x0 - 20, base - 12), (x0 + 20, base - 12),
+                                         (x0 + 26, base)])
+        pygame.draw.line(s, rim, (x0 + 20, base - 12), (x0 + 26, base))
+        _tiers(s, x0, base - 12, tiers, w, 7, wall, ridge_c, rim, light=C["sun"], shrink=8)
+    for x0 in (50, 120, 250, 610):                       # temple roofs on the slopes
+        _tiers(s, x0, pts[x0 // 4][1] + 4, 1 + x0 % 2, 16 + x0 % 9, 5, ridge_c, ridge_c, rim)
+    return s
+
+
+def temple(width=640):
+    """Mission 5's mid layer: the temple town's slope: cherries in blossom, red gates, a pagoda, halls with their
+    paper screens lit, stone lanterns along the way."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(67)
+    body, rim, edge = C["night"], C["dusk"], C["rose"]
+    roof = mix(C["night"], C["black"], 0.4)
+    for x0 in range(0, width, 128):                      # halls: low walls, deep roofs, paper screens glowing
+        x, w = x0 + rnd.randrange(0, 50), rnd.randrange(44, 64)
+        pygame.draw.rect(s, body, (x, 132, w, 18))
+        for k in range(x + 3, x + w - 4, 5):
+            pygame.draw.rect(s, mix(C["sun"], C["ember"], 0.3) if rnd.random() < 0.6 else rim, (k, 137, 3, 9))
+        pygame.draw.polygon(s, roof, [(x - 8, 133), (x + 6, 119), (x + w - 6, 119), (x + w + 8, 133)])
+        pygame.draw.line(s, edge, (x + w - 6, 119), (x + w + 8, 133))
+        _eaves(s, x + w // 2, 133, w // 2 + 8, roof, rim)
+    _wrapped(width, lambda x: _tiers(s, x, 150, 5, 26, 12, body, roof, edge, light=C["sun"], shrink=3), 452)
+    for x in (74, 300, 590):                             # the gates on the way up
+        _wrapped(width, lambda gx: _torii(s, gx, 150, 40, 24, VERMILION, roof, edge), x)
+    far_bloom = tuple(mix(b, C["dusk"], 0.3) for b in BLOOM)
+    for i, x in enumerate(range(10, width, 40)):         # cherries all along, big and small
+        size, seed, dx = (22, 15, 26, 18, 13)[i % 5], rnd.randrange(1 << 16), rnd.randrange(-6, 7)
+        if all(abs(x + dx - k) > 30 for k in (452, 86, 312, 602)):     # never in front of the pagoda or a gate
+            _wrapped(width, lambda tx: _sakura(s, tx, 150, size, random.Random(seed), body, rim, far_bloom), x + dx)
+    for x in range(36, width, 58):                       # lanterns on the path
+        _lantern(s, x, 150, body, edge, C["sun"])
+    pygame.draw.rect(s, body, (0, 150, width, H - 150))
+    for x in range(0, width, 2):                         # fallen blossom along the path
+        if rnd.random() < 0.3:
+            s.set_at((x, 150 + rnd.randrange(3)), BLOOM[1] if rnd.random() < 0.7 else BLOOM[2])
+    return s
+
+
+def blossom_near(width=640):
+    """Mission 5's near layer: a temple's wooden fence, big stone lanterns, and cherry boughs hanging into the
+    view, all in the near dark, the blossom glowing a deep pink."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(71)
+    col, hint = C["black"], C["ink"]
+    dark = (mix(C["black"], BLOOM[0], 0.45), mix(C["black"], BLOOM[0], 0.8), mix(BLOOM[0], BLOOM[1], 0.5),
+            BLOOM[1])
+    for x in range(0, width, 14):                        # the fence: posts with caps, two rails
+        pygame.draw.rect(s, col, (x, 150, 3, 30))
+        pygame.draw.rect(s, col, (x - 1, 149, 5, 2))
+        s.set_at((x + 2, 150), hint)
+    for y in (156, 166):
+        pygame.draw.line(s, col, (0, y), (width, y), 2)
+        pygame.draw.line(s, hint, (0, y - 1), (width, y - 1))
+    for x in (110, 350, 560):                            # big stone lanterns before the fence
+        pygame.draw.rect(s, col, (x - 6, 172, 13, 6))
+        pygame.draw.rect(s, col, (x - 2, 146, 5, 26))
+        pygame.draw.rect(s, col, (x - 7, 140, 15, 6))
+        pygame.draw.rect(s, col, (x - 5, 128, 11, 12))
+        pygame.draw.rect(s, mix(C["sun"], C["ember"], 0.5), (x - 2, 131, 5, 6))
+        pygame.draw.polygon(s, col, [(x - 12, 129), (x - 3, 121), (x + 3, 121), (x + 12, 129)])
+        pygame.draw.line(s, col, (x - 12, 129), (x - 14, 126))
+        pygame.draw.line(s, col, (x + 12, 129), (x + 14, 126))
+        pygame.draw.circle(s, col, (x, 119), 2)
+    for x0 in (20, 260, 450):                            # boughs hanging in from above the view
+        seed = rnd.randrange(1 << 16)
+
+        def bough(x):
+            r = random.Random(seed)
+            pts, y = [], -6
+            for k in range(8):
+                pts.append((x, y))
+                x += 10 + r.randrange(-2, 3)
+                y += 7 - k + r.randrange(-1, 2)
+            pygame.draw.lines(s, col, False, pts, 3)
+            clouds = []
+            for i, (bx, by) in enumerate(pts[1:]):
+                pygame.draw.line(s, col, (bx, by), (bx + 5, by + (7 if i % 2 else -3) + 3), 2)
+                clouds += [(bx + r.randrange(-6, 9), by + r.randrange(-2, 10), r.randrange(3, 6)) for _ in range(3)]
+            _blossom(s, clouds, dark)
+
+        _wrapped(width, bough, x0)
+    pygame.draw.rect(s, col, (0, 178, width, H - 178))
+    return s
+
+
+def temple_ground_tile(tx, ty, top, left=False, right=False):
+    """Mission 5's ground: temple stone in dressed courses, a worn step's tread with moss in the joints and fallen
+    blossom on it; darker with depth like every floor."""
+    s = pygame.Surface((TILE, TILE))
+    rnd = random.Random(_hash(tx, ty, 5))
+    stone = mix(mix(C["steel"], C["skin_d"], 0.3), C["black"], {12: 0.35, 13: 0.58}.get(ty, 0.1))
+    lit, dim, joint = mix(stone, C["cream"], 0.3), mix(stone, INK, 0.35), mix(stone, INK, 0.65)
+    moss = mix(C["olive"], stone, 0.3)
+    for y in range(TILE):                                # ashlar in bond, each block its own tone
+        row, k = divmod(ty * TILE + y, 8)
+        for x in range(TILE):
+            n = tx * TILE + x + (8 if row % 2 else 0)
+            j, tone = n % 16, _hash(n // 16 % 23, row, 5) % 5
+            face = mix(stone, lit, 0.25) if tone == 0 else mix(stone, dim, 0.4) if tone == 1 else stone
+            s.set_at((x, y), joint if k == 0 or j == 0 else lit if k == 1 or j == 15 else
+                     dim if k == 7 or j == 1 else face)
+    for _ in range(4):                                   # pits and lichen
+        s.set_at((rnd.randrange(TILE), rnd.randrange(TILE)), rnd.choice((dim, lit, moss)))
+    if rnd.random() < 0.5:                               # moss along a joint
+        y, x = rnd.choice((8, 15)), rnd.randrange(0, 10)
+        pygame.draw.line(s, moss, (x, y), (x + rnd.randrange(2, 6), y))
+    if top:                                              # the step's tread: a worn lip, its shadow below
+        pygame.draw.rect(s, mix(stone, C["cream"], 0.15), (0, 0, TILE, 3))
+        pygame.draw.line(s, mix(stone, C["cream"], 0.5), (0, 0), (TILE, 0))
+        pygame.draw.line(s, INK, (0, 3), (TILE, 3))
+        pygame.draw.line(s, joint, (0, 4), (TILE, 4))
+        for _ in range(rnd.randrange(1, 4)):             # fallen blossom
+            s.set_at((rnd.randrange(TILE), rnd.randrange(2)), BLOOM[2] if rnd.random() < 0.6 else BLOOM[3])
+        if rnd.random() < 0.4:
+            pygame.draw.line(s, moss, (x := rnd.randrange(TILE - 3), 2), (x + 2, 2))
+    for y in range(TILE):                                # an open side: an edge in shade, or lit by the low sun
+        if left:
+            s.set_at((0, y), INK)
+            s.set_at((1, y), mix(s.get_at((1, y))[:3], INK, 0.4))
+        if right:
+            s.set_at((15, y), mix(s.get_at((15, y))[:3], C["cream"], 0.35))
+    return s
+
+
+def lacquer_tile(kind=0):
+    """Mission 5's crates: a pale cedar crate roped shut (0), or a lacquered chest, red (1) or black (2), with
+    brass corners and the clan's crest (an invented mark: a ring round three dots)."""
+    s = pygame.Surface((TILE, TILE))
+    if kind == 0:
+        wood, dark, lit, rope = (196, 150, 104), (126, 86, 60), (232, 196, 146), (222, 208, 170)
+        s.fill(wood)
+        for x in (5, 10):                                # boards standing up, their grain
+            pygame.draw.line(s, dark, (x, 1), (x, 14))
+            pygame.draw.line(s, lit, (x + 1, 1), (x + 1, 14))
+        for x, y in ((2, 3), (8, 10), (13, 4)):
+            pygame.draw.line(s, mix(wood, dark, 0.5), (x, y), (x, y + 3))
+        pygame.draw.line(s, rope, (0, 7), (15, 7))       # the rope and its knot
+        pygame.draw.line(s, mix(rope, dark, 0.5), (0, 8), (15, 8))
+        pygame.draw.rect(s, rope, (6, 6, 4, 4))
+        s.set_at((7, 7), dark)
+        pygame.draw.line(s, rope, (8, 10), (9, 13))
+        pygame.draw.rect(s, INK, (0, 0, TILE, TILE), 1)
+        pygame.draw.line(s, lit, (1, 1), (14, 1))
+        return s
+    lac = (168, 34, 38) if kind == 1 else (38, 28, 44)
+    lit, dark, brass = mix(lac, C["cream"], 0.45), mix(lac, INK, 0.55), (214, 170, 72)
+    s.fill(lac)
+    pygame.draw.line(s, lit, (3, 2), (12, 2))            # the gloss: a sharp highlight along the lid
+    pygame.draw.line(s, mix(lac, lit, 0.4), (3, 3), (8, 3))
+    pygame.draw.line(s, dark, (1, 5), (14, 5))           # the lid's seam
+    pygame.draw.line(s, mix(lac, lit, 0.5), (1, 6), (14, 6))
+    pygame.draw.circle(s, brass, (8, 10), 3, 1)          # the crest
+    for dx, dy in ((0, -1), (-1, 1), (1, 1)):
+        s.set_at((8 + dx, 10 + dy), brass)
+    pygame.draw.rect(s, INK, (0, 0, TILE, TILE), 1)
+    pygame.draw.rect(s, dark, (1, 1, 14, 14), 1)
+    for x, y in ((1, 1), (12, 1), (1, 12), (12, 12)):    # brass corner fittings
+        pygame.draw.rect(s, brass, (x, y, 3, 3))
+        s.set_at((x + (0 if x < 8 else 2), y + (0 if y < 8 else 2)), (255, 232, 150))
+    return s
+
+
+def sakura_pillar():
+    """Mission 5's foreground: a cherry trunk sweeping past, its bark ringed, a bough of dark blossom at the top."""
+    s = pygame.Surface((40, H), pygame.SRCALPHA)
+    col, hint, rim = C["black"], C["ink"], C["night"]
+    for y in range(H):
+        x = 13 + int(2 * math.sin(y / 23))
+        pygame.draw.line(s, col, (x, y), (x + 12, y))
+        s.set_at((x, y), hint)
+        s.set_at((x + 12, y), rim)
+        if y % 11 == 0:                                  # the bark's rings
+            pygame.draw.line(s, hint, (x + 2, y), (x + 9, y))
+    pygame.draw.line(s, col, (22, 40), (38, 14), 3)
+    pygame.draw.line(s, col, (16, 30), (2, 6), 3)
+    rnd = random.Random(73)
+    bloom = (mix(C["black"], BLOOM[0], 0.55), mix(C["black"], BLOOM[0], 0.85), BLOOM[0], mix(BLOOM[0], BLOOM[1], 0.5))
+    _blossom(s, [(rnd.randrange(2, 38), rnd.randrange(0, 34), rnd.randrange(3, 6)) for _ in range(18)], bloom)
+    return s
+
+
+# ---------------------------------------------------------------- mission 6: the neon harbour
+
+# mission 6: the island's port at night in the rain; blue-violet dark, the cloud lit from below by the city
+HARBOUR_PALETTE = {"night": (28, 24, 62), "dusk": (52, 46, 108), "rose": (104, 68, 156), "ember": (184, 78, 168),
+                   "sun": (255, 168, 214), "cream": (232, 224, 255)}
+NEON = ((255, 64, 170), (80, 226, 255), (255, 186, 64), (176, 116, 255))       # pink, cyan, amber, violet
+BOX_PALETTE = {"gold": (70, 170, 176), "rust": (52, 90, 160), "rust_d": (34, 30, 60), "olive": (176, 52, 64)}
+
+
+def harbour_sky():
+    """Night over the port: no sun, no stars; low rain cloud in dithered bands, lit pink from the city below."""
+    bands = [C["black"], C["ink"], C["night"], C["dusk"], C["rose"], C["ember"]]
+    last, horizon = len(bands) - 1, 170
+    level = lambda y: min(1.0, (y / horizon) ** 1.25) * last
+    strip = pygame.Surface((4, H))
+    for y in range(H):
+        t = level(y)
+        i = int(t)
+        for x in range(4):
+            strip.set_at((x, y), bands[min(last, i + ((t - i) * 16 > BAYER[y % 4][x]))])
+    s = pygame.Surface((W, H))
+    for x in range(0, W, 4):
+        s.blit(strip, (x, 0))
+    rnd = random.Random(79)
+    for x in range(40, W, 90):                           # searchlights raking the cloud
+        pygame.draw.line(s, mix(C["dusk"], C["cream"], 0.12), (x, 160), (x + rnd.randrange(-60, 60), 10))
+    for _ in range(16):                                  # cloud banks: dark bellies, their undersides lit
+        x, y, half = rnd.randrange(W), rnd.randrange(14, 124), rnd.randrange(30, 80)
+        i = int(level(y))
+        for k, part in enumerate((0.5, 0.85, 1.0, 0.9, 0.6)):
+            lean = rnd.randrange(-5, 6)
+            pygame.draw.line(s, bands[max(0, i - 1)], (x - half * part + lean, y + k), (x + half * part + lean, y + k))
+        pygame.draw.line(s, bands[min(last, i + 1)], (x - half * 0.6, y + 5), (x + half * 0.7, y + 5))
+    return s
+
+
+def _glyph(s, x, y, colour, seed):
+    """One sign glyph in an invented script: four strokes between the points of a 3x3 grid and a tick beside
+    them, meant as no letter of any real alphabet."""
+    rnd = random.Random(seed)
+    edges = [((a, b), (a + 1, b)) for a in range(2) for b in range(3)] + \
+            [((a, b), (a, b + 1)) for a in range(3) for b in range(2)] + \
+            [((0, 0), (1, 1)), ((2, 0), (1, 1)), ((1, 1), (0, 2)), ((1, 1), (2, 2))]
+    for (a, b), (c, d) in rnd.sample(edges, 4):
+        pygame.draw.line(s, colour, (x + a * 2, y + b * 2), (x + c * 2, y + d * 2))
+    s.set_at((x + 5, y + rnd.randrange(3)), colour)
+
+
+def _neon_sign(s, x, y, n, colour, seed, upright=True):
+    """A neon board: a dark panel in a soft glow, n glyphs lit on it in one colour."""
+    w, h = (9, n * 8 + 2) if upright else (n * 8 + 2, 9)
+    glow = pygame.Surface((w + 12, h + 12), pygame.SRCALPHA)
+    for k in range(6, 0, -1):
+        pygame.draw.rect(glow, (*colour, 10 * (7 - k)), (6 - k, 6 - k, w + 2 * k, h + 2 * k), border_radius=k)
+    s.blit(glow, (x - 6, y - 6))
+    pygame.draw.rect(s, C["black"], (x, y, w, h))
+    pygame.draw.rect(s, mix(colour, C["black"], 0.45), (x, y, w, h), 1)
+    for i in range(n):
+        _glyph(s, *((x + 2, y + 2 + i * 8) if upright else (x + 2 + i * 8, y + 2)), colour, seed * 7 + i)
+
+
+def skyline(width=640):
+    """Mission 6's far layer: the port city's towers in the rain, windows lit in grids, red lamps on the masts."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(83)
+    body, rim = C["night"], C["dusk"]
+    lights = (NEON[1], NEON[2], C["sun"], C["cream"])
+    x = 0
+    while x < width - 12:
+        w, h = min(rnd.randrange(16, 36), width - x), rnd.randrange(40, 108)
+        top = 152 - h
+        pygame.draw.rect(s, body, (x, top, w, h + 30))
+        pygame.draw.line(s, rim, (x + w - 1, top), (x + w - 1, 152))
+        if rnd.random() < 0.35:                          # a mast with its lamp
+            pygame.draw.line(s, body, (x + w // 2, top), (x + w // 2, top - 14))
+            s.set_at((x + w // 2, top - 15), C["red"])
+        elif rnd.random() < 0.4:                         # a stepped crown
+            pygame.draw.rect(s, body, (x + 3, top - 6, w - 6, 6))
+            pygame.draw.line(s, rim, (x + w - 4, top - 6), (x + w - 4, top))
+        tone, density = rnd.choice(lights), rnd.choice((0.1, 0.25, 0.45))
+        for wy in range(top + 4, 148, 4):
+            for wx in range(x + 2, x + w - 2, 3):
+                if rnd.random() < density:
+                    s.set_at((wx, wy), tone if rnd.random() < 0.8 else rnd.choice(lights))
+        x += w + rnd.randrange(0, 6)
+    haze = pygame.Surface((width, 30), pygame.SRCALPHA)  # the rain's haze over the lower city
+    for y in range(30):
+        pygame.draw.line(haze, (*C["rose"], y * 3), (0, y), (width, y))
+    s.blit(haze, (0, 124))
+    pygame.draw.rect(s, body, (0, 152, width, H - 152))
+    return s
+
+
+def harbour(width=640):
+    """Mission 6's mid layer: the harbour front: buildings hung with neon in an invented script, gantry cranes over
+    the container stacks, their warning lamps red."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(89)
+    body, rim = mix(C["night"], C["black"], 0.25), C["dusk"]
+
+    def crane(x):                                        # a gantry: two legs, a boom out over the water
+        for lx in (x - 20, x + 20):
+            pygame.draw.line(s, body, (lx, 150), (lx + (8 if lx < x else -8), 70), 3)
+        pygame.draw.line(s, body, (x - 14, 100), (x + 14, 100), 2)
+        pygame.draw.line(s, body, (x - 70, 70), (x + 90, 70), 4)
+        pygame.draw.line(s, rim, (x - 70, 68), (x + 90, 68))
+        for k in range(x - 66, x + 88, 8):               # the boom's lattice
+            pygame.draw.line(s, body, (k, 66), (k + 4, 72))
+        pygame.draw.line(s, body, (x, 70), (x, 48), 2)
+        pygame.draw.line(s, body, (x, 48), (x - 70, 70))
+        pygame.draw.line(s, body, (x, 48), (x + 90, 70))
+        pygame.draw.rect(s, body, (x + 30, 72, 10, 6))   # the trolley, its cable and spreader
+        pygame.draw.line(s, body, (x + 35, 78), (x + 35, 110))
+        pygame.draw.rect(s, body, (x + 26, 110, 18, 3))
+        for lx, ly in ((x - 70, 67), (x, 47), (x + 90, 67)):
+            s.set_at((lx, ly), C["red"])
+
+    for cx in (110, 430):
+        _wrapped(width, crane, cx)
+    for _ in range(18):                                  # container stacks at the foot of the cranes
+        x, rows = rnd.randrange(width - 30), rnd.randrange(1, 4)
+        paint = rnd.choice(((60, 96, 130), (130, 60, 70), (60, 110, 100), (140, 110, 60)))
+        for r in range(rows):
+            y = 150 - 8 * (r + 1)
+            pygame.draw.rect(s, mix(paint, body, 0.55), (x, y, 26, 8))
+            pygame.draw.line(s, mix(paint, body, 0.25), (x, y), (x + 25, y))
+            pygame.draw.line(s, body, (x, y + 7), (x + 25, y + 7))
+    x = rnd.randrange(10)
+    while x < width - 20:                                # the front: buildings, neon down their faces
+        w, h = min(rnd.randrange(30, 56), width - x), rnd.randrange(40, 86)
+        top = 150 - h
+        pygame.draw.rect(s, body, (x, top, w, h))
+        pygame.draw.line(s, rim, (x + w - 1, top), (x + w - 1, 150))
+        for wy in range(top + 6, 146, 7):
+            for wx in range(x + 4, x + w - 4, 6):
+                if rnd.random() < 0.15:
+                    pygame.draw.line(s, mix(rnd.choice(NEON[1:3]), body, 0.45), (wx, wy), (wx + 2, wy))
+        colour, seed = rnd.choice(NEON), rnd.randrange(999)
+        if rnd.random() < 0.7:
+            _neon_sign(s, x + rnd.randrange(2, max(3, w - 11)), top + 6, rnd.randrange(3, 6), colour, seed)
+        else:
+            n = max(2, min(4, (w - 6) // 8))
+            for sx in (x + 5, x + n * 8 + 1):            # the struts it stands on
+                pygame.draw.line(s, body, (sx, top - 3), (sx, top))
+            _neon_sign(s, x + 3, top - 12, n, colour, seed, upright=False)
+        x += w + rnd.randrange(14, 50)
+    pygame.draw.rect(s, body, (0, 150, width, H - 150))
+    pygame.draw.line(s, rim, (0, 150), (width, 150))
+    for _ in range(40):                                  # the neon smeared on the wet quay below
+        x = rnd.randrange(width)
+        pygame.draw.line(s, mix(rnd.choice(NEON), body, 0.5), (x, 152), (x, 152 + rnd.randrange(2, 9)))
+    return s
+
+
+def street_near(width=640):
+    """Mission 6's near layer: the wet street's railings, lamp posts with their light falling through the rain,
+    bollards and slack cables, black, the neon caught in a highlight on everything wet."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    rnd = random.Random(97)
+    col, hint = C["black"], C["ink"]
+    cone = pygame.Surface((60, 110), pygame.SRCALPHA)
+    for y in range(110):
+        half = 3 + y * 26 // 110
+        pygame.draw.line(cone, (*C["cream"], max(0, 36 - y // 3)), (30 - half, y), (30 + half, y))
+    for x in range(60, width, 200):                      # lamp posts: a curved arm, a cone of light in the rain
+        s.blit(cone, (x + 14 - 30, 70))
+        pygame.draw.line(s, col, (x, 180), (x, 64), 3)
+        pygame.draw.arc(s, col, (x, 58, 28, 20), math.pi / 2, math.pi, 3)
+        pygame.draw.rect(s, col, (x + 8, 66, 12, 4))
+        pygame.draw.line(s, C["cream"], (x + 9, 70), (x + 18, 70))
+        pygame.draw.line(s, mix(NEON[0], col, 0.3), (x + 2, 70), (x + 2, 176))     # neon caught on the wet pole
+    for x in (150, 470):                                 # a hanging sign on a bracket
+        pygame.draw.line(s, col, (x, 180), (x, 90), 2)
+        pygame.draw.line(s, col, (x, 92), (x + 16, 92), 2)
+        _neon_sign(s, x + 5, 95, 3, NEON[1] if x < 300 else NEON[3], x)
+    for x in range(0, width, 16):
+        pygame.draw.rect(s, col, (x, 156, 2, 24))
+    for y in (158, 168):                                 # the railing, its wet top lit by the signs
+        pygame.draw.line(s, col, (0, y), (width, y), 3)
+        for x in range(0, width, 3):
+            if rnd.random() < 0.3:
+                s.set_at((x, y - 1), mix(rnd.choice(NEON), col, 0.35))
+    for x in range(30, width, 80):                       # bollards
+        pygame.draw.rect(s, col, (x, 168, 6, 12), border_top_left_radius=3, border_top_right_radius=3)
+        s.set_at((x + 4, 169), mix(NEON[1], col, 0.3))
+    for i in range(width):                               # cables slung across the street
+        s.set_at((i, 30 + int(8 * math.sin(math.pi * (i % 160) / 160))), col)
+        s.set_at((i, 42 + int(5 * math.sin(math.pi * ((i + 80) % 160) / 160))), col)
+    pygame.draw.rect(s, col, (0, 178, width, H - 178))
+    return s
+
+
+def asphalt_tile(tx, ty, top, left=False, right=False):
+    """Mission 6's ground: wet asphalt on a quay of concrete blocks. The tread's wet sheen catches the neon and
+    the puddles smear it downward; below, the quay, darker with depth."""
+    s = pygame.Surface((TILE, TILE))
+    rnd = random.Random(_hash(tx, ty, 8))
+    face = mix((64, 66, 92), C["black"], {12: 0.35, 13: 0.6}.get(ty, 0.1))
+    lit, dim, joint = mix(face, C["steel_l"], 0.25), mix(face, INK, 0.35), mix(face, INK, 0.65)
+    tar = (30, 30, 46)
+    for y in range(TILE):                                # quay blocks, big and square, in bond
+        row, k = divmod(ty * TILE + y, 16)
+        for x in range(TILE):
+            j = (tx * TILE + x + (12 if row % 2 else 0)) % 24
+            s.set_at((x, y), joint if k == 0 or j == 0 else lit if k == 1 else dim if j == 1 or k == 15 else face)
+    for _ in range(6):
+        s.set_at((rnd.randrange(TILE), rnd.randrange(TILE)), rnd.choice((lit, dim)))
+    if rnd.random() < 0.25:                              # a rust weep down the concrete
+        x = rnd.randrange(2, 14)
+        pygame.draw.line(s, mix(C["rust"], face, 0.5), (x, 4), (x, 4 + rnd.randrange(4, 10)))
+    if top:
+        pygame.draw.rect(s, tar, (0, 0, TILE, 6))
+        for _ in range(10):                              # the asphalt's grit
+            s.set_at((rnd.randrange(TILE), rnd.randrange(1, 6)), mix(tar, C["steel"], 0.35))
+        if tx % 6 == 0:                                  # a painted lane mark
+            pygame.draw.line(s, mix(C["gold"], tar, 0.35), (2, 2), (12, 2))
+        pygame.draw.line(s, mix(C["steel"], (90, 90, 140), 0.5), (0, 0), (TILE, 0))      # the wet sheen
+        if rnd.random() < 0.35:                          # a puddle: the neon smeared down into it
+            c, x0 = rnd.choice(NEON), rnd.randrange(0, 8)
+            pygame.draw.line(s, mix(c, tar, 0.2), (x0, 0), (x0 + rnd.randrange(4, 9), 0))
+            for x in range(x0 + 1, x0 + 6, 2):
+                pygame.draw.line(s, mix(c, tar, 0.65), (x, 1), (x, rnd.randrange(2, 4)))
+        pygame.draw.line(s, INK, (0, 6), (TILE, 6))
+        pygame.draw.line(s, lit, (0, 7), (TILE, 7))      # the quay's coping under the road
+    for y in range(TILE):
+        if left:
+            s.set_at((0, y), INK)
+            s.set_at((1, y), mix(s.get_at((1, y))[:3], INK, 0.4))
+        if right:
+            s.set_at((15, y), mix(s.get_at((15, y))[:3], NEON[1], 0.3))
+    return s
+
+
+def neon_pillar():
+    """Mission 6's foreground: a black sign mast sweeping past, a pink tube down its edge, a board of glyphs."""
+    s = pygame.Surface((28, H), pygame.SRCALPHA)
+    pygame.draw.rect(s, C["black"], (10, 0, 9, H))
+    pygame.draw.line(s, C["ink"], (10, 0), (10, H))
+    for y in range(0, H, 20):
+        pygame.draw.line(s, C["ink"], (11, y), (18, y))
+    pygame.draw.line(s, NEON[0], (19, 0), (19, H))
+    pygame.draw.line(s, mix(NEON[0], C["black"], 0.6), (20, 0), (20, H))
+    _neon_sign(s, 8, 40, 5, NEON[1], 5)
+    return s
+
+
 def _painted(palette, make, *args):
     """make(*args) drawn in a palette: C is swapped for the call, then put back."""
     saved = {k: C[k] for k in palette}
@@ -1603,6 +2175,12 @@ def backdrop(theme):
         return drain_sky(), [(drain_wall(), 0.5, 0)], pillar()
     if theme == 6:                                       # the train's roofs: the rail yard's dusk, rushing past
         return backdrop(1)
+    if theme == 7:
+        return _painted(SAKURA_PALETTE, lambda: (sky(), [(peak(), 0.08, 0), (temple(), 0.25, 0),
+                                                         (blossom_near(), 0.55, 8)], sakura_pillar()))
+    if theme == 8:
+        return _painted(HARBOUR_PALETTE, lambda: (harbour_sky(), [(skyline(), 0.08, 0), (harbour(), 0.25, 0),
+                                                                  (street_near(), 0.55, 8)], neon_pillar()))
     return shaft_sky(), [(shaft(), 1.0, 0)], pillar()
 
 
@@ -1666,9 +2244,10 @@ class Atlas:
                      "B": capsule("B", C["rust"]), "1": capsule("1", C["green"]), "M": map_page()}
         self.ground = {}
         self.crates = [crate_tile(k) for k in range(3)]
+        self.chests = [lacquer_tile(k) for k in (0, 1, 0, 2)]
         self.containers = {}
         self.girders = {(a, b): girder_tile(a, b) for a in (False, True) for b in (False, True)}
-        self.themes = [backdrop(k) for k in range(7)]     # one per mission theme (stage.Mission.theme), then the rooms
+        self.themes = [backdrop(k) for k in range(9)]     # one per mission theme (stage.Mission.theme), then the rooms
         self.sky, self.layers, self.pillar = self.themes[0]
         self.glow_s = glow(7, (120, 80, 36))
         self.glow_l = glow(18, (150, 70, 30))
@@ -1682,16 +2261,20 @@ class Atlas:
     def ground_at(self, tx, ty, top, left=False, right=False, theme=0):
         key = (tx % (92 if theme == 1 else 23), ty, top, left, right, theme)
         if key not in self.ground:
-            make = (ground_tile, line_ground_tile)[theme == 1]
+            make = {1: line_ground_tile, 7: temple_ground_tile, 8: asphalt_tile}.get(theme, ground_tile)
             paint = {2: SALT_PALETTE, 3: PLANT_PALETTE, 4: DRAIN_FLOOR, 5: SHAFT_FLOOR, 6: ROOF_FLOOR}.get(theme)
             self.ground[key] = _painted(paint, make, *key[:5]) if paint else make(*key[:5])
         return self.ground[key]
 
     def crate_at(self, tx, ty, theme=0, left=False, right=False):
-        """A crate; in mission 2, a stretch of the container that runs along its row (left / right: it ends there)."""
-        if theme != 1:
+        """A crate; in missions 2 and 6, a stretch of the container that runs along its row (left / right: it ends
+        there); in mission 5, a cedar crate or a lacquered chest."""
+        if theme == 7:
+            return self.chests[(tx * 7 + ty * 3) % len(self.chests)]
+        if theme not in (1, 8):
             return self.crates[(tx * 7 + ty * 3) % len(self.crates)]
-        key = (ty % 3, left, right, tx % 5 == 2 and not (left or right))
+        key = (ty % 3, left, right, tx % 5 == 2 and not (left or right), theme)
         if key not in self.containers:
-            self.containers[key] = container_tile(*key)
+            paint = BOX_PALETTE if theme == 8 else {}
+            self.containers[key] = _painted(paint, container_tile, *key[:4])
         return self.containers[key]

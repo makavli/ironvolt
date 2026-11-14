@@ -18,6 +18,24 @@ More parkour: three new set pieces, spread over all four missions, each with its
 - A slide never ends under a shutter or a fence, the same as under a low ceiling.
 - The demo player slides under shutters and fences too.
 
+Two new missions, over the sea to the old Eastern grid (story in docs/STORY.md):
+- **Mission 5, HANAKIRI:** a temple island under the cherry blossom, held by the Kagenui blade clan. Stone steps,
+  rope bridges that drop, a grove dark under the blossom, a gate up the bell tower (a climb while the clan drops
+  in), petals falling all the way. Boss: **SORAKAGE, clan blademaster**: a dash across the courtyard (watch for the
+  glint), a leap that throws a fan of blades, and once wounded he vanishes in petals and cuts from behind you.
+- **Mission 6, YAMIMINATO:** the island's harbour city at night, in the rain. Fire escapes, live neon cables,
+  the harbour crane over a flooded dock, the storm sewers under the street, a rotten pier. Boss: **TIDEBREAKER,
+  gantry walker**: a walking container crane that drops its hook where a red mark blinks, calls shells down where
+  its searchlight stops, and once its cab cracks swings a container along the quay (duck it).
+- New backdrops for both (blossom island at dusk; neon skyline, cranes and wet asphalt) and four new songs.
+- The Voltline map crosses the sea to the two new stops; six map pages to find.
+
+New Legion troops in every mission:
+- **Cutters:** blade troopers in black wraps and red scarves. They run in, throw one star, crouch, and dive at you.
+- **Snipers:** a red laser line tracks you, blinks, locks, then fires along it. Move when it blinks.
+- **Trikes:** a siren and a warning at the screen's edge, then an armoured trike that jumps gaps and ramps walls.
+- **Oil drums:** one shot and they blow, hurting everyone near, you included.
+
 ## 0.11.1
 
 - **macOS and Linux builds are back**, built on demand: a manual workflow (Actions -> macOS and Linux) builds a

@@ -1150,7 +1150,7 @@ class SetPieces(unittest.TestCase):
 
     def test_the_drain_holds_prisoners_and_a_map_page(self):
         w, pads, p = self.world(2)
-        self.assertEqual(w.hostage_total, 8)             # the road's six and the drain's two
+        self.assertEqual(w.hostage_total, 9)             # the road's six, the last pylon's one, the drain's two
         w.enter("drain", 86)
         kinds = [s[1] for s in w.stage.spawns]
         self.assertIn("page", kinds)

@@ -91,8 +91,55 @@ the grid company's badge still on his old work jacket.
 
 When the rig goes down, the Brigade takes the tower. Kes finds her brother in the control room, at the board, alive.
 
+## Mission 5: Hanakiri
+
+The Cradle's board shows where Graive was sending the power: east, down a cable that runs under the sea to
+**Hanakiri**, an island of the old Eastern grid. Hanakiri was a mountain temple town before the fall, and it still
+is: tiered pagoda roofs, stone lanterns, gates stepping up the slope, and groves of sakura that bloom through the
+ash and shed pink petals into the dusk. At the top, a castle wall.
+
+The island is held by **the Kagenui**, a clan of shadow-fighters who kept the old ways while the grid burned. Its
+lanterns stay lit only because the Cradle's cable feeds them, and Graive's price for that light was its students:
+the black-wrapped cutters with red scarves the Legion fields were trained on this mountain, then sold. The clan
+did not fight Graive. It let him take its young, and it has kept the island dark to everyone else since.
+
+The Brigade climbs: collapsing temple bridges over the gorge, petal-dark groves where the cutters drop from the
+branches, a bell-tower climb with the bell cut loose behind them. At the castle gate waits **SORAKAGE**, the
+clan's blademaster, in plain lacquered armour with a sword longer than he is tall. He fights alone and bare-footed.
+He vanishes in a swirl of petals and cuts from behind, throws fans of blades in threes, and when wounded he
+splits his shadow into two cuts at once. Beaten, he lowers the sword. The Kagenui open the gate and give the
+Brigade the only thing they have left: the road to the harbour.
+
+Hidden map page: pinned inside the bell of the tower, where a lineman climbing to cut the clapper would find it.
+
+## Mission 6: Yamiminato
+
+Hanakiri's port, **Yamiminato**, is where the undersea cable comes ashore, and where Graive's ships load. It is
+always night here and always raining. Neon signs in glyphs nobody can read any more buzz over flooded streets,
+and under them stand container stacks, crane hooks swinging in the wind, and the long black water of the harbour.
+
+The Legion holds the quays with its own troops and the clan's lost students. The Brigade fights along the wet
+street, over the sinking containers, and onto the quay where the cable station stands. Its guardian is
+**TIDEBREAKER**, the harbour's gantry crane walker: a loading gantry on four steel legs, rebuilt as a war
+machine. It stamps across the quay, swings a container on its hook like a flail, and sweeps the dock with a
+searchlight that calls down a rocket barrage. When its cab cracks, it drops its legs into the water and the quay
+floods.
+
+The hidden map page here was left on the cable station's switchboard. It is the last: put together, the pages show
+the grid as it was on the night it failed, and a single command sent down the sea cable at the moment it fell.
+Kes's brother knew it. He did not say so to Graive.
+
+## The ending
+
+When Tidebreaker falls, the rain stops. Kes and Juno reach the cable station and cut Graive's feed. The Cradle's
+turbine, kept running through the fire on a loop of the old grid, shows what it was keeping alive: a sky signal.
+For the first time in seventeen years the ash tears open over the harbour. A first blue sky. Lights come back on
+along the coast, one after another, and the Brigade's technicians stand on the quay and watch them. Kes's brother
+is beside her. The Long Dusk is over.
+
 ## Threads for later missions
 
+- (Answered in missions 5 and 6 and the ending: the cable, the command, the sky signal.)
 - The Cradle is not just a power plant: something in it kept running on the night the grid burned. Why only that one?
 - Kes's brother was sent ahead to the Cradle, for the grid maps he can read. What does Graive want mapped?
 - Graive wears a technician's badge from before the fall. He was one of them.

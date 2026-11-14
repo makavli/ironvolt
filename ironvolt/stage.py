@@ -330,12 +330,130 @@ LIFT_SPAWNS = [(60, "guard", 250, None), (120, "soldier", 70, None), (220, "dron
                (940, "drone", 20, None), (1000, "guard", 160, None), (1100, "soldier", 280, None),
                (1120, "soldier", 40, None), (460, "cutter", 200, None), (840, "cutter", 100, None)]
 
+def _hanakiri():
+    """Mission 5: HANAKIRI, the Kagenui's temple island. Stone steps up the mountain, rope bridges over the ravines
+    (rotten: they drop), a petal-dark grove, the gate to the bell tower; the courtyard at the top has two roofs over
+    SORAKAGE's dash."""
+    g, pit, block, walk = _ground(248)
+    block(10, 12, 10)                      # the first temple steps
+    block(11, 12, 9)
+    walk(16, 21, 8)                        # a gate's crossbeam
+    pit(25, 27)
+    block(31, 34, 9)
+    walk(36, 41, 6)                        # a pagoda roof
+    pit(44, 49)                            # a ravine: the rope bridge at 46..47
+    block(53, 54, 10, CRATE)
+    walk(58, 64, 7)
+    pit(68, 70)
+    block(74, 78, 8)                       # the shrine terrace; the gate at 82 leads up the bell tower
+    block(90, 92, 9)
+    pit(96, 98)
+    block(112, 113, 10, CRATE)
+    pit(118, 123)                          # the second ravine: a bridge at 120..121
+    walk(127, 133, 8)
+    block(137, 141, 9)                     # 136..168: the grove, dark under the blossom
+    block(139, 141, 7)
+    walk(145, 151, 5)
+    pit(155, 157)
+    walk(154, 158, 8)
+    block(163, 166, 9)
+    pit(170, 175)                          # the third ravine: a bridge at 172..173
+    walk(180, 186, 7)
+    block(190, 192, 10, CRATE)
+    block(196, 200, 8)
+    pit(204, 206)
+    block(210, 211, 10, CRATE)
+    walk(232, 236, 8)                      # the courtyard's roofs: above the blademaster's dash
+    walk(240, 244, 8)
+    return g
+
+
+HANAKIRI_PROPS = [("crumble", 46, 47, 11), ("gate", 82, "bell", 110), ("crumble", 120, 121, 11),
+                  ("dark", 136, 168, "BLADES IN THE PETALS!"), ("crumble", 172, 173, 11)]
+HANAKIRI_SPAWNS = _waves(
+    [("hostage", 20, "S"), ("sniper", 39, None), ("barrel", 52, None), ("hostage", 57, "B"), ("lobber", 76, None),
+     ("barrel", 115, None), ("hostage", 130, "H"), ("sniper", 149, None), ("hostage", 165, "R"),
+     ("lobber", 188, None), ("hostage", 198, "1"), ("turret", 199, None)],
+    60, ["cutter", "soldier", "cutter", "drone", "shield", "cutter", "sapper", "cutter"], 3500)
+
+# the bell tower: one screen of floor, climbing while the clan drops in on it; the map page is in the bell
+BELL_SPAWNS = [(60, "cutter", 250, None), (140, "cutter", 60, None), (220, "soldier", 280, None),
+               (300, "gift", 160, "S"), (380, "cutter", 280, None), (420, "hostage", 200, "H"),
+               (460, "shield", 60, None), (540, "page", 160, 3), (600, "cutter", 60, None), (680, "drone", 300, None),
+               (760, "cutter", 250, None), (840, "cutter", 40, None), (920, "soldier", 280, None),
+               (1000, "cutter", 160, None)]
+
+
+def _harbour():
+    """Mission 6: YAMIMINATO, the port where the Tide cable comes ashore, at night in the rain. Fire escapes, live
+    neon cables over the awnings, the harbour crane over the flooded dock, Legion checkpoints, the sewers, a rotten
+    pier; the quay at the end has two gantries level with TIDEBREAKER's cab."""
+    g, pit, block, walk = _ground(248)
+    block(10, 12, 9, CRATE)                # a container
+    walk(16, 22, 7)                        # a fire escape
+    pit(26, 28)                            # a flooded gutter
+    block(32, 33, 10, CRATE)
+    walk(36, 44, 8)                        # a live neon cable along the awnings (HARBOUR_PROPS)
+    block(48, 52, 9)                       # the shutter at 56
+    pit(64, 77)                            # the flooded dock: the harbour crane carries you over
+    block(82, 84, 9, CRATE)
+    block(85, 87, 8, CRATE)
+    walk(91, 97, 6)                        # the laser fence at 101
+    pit(109, 111)
+    block(115, 119, 9)                     # the sewer grate at 123: under the street to 150
+    block(128, 131, 9)
+    pit(136, 138)
+    walk(142, 147, 7)
+    block(152, 153, 10, CRATE)
+    walk(157, 164, 7)                      # live
+    block(159, 162, 9)
+    pit(168, 170)                          # the shutter at 175
+    block(183, 187, 8)
+    pit(191, 196)                          # a rotten pier: planks at 193..194
+    walk(200, 206, 6)
+    block(202, 204, 9)
+    block(210, 211, 10, CRATE)
+    walk(229, 233, 6)                      # the quay's gantries: level with the crane's cab
+    walk(238, 242, 6)
+    return g
+
+
+HARBOUR_PROPS = [("arc", 36, 44, 8, 0), ("shutter", 56), ("crane", 64, 75, 11), ("laser", 101),
+                 ("drain", 123, "sewer", 150), ("arc", 157, 164, 7, 90), ("shutter", 175), ("crumble", 193, 194, 11)]
+HARBOUR_SPAWNS = _waves(
+    [("hostage", 24, "H"), ("barrel", 34, None), ("sniper", 42, None), ("hostage", 47, "S"), ("turret", 86, None),
+     ("hostage", 90, "B"), ("sniper", 95, None), ("lobber", 118, None), ("hostage", 156, "R"), ("barrel", 172, None),
+     ("lobber", 186, None), ("hostage", 199, "1"), ("sniper", 204, None)],
+    60, ["soldier", "trike", "cutter", "soldier", "drone", "shield", "trike", "sapper", "cutter", "soldier"], 3500)
+
+
+def _sewer():
+    """Under Yamiminato: the storm sewers, the cable's old service tunnel among them."""
+    g, pit, block, walk = _ground(64)
+    for c in range(64):
+        for r in range(0, 4):
+            g[r][c] = AIR if (1 <= c <= 4 or 58 <= c <= 61) else GROUND
+    block(10, 11, 9, CRATE)
+    pit(16, 18)
+    walk(15, 19, 8)
+    walk(24, 31, 6)                        # a pipe run
+    block(36, 39, 9)
+    pit(44, 46)
+    walk(48, 54, 7)                        # the switchboard ledge, the map page on it
+    return g
+
+
+SEWER_SPAWNS = _waves([("hostage", 22, "S"), ("lobber", 38, None), ("hostage", 42, "1"), ("page", 51, 4),
+                       ("hostage", 55, "B")], 40, ["soldier", "cutter", "shield"], 900)
+
 # Rooms: places off the main road, entered by a prop (drain, door). theme: art.backdrop; dark: 0..255; lamps: x of
 # the lights in a dark room; timed: frames it lasts (spawns by frame, not by camera); ceil: feet y under its roof.
 ROOMS = {
     "drain": dict(build=_drain, spawns=DRAIN_SPAWNS, theme=4, dark=150, lamps=(40, 330, 640, 900, 1080), ceil=86),
     "lift": dict(build=_lift, spawns=LIFT_SPAWNS, theme=5, timed=1200, shout="GOING UP!"),
     "stash": dict(build=_stash, spawns=STASH_SPAWNS, theme=4, dark=110, lamps=(40, 300, 560, 820), ceil=86),
+    "bell": dict(build=_lift, spawns=BELL_SPAWNS, theme=7, timed=1100, shout="UP THE BELL TOWER!", sound="bell"),
+    "sewer": dict(build=_sewer, spawns=SEWER_SPAWNS, theme=4, dark=150, lamps=(40, 330, 620, 860), ceil=86),
     "roofs": dict(build=_roofs, spawns=ROOFS_SPAWNS, theme=6, timed=1300, run=6, shout="RIDE THE TRAIN!",
                   sound="whistle", props=[("gantries", 150, 190, 1200)]),
 }
@@ -388,7 +506,7 @@ def _turbine_hall():
 
 
 SPAN = ("crane", "arc", "trolley", "dark", "crumble")      # props whose second number is a column too
-INTO = ("drain", "door", "ladder")                         # props whose third number is the room's exit column
+INTO = ("drain", "door", "ladder", "gate")                         # props whose third number is the room's exit column
 
 
 def _moved(spec, move):
@@ -445,6 +563,12 @@ MISSIONS = [
             ["GRAIVE IS DOWN. THE CRADLE IS OURS.", "KES'S BROTHER IS AT THE CONTROLS."], CRADLE_PROPS,
             (216, _turbine_hall, [("hostage", 19, "H"), ("guard", 24, None)], ["cutter", "guard", "cutter"],
              [("vent", 2), ("piston", 16, 0), ("laser", 21)])),
+    Mission(5, "HANAKIRI", _hanakiri, HANAKIRI_SPAWNS, 228, "sorakage", "SORAKAGE  CLAN BLADEMASTER",
+            ("sakura", "blademaster"), 7, ["THE CRADLE'S POWER RUNS EAST BY SEA.", "CLIMB HANAKIRI. BREAK THE KAGENUI."],
+            ["SORAKAGE LOWERS HIS SWORD.", "THE ROAD TO THE HARBOUR IS OPEN."], HANAKIRI_PROPS),
+    Mission(6, "YAMIMINATO", _harbour, HARBOUR_SPAWNS, 226, "tidebreaker", "TIDEBREAKER  GANTRY WALKER",
+            ("harbour", "leviathan"), 8, ["THE CABLE COMES ASHORE IN THE RAIN.", "CUT GRAIVE'S FEED AT THE QUAY."],
+            ["THE CABLE STATION IS OURS.", "THE RAIN HAS STOPPED."], HARBOUR_PROPS),
 ]
 
 
@@ -468,7 +592,7 @@ class Stage:
 
     def hostage_count(self):
         """Every prisoner in the mission: on the road and in its rooms."""
-        rooms = [ROOMS[p[2]] for p in self.mission.props if p[0] in ("drain", "door", "ladder")]
+        rooms = [ROOMS[p[2]] for p in self.mission.props if p[0] in INTO]
         return sum(s[1] == "hostage" for r in [dict(spawns=self.mission.spawns)] + rooms for s in r["spawns"])
 
     @property

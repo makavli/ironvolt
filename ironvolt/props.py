@@ -325,8 +325,8 @@ class Piston(Prop):
 class Dark(Prop):
     """A stretch with the lights out: only muzzle flashes, fire, a few lamps and the Legion's red lenses show."""
 
-    def __init__(self, c0, c1):
-        self.x0, self.x1 = c0 * TILE, c1 * TILE
+    def __init__(self, c0, c1, text="LIGHTS OUT"):
+        self.x0, self.x1, self.text = c0 * TILE, c1 * TILE, text
         self.warned = False
 
     def amount(self, cam):
@@ -338,7 +338,7 @@ class Dark(Prop):
         if not self.warned and self.amount(world.cam_x) > 0.2:
             self.warned = True
             audio.play("alarm")
-            world.popups.append([world.cam_x + W / 2, 70.0, "LIGHTS OUT", 120])
+            world.popups.append([world.cam_x + W / 2, 70.0, self.text, 120])
 
 
 class Crane(Trolley):
@@ -447,6 +447,27 @@ class Ladder(Door):
         pygame.draw.line(surf, C["steel_l"], (x + 26, top - 8), (x + 26, GROUND_Y - 2))
         for k in range(top - 6, GROUND_Y - 2, 6):             # the ladder, bright: climb here
             pygame.draw.line(surf, C["sun"], (x + 14, k), (x + 26, k))
+
+
+class Gate(Door):
+    """The temple gate at the foot of the bell tower: walk through and the team climbs the tower (a room)."""
+    SIGN = "UP THE BELL TOWER!"
+
+    def draw(self, surf, atlas, cam, frame):
+        x = round(self.x0 - cam)
+        if x < -60 or x > W + 8:
+            return
+        top, red, ink = GROUND_Y - 60, C["red"], C["black"]
+        for px in (x - 2, x + 34):                            # the posts
+            pygame.draw.rect(surf, ink, (px - 1, top + 8, 8, 52))
+            pygame.draw.rect(surf, red, (px, top + 9, 6, 51))
+        pygame.draw.rect(surf, ink, (x - 10, top - 1, 60, 8))   # the top beam, its ends lifted
+        pygame.draw.rect(surf, red, (x - 9, top, 58, 6))
+        pygame.draw.line(surf, ink, (x - 13, top - 4), (x + 52, top - 4), 2)
+        pygame.draw.rect(surf, ink, (x - 4, top + 13, 48, 5))  # the tie beam
+        pygame.draw.rect(surf, red, (x - 3, top + 14, 46, 3))
+        cy = top + 32 + (frame // 6) % 3                      # an arrow: up
+        pygame.draw.lines(surf, C["sun"], False, [(x + 14, cy), (x + 20, cy - 6), (x + 26, cy)], 2)
 
 
 class Gantries(Prop):
@@ -650,8 +671,8 @@ class Crumble(Prop):
 
 KINDS = {"drain": Drain, "door": Door, "arc": Arc, "trolley": Trolley, "vent": Vent, "piston": Piston, "dark": Dark,
          "crane": Crane, "crusher": Crusher, "ladder": Ladder, "gantries": Gantries, "shutter": Shutter,
-         "laser": Laser, "crumble": Crumble}
-ROOM_KINDS = ("drain", "door", "ladder")         # the props that lead into a room
+         "laser": Laser, "crumble": Crumble, "gate": Gate}
+ROOM_KINDS = ("drain", "door", "ladder", "gate")         # the props that lead into a room
 
 
 def build(spec):
