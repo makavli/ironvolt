@@ -652,6 +652,84 @@ RIOT = [                                    # a riot shield a little turned to s
 ]
 
 
+def harrow(broken):
+    """HARROW's hull, facing left, the middle of its underside at the bottom middle: the grid company's line-survey
+    gunship under Legion plate, a glazed nose, two rotor pylons, a tail boom and fin. The rotors, chin gun and lamp
+    move, so the actor draws those; `broken` tears the engine cowl the actor lights, and scorches the plate."""
+    s = pygame.Surface((100, 44), pygame.SRCALPHA)
+
+    def at(dx, dy):
+        return 50 + dx, 42 + dy
+
+    def box(colour, x0, y0, x1, y1):
+        pygame.draw.rect(s, colour, (*at(x0, y0), x1 - x0 + 1, y1 - y0 + 1))
+
+    def line(colour, a, b):
+        pygame.draw.line(s, colour, at(*a), at(*b))
+
+    plate, dark, lit = C["olive"], C["olive_d"], mix(C["olive"], C["sun"], 0.4)
+    gun, gun_l, iron, shine = C["steel_d"], C["steel"], mix(C["steel_d"], INK, 0.5), C["steel_l"]
+    # the tail boom and its fin, behind the body
+    box(gun, 24, -20, 46, -15)
+    line(gun_l, (24, -20), (46, -20))
+    line(iron, (24, -15), (46, -15))
+    pygame.draw.polygon(s, plate, [at(40, -15), at(42, -32), at(48, -32), at(48, -15)])
+    line(lit, (42, -32), (48, -32))
+    line(dark, (48, -31), (48, -15))
+    box(C["gold"], 43, -27, 47, -25)                     # the grid company's stripe, faded on the fin
+    # the body: a fat pod lit along its top, dithered into shade below
+    pygame.draw.polygon(s, plate, [at(-26, -4), at(-34, -10), at(-34, -18), at(-24, -26), at(24, -26),
+                                   at(28, -20), at(28, -6), at(22, -1), at(-20, -1)])
+    for y in range(-26, 0):
+        for x in range(-34, 29):
+            if s.get_at(at(x, y))[:3] != plate:
+                continue
+            if y <= -25 or (y <= -23 and (x + y) % 2):
+                s.set_at(at(x, y), lit)
+            elif y >= -4 or (y >= -7 and (x + y) % 2):
+                s.set_at(at(x, y), dark)
+    # the glazed nose: a dark canopy, the dusk caught in its top pane, a pilot's red lenses
+    pygame.draw.polygon(s, INK, [at(-33, -11), at(-33, -17), at(-24, -24), at(-14, -24), at(-14, -11)])
+    pygame.draw.polygon(s, C["night"], [at(-31, -13), at(-31, -16), at(-24, -22), at(-16, -22), at(-16, -13)])
+    line(C["rose"], (-30, -17), (-24, -22))
+    line(C["dusk"], (-24, -22), (-17, -22))
+    line(gun, (-22, -22), (-22, -13))                    # the canopy frame
+    s.set_at(at(-19, -17), C["red"])
+    s.set_at(at(-18, -17), C["red"])
+    for sx in (-8, 6, 18):                               # plate seams and their rivets
+        line(dark, (sx, -24), (sx, -4))
+        for ry in (-22, -15, -6):
+            s.set_at(at(sx + 2, ry), lit)
+    box(C["gold"], -12, -12, 22, -11)                    # the stripe along the side, half painted over
+    for gx in range(-12, 23, 7):
+        box(dark, gx, -12, gx + 2, -11)
+    box(dark, -4, -20, 4, -15)                           # the bay doors the drones drop from
+    line(INK, (0, -20), (0, -15))
+    line(lit, (-4, -20), (4, -20))
+    # rotor pylons and the engine cowl between them
+    for rx in (-18, 18):
+        box(gun, rx - 2, -33, rx + 2, -26)
+        line(shine, (rx - 1, -33), (rx - 1, -27))
+        line(iron, (rx + 2, -33), (rx + 2, -26))
+    box(gun, 8, -30, 26, -26)
+    line(shine, (9, -30), (25, -30))
+    for vx in range(10, 25, 3):
+        s.set_at(at(vx, -28), iron)
+    # skids under it
+    for sx in (-16, 14):
+        line(iron, (sx, -1), (sx - 2, 0))
+    line(gun, (-24, 0), (20, 0))
+    line(shine, (-24, 0), (-21, 0))
+    if broken:                                           # scorched, torn plate
+        rnd = random.Random(13)
+        for _ in range(40):
+            x, y = rnd.randrange(-30, 26), rnd.randrange(-24, -3)
+            if s.get_at(at(x, y))[3] and s.get_at(at(x, y))[:3] not in (INK, C["night"]):
+                s.set_at(at(x, y), mix(C["rust_d"], INK, rnd.random() * 0.6))
+        pygame.draw.polygon(s, INK, [at(8, -25), at(13, -19), at(19, -23), at(24, -18), at(26, -25)])
+    return outlined(s)
+
+
 def riot_shield():
     """A trooper's riot shield, {(lowered, facing): picture}, both drawn from the same top: raised, it covers him
     from the eyes to the shins; lowered to fire, it drops to the ground and tips forward, and he fires over it."""
@@ -1174,17 +1252,70 @@ LINE_PALETTE = {"night": (26, 28, 54), "dusk": (52, 56, 96), "rose": (110, 88, 1
                 "sun": (226, 196, 160), "cream": (236, 226, 206)}
 
 
-def backdrop(theme):
-    """(sky, parallax layers, foreground pillar) for a mission's theme; theme 1 repaints the same scenery in
-    LINE_PALETTE for a moment, then puts the palette back."""
-    if theme == 0:
-        return sky(), [(mountains(), 0.08, 0), (factory(), 0.25, 0), (near(), 0.55, 8)], pillar()
-    saved = {k: C[k] for k in LINE_PALETTE}
-    C.update(LINE_PALETTE)
+def pylons(width=640):
+    """Mission 3's mid layer: the last high-tension line marching off across the salt, its wires sagging, one red
+    warning lamp on each tower, and the salt pans catching the light below."""
+    s = pygame.Surface((width, H), pygame.SRCALPHA)
+    body, edge = C["night"], C["dusk"]
+    base, step = 150, 128
+    tops = []
+    for k, x in enumerate(range(40, width, step)):
+        h = 74 + (k % 2) * 8
+        top = base - h
+        tops.append((x, top))
+        pygame.draw.polygon(s, body, [(x - 14, base), (x - 3, top), (x + 3, top), (x + 14, base)], 2)
+        for y in range(top + 8, base - 11, 12):          # the lattice: cross braces widening toward the foot
+            a, b = 3 + (y - top) * 11 // h, 3 + (y + 12 - top) * 11 // h
+            pygame.draw.line(s, body, (x - a, y), (x + b, y + 12))
+            pygame.draw.line(s, body, (x + a, y), (x - b, y + 12))
+        for arm, span in ((top + 6, 20), (top + 20, 16)):          # cross-arms and their insulators
+            pygame.draw.line(s, body, (x - span, arm), (x + span, arm), 2)
+            pygame.draw.line(s, edge, (x - span, arm - 1), (x + span, arm - 1))
+            for ix in (x - span, x + span):
+                pygame.draw.line(s, body, (ix, arm), (ix, arm + 4))
+        s.set_at((x, top - 1), C["red"])
+    tops.append((tops[0][0] + width, tops[0][1]))        # the wires wrap round to the first tower: seamless
+    for (x0, t0), (x1, t1) in zip(tops, tops[1:]):
+        for drop, span in ((10, 20), (24, 16)):
+            for side in (-span, span):
+                for i in range(x1 - x0):
+                    sag = int(10 * math.sin(math.pi * i / (x1 - x0)))
+                    s.set_at(((x0 + side + i) % width, t0 + drop + sag), body)
+    pygame.draw.rect(s, body, (0, base, width, H - base))
+    rnd = random.Random(31)
+    for _ in range(14):                                  # salt pans: flat streaks of the sky, low on the plain
+        x, y, n = rnd.randrange(width), rnd.randrange(base + 4, base + 24), rnd.randrange(10, 40)
+        pygame.draw.line(s, edge, (x, y), (x + n, y))
+        pygame.draw.line(s, C["rose"], (x + n // 3, y), (x + n // 2, y))
+    return s
+
+
+# mission 3: the ash thins toward the Cradle; a clearer, warmer dusk, the sun almost through
+ROAD_PALETTE = {"night": (44, 34, 70), "dusk": (110, 70, 112), "rose": (206, 112, 116), "ember": (246, 142, 82),
+                "sun": (255, 214, 130), "cream": (255, 244, 222)}
+# the road's earth: salt crust and pale clay instead of rust and slag
+SALT_PALETTE = {"rust": (196, 176, 158), "rust_d": (120, 98, 92)}
+
+
+def _painted(palette, make, *args):
+    """make(*args) drawn in a palette: C is swapped for the call, then put back."""
+    saved = {k: C[k] for k in palette}
+    C.update(palette)
     try:
-        return sky(), [(mountains(), 0.08, 0), (viaduct(), 0.25, 0), (yard(), 0.55, 8)], pillar()
+        return make(*args)
     finally:
         C.update(saved)
+
+
+def backdrop(theme):
+    """(sky, parallax layers, foreground pillar) for a mission's theme, each painted in its own palette."""
+    if theme == 0:
+        return sky(), [(mountains(), 0.08, 0), (factory(), 0.25, 0), (near(), 0.55, 8)], pillar()
+    if theme == 1:
+        return _painted(LINE_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (viaduct(), 0.25, 0),
+                                                       (yard(), 0.55, 8)], pillar()))
+    return _painted(ROAD_PALETTE, lambda: (sky(), [(mountains(), 0.08, 0), (pylons(), 0.25, 0),
+                                                   (near(), 0.55, 8)], pillar()))
 
 
 def pillar():
@@ -1218,6 +1349,9 @@ class Atlas:
         self.riot = foe_frames(mix(C["steel"], C["steel_l"], 0.3), C["steel_d"],     # riot plate, a darker mask
                                M=mix(C["steel_d"], INK, 0.25), m=mix(C["steel_d"], INK, 0.65))
         self.riot_l = mirrored(self.riot)
+        self.sapper = foe_frames(mix(C["gold"], C["rust"], 0.45), mix(C["rust"], C["rust_d"], 0.4), pack=True,
+                                 V=C["sun"])                                 # hazard yellow, the satchel on its back
+        self.sapper_l = mirrored(self.sapper)
         legion = dict(BASE_PAL, g=mix(C["steel_d"], C["black"], 0.6))
         self.rifle = held(RIFLE, legion)
         self.tube = held(TUBE, legion, ((1, 0, 0), (1, -1, 24)))
@@ -1227,6 +1361,8 @@ class Atlas:
         self.turret = turret()
         self.bastion = [bastion(False), bastion(True)]
         self.warden = [warden(False), warden(True)]
+        self.harrow = [harrow(False), harrow(True)]
+        self.harrow_r = [pygame.transform.flip(h, True, False) for h in self.harrow]
         self.shield = riot_shield()
         self.caps = {"H": capsule("H", C["red"]), "S": capsule("S", C["blue"]), "R": capsule("R", C["olive"]),
                      "B": capsule("B", C["rust"]), "1": capsule("1", C["green"])}
@@ -1234,7 +1370,7 @@ class Atlas:
         self.crates = [crate_tile(k) for k in range(3)]
         self.containers = {}
         self.girders = {(a, b): girder_tile(a, b) for a in (False, True) for b in (False, True)}
-        self.themes = [backdrop(0), backdrop(1)]          # one per mission theme (stage.Mission.theme)
+        self.themes = [backdrop(0), backdrop(1), backdrop(2)]          # one per mission theme (stage.Mission.theme)
         self.sky, self.layers, self.pillar = self.themes[0]
         self.glow_s = glow(7, (120, 80, 36))
         self.glow_l = glow(18, (150, 70, 30))
@@ -1246,14 +1382,15 @@ class Atlas:
         return self.white[key]
 
     def ground_at(self, tx, ty, top, left=False, right=False, theme=0):
-        key = (tx % 23, ty, top, left, right) if theme == 0 else (tx % 92, ty, top, left, right, theme)
+        key = (tx % (92 if theme == 1 else 23), ty, top, left, right, theme)
         if key not in self.ground:
-            self.ground[key] = (ground_tile if theme == 0 else line_ground_tile)(*key[:5])
+            make = (ground_tile, line_ground_tile)[theme == 1]
+            self.ground[key] = _painted(SALT_PALETTE, make, *key[:5]) if theme == 2 else make(*key[:5])
         return self.ground[key]
 
     def crate_at(self, tx, ty, theme=0, left=False, right=False):
         """A crate; in mission 2, a stretch of the container that runs along its row (left / right: it ends there)."""
-        if theme == 0:
+        if theme != 1:
             return self.crates[(tx * 7 + ty * 3) % len(self.crates)]
         key = (ty % 3, left, right, tx % 5 == 2 and not (left or right))
         if key not in self.containers:

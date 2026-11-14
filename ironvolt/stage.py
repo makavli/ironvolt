@@ -150,6 +150,64 @@ LINE_SPAWNS = _waves(
     60, ["soldier", "shield", "soldier", "soldier", "drone", "soldier", "shield", "soldier"], 3500)
 
 
+def _pylon_road():
+    """Mission 3: the service road under the last high-tension line, across the salt flats. Pylon footings to
+    climb, their cross-arms as walkways, wrecked line trucks, washed-out culverts; the arena is open road, nothing
+    to stand on under the gunship but the road itself."""
+    g, pit, block, walk = _ground(240)
+    block(10, 12, 10, CRATE)               # a line truck, nose down in the salt
+    block(11, 12, 9, CRATE)
+    walk(17, 22, 7)                        # the first pylon's cross-arm
+    block(19, 20, 9)                       # ...and its footing
+    pit(26, 28)                            # a culvert washed out
+    block(33, 33, 10, CRATE)
+    walk(36, 43, 8)
+    block(38, 41, 9)
+    walk(38, 41, 5)
+    pit(47, 49)
+    block(54, 56, 9, CRATE)
+    block(55, 56, 8, CRATE)
+    walk(60, 66, 6)
+    block(62, 63, 9)
+    pit(70, 72)
+    walk(69, 73, 8)                        # a fallen arm across the gap
+    block(78, 82, 8)
+    block(88, 88, 10, CRATE)
+    walk(92, 99, 7)
+    block(94, 96, 9)
+    pit(103, 105)
+    block(110, 112, 9, CRATE)
+    walk(116, 123, 8)
+    walk(119, 122, 5)
+    block(120, 121, 9)
+    pit(127, 129)
+    block(134, 138, 9)
+    block(142, 143, 10, CRATE)
+    block(143, 143, 9, CRATE)
+    walk(148, 155, 6)
+    block(150, 152, 9)
+    pit(159, 161)
+    walk(158, 162, 8)
+    block(166, 170, 8)
+    block(176, 177, 10, CRATE)
+    walk(181, 188, 7)
+    block(183, 185, 9)
+    pit(192, 194)
+    block(199, 201, 9, CRATE)
+    block(200, 201, 8, CRATE)
+    walk(205, 211, 8)
+    block(214, 215, 10, CRATE)
+    return g
+
+
+ROAD_SPAWNS = _waves(
+    [("hostage", 21, "S"), ("lobber", 40, None), ("turret", 56, None), ("hostage", 64, "H"), ("lobber", 81, None),
+     ("hostage", 95, "B"), ("turret", 111, None), ("hostage", 121, "R"), ("lobber", 137, None),
+     ("turret", 151, None), ("hostage", 168, "S"), ("lobber", 169, None), ("turret", 185, None),
+     ("hostage", 200, "1"), ("lobber", 210, None)],
+    60, ["soldier", "sapper", "soldier", "drone", "shield", "sapper", "soldier", "soldier"], 3400)
+
+
 class Mission:
     def __init__(self, number, name, build, spawns, boss_col, boss, boss_title, song, theme, briefing, outro):
         self.number, self.name, self.build, self.spawns = number, name, build, spawns
@@ -164,6 +222,9 @@ MISSIONS = [
     Mission(2, "THE PRISONER LINE", _line, LINE_SPAWNS, 228, "warden", "WARDEN  PRISONER LINE ENGINE",
             ("line", "warden"), 1, ["THE LEGION SHIPS ITS PRISONERS BY RAIL.", "STOP THE TRAIN."],
             ["THE PRISONER CARS ARE OPEN.", "KES'S BROTHER WAS NOT ABOARD."]),
+    Mission(3, "PYLON ROAD", _pylon_road, ROAD_SPAWNS, 220, "harrow", "HARROW  LINE SURVEY GUNSHIP",
+            ("pylon", "harrow"), 2, ["THE LAST LIVE LINE RUNS TO THE CRADLE.", "FOLLOW IT. DOWN THE GUNSHIP."],
+            ["HARROW'S LOG CARRIES THE BROTHER'S MAPS.", "GRAIVE IS RELIGHTING THE OLD GRID."]),
 ]
 
 

@@ -30,8 +30,10 @@ class BotPad:
         st = world.stage
         boss = world.boss
         dx = 1
+        flying = hasattr(boss, "FLY")
         if boss and not boss.dying:
-            dx = -1 if p.x > boss.x - 100 else (1 if p.x < boss.x - 150 else 0)
+            near = (20, 36) if flying else (100, 150)          # a gunship is fought from just under its nose
+            dx = -1 if p.x > boss.x - near[0] else (1 if p.x < boss.x - near[1] else 0)
         if p.safe > RESPAWN_SAFE - 40 and not p.on_ground:     # dropping back in: straight down, onto the ground
             dx = 0
         ahead = p.x + 12 * (dx or 1)
@@ -54,11 +56,11 @@ class BotPad:
             s["up"] = True
             dx = 0 if p.on_ground and abs(air[0].x - p.x) < 20 else dx     # never in mid-air: a pit may be below
         elif boss and not boss.dying and boss.state == "fight":
-            s["up"] = (world.frame // 60) % 3 == 0     # mix diagonal shots in
+            s["up"] = flying or (world.frame // 60) % 3 == 0     # mix diagonal shots in
         s["right"], s["left"] = dx > 0, dx < 0
         if drop:
             s["down"], s["up"] = True, False
-        if boss:
+        if boss and not flying:                        # a gunship can end a bomb run behind you: walk back
             s["left"] = s["left"] and not s["up"]
         s["fire"] = (world.frame // 4) % 2 == 0
         s["bomb"] = bool(boss and boss.state == "fight" and world.frame % 240 == 0 and abs(boss.x - p.x) < 140)

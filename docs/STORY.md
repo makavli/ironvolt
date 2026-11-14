@@ -58,6 +58,21 @@ The Brigade stops the train and breaks the cars open. Kes searches every one. He
 prisoners know his name: he was taken off the line weeks ago and sent ahead, straight to the Cradle, because he
 knew how to read the old grid's maps.
 
+## Mission 3: Pylon Road
+
+The last line of the grid that still carries power runs from the Cradle out across the salt flats: forty kilometres
+of high-tension towers over a cracked white plain. Its service road is the only way in. Out here the ash is thinner;
+for the first time in years the dusk has colour in it, and the sun is almost a disc.
+
+The Legion guards the line with **sappers**, demolition troopers in hazard yellow who carry no rifle, only a satchel
+charge, and with **HARROW**, the grid company's own line-survey gunship. Before the fall it flew the towers checking
+insulators; now it carries Legion plate, a chin gun and a bomb bay, and it flies the line looking for anyone on the
+road.
+
+The Brigade brings it down on the road. In its flight log Juno finds survey runs flown to a pattern: the gunship has
+been mapping the dead lines, tower by tower, from maps drawn by a prisoner. Kes knows the handwriting. Graive is not
+just holding the Cradle. He is relighting the old grid, one line at a time, and every line he relights he owns.
+
 ## Threads for later missions
 
 - The Cradle is not just a power plant: something in it kept running on the night the grid burned. Why only that one?
