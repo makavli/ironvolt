@@ -25,9 +25,10 @@ a tank boss with a second phase, and not a single image or sound file in the rep
 **Windows:** double-click `Ironvolt.exe`. It is not code-signed, so the first time Windows says "Windows protected your
 PC": click **More info**, then **Run anyway**.
 
-**Other systems:** from 0.7.1 the releases ship a Windows build only. The macOS and Linux downloads are discontinued:
-GitHub's hosted Mac machines kept a release waiting in the queue, and the game is tested on Windows. On macOS or
-Linux, play from the source (below); the last macOS and Linux builds are in the 0.6.0 release.
+**Other systems:** every release ships the Windows and browser builds. The macOS and Linux builds
+(`Ironvolt-macos.zip`, `Ironvolt-linux.tar.gz`) are added to a release on demand, so the newest release may not
+have them yet. They are untested by hand: if one does not start, play from the source (below). On macOS the app is
+unsigned: right-click it, then Open.
 
 ## The Long Dusk
 

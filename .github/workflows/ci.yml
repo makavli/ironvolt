@@ -42,8 +42,8 @@ jobs:
         run: python tools/version_check.py
 
   # The Windows build runs on pull requests too (minutes are free on a public repo): a broken build shows up before
-  # the merge, not on main. macOS and Linux builds were dropped in 0.7.1: the hosted Mac runners kept a release
-  # waiting in the queue, and the game is tested on Windows (README, "Other systems").
+  # the merge, not on main. macOS and Linux builds are not here (the hosted Mac runners kept a release waiting in
+  # the queue): they are made on demand by desktop.yml and added to a release afterwards.
   build:
     needs: test
     runs-on: windows-latest

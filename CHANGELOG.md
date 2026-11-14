@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.1
+
+- **macOS and Linux builds are back**, built on demand: a manual workflow (Actions -> macOS and Linux) builds a
+  release's own source on GitHub's macOS and Linux machines, checks each build starts and plays, adds
+  `Ironvolt-macos.zip` and `Ironvolt-linux.tar.gz` to that release, and can push them to itch.io too. The Windows and
+  browser builds still come with every release, so a slow Mac queue never holds one up.
+
 ## 0.11.0
 
 Missions 1 and 2 get set pieces of their own, and a hidden map page each: all four pages can now be found.
