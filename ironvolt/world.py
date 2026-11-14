@@ -251,7 +251,7 @@ class World:
         if kind in ("page", "gift"):                  # a map page placed in the level, or a capsule dropped in
             self.pickups.append(Pickup(x, extra * TILE if kind == "page" else -10, "M" if kind == "page" else extra))
             return
-        y = self.stage.floor_y(x)
+        y = self.stage.floor_y(x, max(0, self.stage.drop_y))     # under a room's roof, not on top of it
         if y is None:
             return
         if self.stage.timed and kind != "hostage":
