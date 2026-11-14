@@ -9,6 +9,12 @@ More parkour: three new set pieces, spread over all four missions, each with its
   Slide under; standing in it burns. Troopers who walk into it get FRIED.
 - **Rotten catwalks** (missions 1, 2 and 4): a wide pit with one rotten catwalk across it. It holds a moment,
   shudders, and drops: keep running. A new one is bolted in after a while, never under someone.
+- **Every mission is longer:** a new last stretch before each boss, built from that mission's own pieces:
+  - Mission 1, **the gate yard:** a shutter, a rotten catwalk over the slurry, a car press, a prisoner.
+  - Mission 2, **the signal gantry:** a gantry over a gap with a turret on it, a shutter at the yard's gate.
+  - Mission 3, **the last pylon:** one more live arm, then two Legion fences either side of a culvert.
+  - Mission 4, **the turbine hall:** a vent up to a catwalk, a crusher, a laser fence, the hall's last gap.
+- Shutters have hazard-painted rails and a warning lamp, so they never read as a background girder.
 - A slide never ends under a shutter or a fence, the same as under a low ceiling.
 - The demo player slides under shutters and fences too.
 

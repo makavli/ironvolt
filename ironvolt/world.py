@@ -6,7 +6,8 @@ import random
 import pygame
 
 from . import audio, props
-from .actors import Bastion, Drone, Foe, Graive, Harrow, Hostage, Pickup, Player, Turret, Warden
+from .actors import (Barrel, Bastion, Cutter, Drone, Foe, Graive, Harrow, Hostage, Pickup, Player, Sniper,
+                     Trike, Turret, Warden)
 from .settings import CHAIN_FRAMES, CHAIN_MAX, DIFFICULTY, GRENADES, GROUND_Y, TILE, C, H, W
 from .stage import AIR, CRATE, GROUND, WALK, Stage
 
@@ -260,6 +261,8 @@ class World:
             self.hostages.append(Hostage(x, y, extra))
         elif kind == "turret":
             self.foes.append(Turret(x, y))
+        elif kind in ("cutter", "sniper", "trike", "barrel"):
+            self.foes.append({"cutter": Cutter, "sniper": Sniper, "trike": Trike, "barrel": Barrel}[kind](x, y))
         else:
             self.foes.append(Foe(x, y, kind))       # soldier, lobber, shield, sapper or guard
 

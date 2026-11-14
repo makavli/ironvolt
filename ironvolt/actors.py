@@ -441,6 +441,11 @@ class Bolt:
                 pygame.draw.line(surf, C["cyan"], (x - 4 + k * 4, y + 2), (x - 3 + k * 3, y + 2 - h))
             pygame.draw.line(surf, C["white"], (x - 5, y + 2), (x + 5, y + 2))
             surf.set_at((x, y - 3 - frame % 3), C["white"])
+        elif self.kind == "star":                               # a cutter's spinning star: four points, turning
+            pts = ((-3, 0), (3, 0), (0, -3), (0, 3)) if (frame // 3) % 2 else ((-2, -2), (2, 2), (-2, 2), (2, -2))
+            for dx, dy in pts:
+                pygame.draw.line(surf, C["steel_l"], (x, y), (x + dx, y + dy))
+            surf.set_at((x, y), C["white"])
         elif self.kind == "missile":
             pygame.draw.line(surf, C["ink"], (x, y - 9), (x, y), 4)
             pygame.draw.line(surf, C["steel_l"], (x, y - 9), (x, y - 1), 2)
@@ -497,7 +502,7 @@ class Foe(Body):
     def __init__(self, x, y, kind="soldier"):
         super().__init__(x, y)
         self.kind = kind
-        self.hp = {"soldier": 2, "lobber": 3, "shield": 4, "sapper": 1, "guard": 3}[kind]
+        self.hp = {"soldier": 2, "lobber": 3, "shield": 4, "sapper": 1, "guard": 3, "cutter": 2, "sniper": 2}[kind]
         self.facing = -1
         self.timer = random.randint(40, 80)
         self.hurt = 0
@@ -616,7 +621,8 @@ class Foe(Body):
     def draw(self, surf, atlas, cam):
         right = self.facing > 0
         frames = {"lobber": (atlas.lobber, atlas.lobber_l), "shield": (atlas.riot, atlas.riot_l),
-                  "sapper": (atlas.sapper, atlas.sapper_l), "guard": (atlas.guard, atlas.guard_l)}.get(
+                  "sapper": (atlas.sapper, atlas.sapper_l), "guard": (atlas.guard, atlas.guard_l),
+                  "cutter": (atlas.cutter, atlas.cutter_l), "sniper": (atlas.sniper, atlas.sniper_l)}.get(
             self.kind, (atlas.foe, atlas.foe_l))[not right]
         if self.dying and (self.dying // 4) % 2:
             return
@@ -642,6 +648,271 @@ class Foe(Body):
         if self.kind == "shield" and not self.dying:
             img = atlas.shield[0 < self.aiming < 12, self.facing]      # lowered to the ground while it fires
             surf.blit(img, (x + 3 if right else x - 3 - img.get_width(), y - 24))
+
+
+class Cutter(Foe):
+    """A Legion cutter: no plate, no rifle, a blade and a bag of spinning stars. It sprints in and throws a star
+    from range. Up close it drops into a crouch (the blade glints) and dives at you, low and fast: jump over the dive
+    or duck under it, shoot it in the crouch, or meet it with your own knife. After a dive it needs a moment."""
+    RUN_V, CROUCH, RECOVER = 2.0, 24, 40
+
+    def __init__(self, x, y):
+        super().__init__(x, y, "cutter")
+        self.mode, self.mt, self.stars = "run", 0, 1
+
+    def step(self, world):
+        target = world.nearest(self.x)
+        if self.dying or self.stun or target is None:
+            return super().step(world)
+        if self.hurt:
+            self.hurt -= 1
+        dx = target.x - self.x
+        on_screen = 0 < self.x - world.cam_x < W
+        self.mt = max(0, self.mt - 1)
+        if self.mode == "run":
+            self.facing = 1 if dx > 0 else -1
+            floor = world.stage.floor_y(self.x + self.facing * 8, self.y - 4)
+            self.vx = self.facing * self.RUN_V if floor is not None and abs(floor - self.y) < 20 else 0
+            if on_screen and self.on_ground and abs(dx) < 60 and abs(target.y - self.y) < 30:
+                self.mode, self.mt, self.vx = "crouch", self.CROUCH, 0
+                audio.play("fuse")
+            elif on_screen and self.stars and 100 < abs(dx) < 180:
+                self.mode, self.mt, self.vx = "throw", world.windup, 0
+        elif self.mode == "throw":
+            self.vx = 0
+            if self.mt % 8 == 4:
+                world.flash(self.x + self.facing * 8, self.y - 14, small=True)
+            if not self.mt:
+                self.stars -= 1
+                world.bolts.append(Bolt(self.x + self.facing * 8, self.y - 14,
+                                        self.facing * ENEMY_BULLET_V * 1.4 * world.fire, 0, 0, "star"))
+                audio.play("enemy_shot")
+                self.mode = "run"
+        elif self.mode == "crouch":
+            self.vx = 0
+            if not self.mt:                                # the dive: low (a crouch passes under it) and fast
+                self.mode, self.vy, self.vx, self.on_ground = "dive", -3.0, self.facing * 3.2, False
+                audio.play("jump")
+        elif self.mode == "dive":
+            for p in world.live_players():
+                if p.rect().colliderect(self.rect()) and not (p.vy > 0 and p.oy <= self.rect().top + 3):
+                    world.kill_player(p)
+            if self.on_ground:
+                self.mode, self.mt, self.vx = "recover", self.RECOVER, 0
+                world.dust(self.x, self.y)
+        elif not self.mt:                                  # recovered: back in, one more star in the bag
+            self.mode, self.stars = "run", 1
+        self.vy = min(MAX_FALL, self.vy + GRAVITY)
+        self.move(world.stage)
+        self.run_t = self.run_t + 0.16 if self.vx and self.on_ground else 0
+        if self.y > H + 20 or self.x < world.cam_x - 40:
+            self.dead = True
+
+    def draw(self, surf, atlas, cam):
+        frames = (atlas.cutter, atlas.cutter_l)[self.facing < 0]
+        if self.dying and (self.dying // 4) % 2:
+            return
+        if self.dying or self.stun:
+            img = frames["hurt"]
+        elif self.mode == "dive":
+            img = frames["run2"]
+        elif self.run_t:
+            img = frames["run%d" % (int(self.run_t * 2.4) % 8)]
+        else:
+            img = frames["stand"]
+        x, y = round(self.x - cam), round(self.y)
+        sink = 4 if self.mode in ("crouch", "recover") and not self.dying else 0
+        surf.blit(atlas.flash(img) if self.hurt else img, (x - img.get_width() // 2, y - img.get_height() + 1 + sink))
+        if self.dying:
+            return
+        hy = y - 15 + sink
+        wave = int(self.run_t * 3) % 2
+        for k in range(1, 5):                              # the red scarf, streaming behind
+            surf.set_at((x - self.facing * (3 + k), y - 19 + sink + (k + wave) % 2), C["red"])
+        if self.mode == "dive":                            # the blade out in front: a white-blue arc
+            pygame.draw.line(surf, C["cyan"], (x + self.facing * 4, hy - 4), (x + self.facing * 12, hy + 2), 2)
+            pygame.draw.line(surf, C["white"], (x + self.facing * 5, hy - 3), (x + self.facing * 11, hy + 1))
+        else:                                              # the blade on its back
+            pygame.draw.line(surf, C["steel_l"], (x - self.facing * 2, hy - 2), (x - self.facing * 6, hy - 9))
+            if self.mode == "crouch" and self.mt % 6 < 3:  # the glint: the dive is coming
+                surf.set_at((x - self.facing * 6, hy - 9), C["white"])
+                surf.set_at((x - self.facing * 7, hy - 10), C["white"])
+
+
+class Sniper(Foe):
+    """A Legion marksman up on a catwalk or a stack. Its laser sight finds you and follows you; then it stops and
+    blinks (locked), and a fast round flies down the line. Step off the line while it blinks. It never moves."""
+    LOCK, SPEED = 20, 4.6
+
+    def __init__(self, x, y):
+        super().__init__(x, y, "sniper")
+        self.track, self.lock, self.aim_at = 0, 0, None
+        self.timer = 50
+
+    def step(self, world):
+        target = world.nearest(self.x)
+        if self.dying or self.stun or target is None:
+            self.track = self.lock = 0
+            return super().step(world)
+        if self.hurt:
+            self.hurt -= 1
+        self.vx = 0
+        on_screen = 4 < self.x - world.cam_x < W - 4
+        self.facing = 1 if target.x > self.x else -1
+        if self.lock:
+            self.lock -= 1
+            if not self.lock:
+                mx, my = self.muzzle()
+                tx, ty = self.aim_at
+                n = math.hypot(tx - mx, ty - my) or 1
+                v = self.SPEED * world.fire
+                world.bolts.append(Bolt(mx, my, (tx - mx) / n * v, (ty - my) / n * v))
+                world.flash(mx, my)
+                audio.play("enemy_shot")
+                self.timer = round(110 * world.calm)
+        elif self.track:
+            self.track -= 1
+            self.aim_at = (target.x, target.y - 12)
+            if not self.track:
+                self.lock = self.LOCK
+                audio.play("fuse")
+        else:
+            self.timer -= 1
+            if on_screen and self.timer <= 0 and abs(target.x - self.x) < 260:
+                self.track = 30 + world.windup
+        self.vy = min(MAX_FALL, self.vy + GRAVITY)
+        self.move(world.stage)
+        if self.y > H + 20 or self.x < world.cam_x - 40:
+            self.dead = True
+
+    def muzzle(self):
+        return self.x + self.facing * 10, self.y - 15
+
+    def draw(self, surf, atlas, cam):
+        if (self.track or self.lock) and self.aim_at and not self.dying and not (self.lock and self.lock % 6 < 3):
+            mx, my = self.muzzle()
+            tx, ty = self.aim_at
+            n = math.hypot(tx - mx, ty - my) or 1
+            end = (tx + (tx - mx) / n * 400, ty + (ty - my) / n * 400)       # the sight runs on past you
+            pygame.draw.line(surf, C["red"], (round(mx - cam), round(my)), (round(end[0] - cam), round(end[1])))
+            pygame.draw.circle(surf, C["red"], (round(tx - cam), round(ty)), 2, 1)
+        super().draw(surf, atlas, cam)
+
+
+class Trike(Body):
+    """A Legion raider on a three-wheeled scrap trike, flat out along the road. A horn and a flashing sign at the
+    right edge first; then it comes through. Jump it (land on it and you bounce), or shoot it before it reaches you:
+    it goes up in a blast that takes troopers with it."""
+    w, h = 26, 16
+    V, WARN = 3.0, 50
+
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.hp, self.hurt, self.dying = 5, 0, 0
+        self.warn, self.t, self.bumps = self.WARN, 0, 0
+
+    def step(self, world):
+        self.t += 1
+        self.hurt = max(0, self.hurt - 1)
+        if self.warn:                                      # waiting off screen, the horn going
+            self.warn -= 1
+            self.x = world.cam_x + W + 30
+            if self.warn % 25 == 24:
+                audio.play("alarm")
+            fy = world.stage.floor_y(self.x, 0)
+            if fy is not None:
+                self.y = float(fy)
+            return
+        self.vx = -self.V
+        if self.on_ground and world.stage.floor_y(self.x - 18, self.y - 4) is None:
+            self.vy, self.on_ground = -4.6, False          # a gap ahead: it jumps it
+        self.vy = min(MAX_FALL, self.vy + GRAVITY)
+        self.move(world.stage)
+        if self.vx == 0:                                   # a wall: it ramps up and over, or wrecks trying
+            self.bumps += 1
+            if self.bumps > 3:
+                self.damage(99, world, None)
+                return
+            if self.on_ground:
+                self.vy, self.on_ground = -5.6, False
+        if self.t % 3 == 0:
+            world.part(self.x + 12, self.y - 6, random.uniform(0.3, 0.9), -random.uniform(0.1, 0.5), 24, "smoke", 2)
+        for p in world.live_players():
+            if p.rect().colliderect(self.rect()) and not (p.vy > 0 and p.oy <= self.rect().top + 3):
+                world.kill_player(p)
+        if self.y > H + 20 or self.x < world.cam_x - 60:
+            self.dead = True
+
+    def damage(self, dmg, world, owner, push=0.0):
+        if self.dead or self.warn:
+            return False
+        self.hp -= dmg
+        self.hurt = 4
+        if self.hp <= 0:
+            self.dead = True
+            world.award(owner, SCORE["trike"], self.x, self.y - 24)
+            world.explode(self.x, self.y - 8, 26, 3, owner)
+        return True
+
+    def draw(self, surf, atlas, cam):
+        x, y = round(self.x - cam), round(self.y)
+        if self.warn:                                      # the warning at the right edge: something big coming
+            if self.warn % 12 < 7:
+                pygame.draw.polygon(surf, C["sun"], [(W - 6, y - 30), (W - 18, y - 8), (W - 6, y - 8)])
+                pygame.draw.line(surf, C["black"], (W - 9, y - 24), (W - 9, y - 15), 2)
+                surf.set_at((W - 9, y - 11), C["black"])
+            return
+        body = C["white"] if self.hurt else C["rust"]
+        spin = (self.t // 2) % 2
+        for wx, r in ((x - 9, 5), (x + 9, 6)):            # the wheels, spokes turning
+            pygame.draw.circle(surf, C["black"], (wx, y - r), r)
+            pygame.draw.circle(surf, C["steel_d"], (wx, y - r), r - 2)
+            pygame.draw.line(surf, C["steel"], (wx - (r - 2) * spin, y - r - (r - 2) * (1 - spin)),
+                             (wx + (r - 2) * spin, y - r + (r - 2) * (1 - spin)))
+        pygame.draw.polygon(surf, C["black"], [(x - 14, y - 9), (x - 6, y - 14), (x + 12, y - 13), (x + 13, y - 7),
+                                               (x - 12, y - 6)])
+        pygame.draw.polygon(surf, body, [(x - 12, y - 9), (x - 5, y - 13), (x + 11, y - 12), (x + 11, y - 8),
+                                         (x - 10, y - 7)])
+        pygame.draw.line(surf, C["gold"], (x - 5, y - 12), (x + 10, y - 11))
+        rider = atlas.foe_l["stand"]                       # a trooper, low over the bars
+        surf.blit(rider, (x - rider.get_width() // 2 + 2, y - 12 - rider.get_height() + 6))
+        pygame.draw.line(surf, C["steel_l"], (x - 12, y - 14), (x - 5, y - 18), 2)          # the bars
+        pygame.draw.circle(surf, C["sun"], (x - 14, y - 10), 2)                           # the headlight
+        if self.t % 8 < 4:
+            pygame.draw.line(surf, C["sun"], (x - 17, y - 10), (x - 28, y - 13))
+
+
+class Barrel(Body):
+    """A drum of the Legion's lamp oil: one shot and it goes up, and anyone close goes with it, you included."""
+    w, h = 12, 16
+
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.dying, self.hurt = 0, 0
+
+    def step(self, world):
+        self.vy = min(MAX_FALL, self.vy + GRAVITY)
+        self.move(world.stage)
+        if self.y > H + 20 or self.x < world.cam_x - 40:
+            self.dead = True
+
+    def damage(self, dmg, world, owner, push=0.0):
+        if self.dead:
+            return False
+        self.dead = True
+        world.award(owner, SCORE["barrel"], self.x, self.y - 20)
+        world.explode(self.x, self.y - 8, 34, 4, owner, hurts_players=True)
+        return True
+
+    def draw(self, surf, atlas, cam):
+        x, y = round(self.x - cam) - 6, round(self.y) - 16
+        pygame.draw.rect(surf, C["black"], (x - 1, y - 1, 14, 17))
+        pygame.draw.rect(surf, C["red"], (x, y, 12, 16))
+        pygame.draw.line(surf, C["sun"], (x + 2, y + 1), (x + 2, y + 14))
+        for k in (y + 3, y + 12):                          # the hoops
+            pygame.draw.line(surf, C["black"], (x, k), (x + 11, k))
+        pygame.draw.polygon(surf, C["sun"], [(x + 6, y + 5), (x + 9, y + 10), (x + 3, y + 10)])   # the warning mark
+        surf.set_at((x + 6, y + 8), C["black"])
 
 
 class Drone(Body):

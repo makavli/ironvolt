@@ -50,7 +50,8 @@ class BotPad:
         if p.riding is not None and getattr(p.riding, "going", False):
             pit = False                                        # the trolley's cage: ride it out
         danger = any(abs(b.x - p.x) < 34 and abs(b.y - (p.y - 10)) < 30 and (b.x - p.x) * b.vx < 0 or
-                     (b.kind == "shell" and abs(b.x - p.x) < 20) for b in world.bolts)
+                     (b.kind == "shell" and abs(b.x - p.x) < 20) for b in world.bolts) or \
+            any(type(f).__name__ == "Trike" and not f.warn and 0 < f.x - p.x < 70 for f in world.foes)
         beam = any(-12 < x - p.x < 130 for pr in world.props for x in getattr(pr, "beams", ()))
         if beam:                                               # a gantry coming: duck under it, stay put
             dx, danger, wall, pit = 0, False, False, False

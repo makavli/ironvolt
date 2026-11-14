@@ -1642,6 +1642,13 @@ class Atlas:
         self.sapper_l = mirrored(self.sapper)
         self.guard = foe_frames(mix(C["rust"], C["red"], 0.5), C["rust_d"], M=mix(C["gold"], C["steel_d"], 0.5))
         self.guard_l = mirrored(self.guard)                                  # Graive's own: his red, a brass mask
+        shade, cloth = mix(C["black"], C["steel_d"], 0.35), mix(C["black"], C["steel_d"], 0.5)
+        self.cutter = foe_frames(shade, C["black"], M=mix(C["black"], C["steel_d"], 0.2), m=C["black"],
+                                 P=cloth, p=C["steel_d"], Q=C["black"], U=C["black"], u=cloth)     # wrapped in black
+        self.cutter_l = mirrored(self.cutter)
+        self.sniper = foe_frames(mix(C["cream"], C["olive"], 0.55), C["olive_d"],                 # dust-coloured
+                                 M=mix(C["olive_d"], C["black"], 0.3))
+        self.sniper_l = mirrored(self.sniper)
         legion = dict(BASE_PAL, g=mix(C["steel_d"], C["black"], 0.6))
         self.rifle = held(RIFLE, legion)
         self.tube = held(TUBE, legion, ((1, 0, 0), (1, -1, 24)))

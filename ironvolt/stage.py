@@ -3,7 +3,7 @@
 Tiles: 0 air, 1 ground, 2 crate (solid), 3 catwalk (one-way: stand on it, jump up through it).
 """
 
-from .settings import H, TILE
+from .settings import H, TILE, W
 
 ROWS = H // TILE                  # 14
 FLOOR_ROW = 11                    # ground fills rows 11..13
@@ -87,6 +87,9 @@ SCRAPYARD_SPAWNS = [
     (2200, "turret", 188 * TILE, None), (2260, "lobber", 196 * TILE, None), (2300, "soldier", "edge", None),
     (2340, "soldier", "edge", None), (2400, "hostage", 200 * TILE, "1"), (2440, "drone", "edge", None),
     (2480, "soldier", "edge", None), (2520, "soldier", "edge", None),
+    (50, "barrel", 20 * TILE, None), (962, "barrel", 77 * TILE, None), (2402, "barrel", 167 * TILE, None),
+    (1460, "cutter", "edge", None), (1980, "cutter", "edge", None), (2280, "cutter", "edge", None),
+    (1230, "trike", "edge", None), (2180, "trike", "edge", None),
 ]
 
 
@@ -119,7 +122,7 @@ def _stash():
 
 
 STASH_SPAWNS = _waves([("hostage", 16, "S"), ("lobber", 30, None), ("hostage", 38, "1"), ("page", 44, 4),
-                       ("hostage", 51, "B")], 40, ["soldier", "soldier", "shield"], 850)
+                       ("hostage", 51, "B"), ("barrel", 25, None)], 40, ["soldier", "cutter", "shield"], 850)
 
 
 def _line():
@@ -172,8 +175,9 @@ LINE_SPAWNS = _waves(
     [("hostage", 22, "H"), ("lobber", 40, None), ("turret", 50, None), ("hostage", 61, "S"), ("lobber", 87, None),
      ("hostage", 96, "B"), ("turret", 101, None), ("turret", 129, None), ("lobber", 140, None),
      ("hostage", 152, "R"), ("turret", 161, None), ("lobber", 168, None), ("hostage", 170, "H"),
-     ("turret", 184, None), ("hostage", 195, "1"), ("lobber", 207, None)],
-    60, ["soldier", "shield", "soldier", "soldier", "drone", "soldier", "shield", "soldier"], 3500)
+     ("turret", 184, None), ("hostage", 195, "1"), ("lobber", 207, None), ("sniper", 41, None),
+     ("sniper", 130, None), ("barrel", 31, None), ("barrel", 74, None), ("barrel", 135, None)],
+    60, ["soldier", "shield", "cutter", "soldier", "drone", "soldier", "trike", "shield", "cutter", "soldier"], 3500)
 
 
 LINE_PROPS = [("shutter", 80), ("ladder", 104, "roofs", 144), ("crumble", 211, 213, 11)]
@@ -185,7 +189,7 @@ def _roofs():
     return g
 
 
-ROOFS_SPAWNS = [(80, "soldier", 280, None), (200, "shield", 260, None), (300, "gift", 160, "S"),
+ROOFS_SPAWNS = [(540, "cutter", 290, None), (1000, "cutter", 30, None), (80, "soldier", 280, None), (200, "shield", 260, None), (300, "gift", 160, "S"),
                 (420, "soldier", 40, None), (480, "drone", 300, None), (620, "soldier", 270, None),
                 (700, "page", 200, 2), (760, "lobber", 60, None), (880, "soldier", 290, None),
                 (980, "drone", 20, None), (1060, "shield", 250, None), (1180, "soldier", 60, None)]
@@ -239,8 +243,9 @@ ROAD_SPAWNS = _waves(
     [("hostage", 21, "S"), ("lobber", 40, None), ("hostage", 44, "B"), ("turret", 58, None), ("lobber", 81, None),
      ("hostage", 93, "H"), ("hostage", 136, "R"), ("lobber", 137, None), ("turret", 146, None),
      ("hostage", 158, "S"), ("lobber", 169, None), ("turret", 188, None), ("hostage", 203, "1"),
-     ("lobber", 210, None)],
-    60, ["soldier", "sapper", "soldier", "drone", "shield", "sapper", "soldier", "soldier"], 3400) + \
+     ("lobber", 210, None), ("sniper", 40, None), ("sniper", 187, None), ("barrel", 15, None),
+     ("barrel", 131, None)],
+    60, ["soldier", "sapper", "trike", "soldier", "drone", "cutter", "shield", "sapper", "trike", "soldier"], 3400) + \
     [(cam, "drone", "edge", None) for cam in range(1380, 1860, 80)]      # over the gully, only the air comes at you
 
 
@@ -262,7 +267,7 @@ def _drain():
 
 
 DRAIN_SPAWNS = _waves([("hostage", 22, "R"), ("lobber", 36, None), ("hostage", 48, "1"), ("page", 58, 4),
-                       ("lobber", 60, None)], 40, ["soldier", "soldier", "shield"], 1000)
+                       ("lobber", 60, None)], 40, ["soldier", "cutter", "shield"], 1000)
 
 
 def _cradle():
@@ -306,8 +311,9 @@ CRADLE_PROPS = [("vent", 40), ("vent", 60), ("vent", 72), ("piston", 96, 0), ("p
 CRADLE_SPAWNS = _waves(
     [("hostage", 20, "H"), ("turret", 34, None), ("hostage", 44, "B"), ("guard", 66, None), ("page", 77, 2),
      ("turret", 88, None), ("hostage", 87, "S"), ("guard", 140, None), ("hostage", 150, "R"), ("turret", 171, None),
-     ("guard", 186, None), ("hostage", 188, "1")],
-    60, ["guard", "soldier", "sapper", "shield", "guard", "drone", "soldier", "sapper"], 3150)
+     ("guard", 186, None), ("hostage", 188, "1"), ("sniper", 45, None), ("sniper", 80, None),
+     ("barrel", 92, None), ("barrel", 190, None)],
+    60, ["guard", "cutter", "sapper", "shield", "guard", "drone", "cutter", "soldier", "sapper"], 3150)
 
 
 def _lift():
@@ -322,7 +328,7 @@ LIFT_SPAWNS = [(60, "guard", 250, None), (120, "soldier", 70, None), (220, "dron
                (520, "drone", 300, None), (560, "guard", 240, None), (600, "shield", 90, None),
                (760, "sapper", 40, None), (780, "guard", 270, None), (900, "drone", 300, None),
                (940, "drone", 20, None), (1000, "guard", 160, None), (1100, "soldier", 280, None),
-               (1120, "soldier", 40, None)]
+               (1120, "soldier", 40, None), (460, "cutter", 200, None), (840, "cutter", 100, None)]
 
 # Rooms: places off the main road, entered by a prop (drain, door). theme: art.backdrop; dark: 0..255; lamps: x of
 # the lights in a dark room; timed: frames it lasts (spawns by frame, not by camera); ceil: feet y under its roof.
@@ -335,10 +341,84 @@ ROOMS = {
 }
 
 
+def _section(n):
+    """A stretch of road to splice into a mission: a flat floor and the same tools, no arena wall."""
+    g, pit, block, walk = _ground(n)
+    for r in range(FLOOR_ROW):
+        g[r][n - 1] = AIR
+    return g, pit, block, walk
+
+
+def _gate_yard():
+    """Mission 1's last stretch before the gate: a shutter, a rotten catwalk over the slurry, a car press."""
+    g, pit, block, walk = _section(32)
+    block(4, 5, 10, CRATE)
+    pit(16, 21)                            # the rotten catwalk at 18..19
+    walk(23, 26, 8)
+    return g
+
+
+def _signal_gantry():
+    """Mission 2's last stretch: a signal gantry over a gap, a shutter at the yard's gate, a stepped stack."""
+    g, pit, block, walk = _section(32)
+    block(3, 5, 9, CRATE)
+    walk(8, 13, 8)
+    pit(10, 12)
+    block(24, 25, 10, CRATE)
+    block(26, 27, 9, CRATE)
+    return g
+
+
+def _last_pylon():
+    """Mission 3's last stretch: one more live arm, the Legion's checkpoint fences either side of a culvert."""
+    g, pit, block, walk = _section(32)
+    walk(3, 10, 8)                         # live
+    block(5, 8, 9)
+    pit(20, 22)
+    return g
+
+
+def _turbine_hall():
+    """Mission 4's last stretch: a vent up to a catwalk over a pit, a crusher, a fence, the hall's last gap."""
+    g, pit, block, walk = _section(32)
+    walk(4, 14, 4)
+    pit(9, 11)
+    pit(26, 28)
+    return g
+
+
+SPAN = ("crane", "arc", "trolley", "dark", "crumble")      # props whose second number is a column too
+INTO = ("drain", "door", "ladder")                         # props whose third number is the room's exit column
+
+
+def _moved(spec, move):
+    cols = {1} | ({2} if spec[0] in SPAN else set()) | ({3} if spec[0] in INTO else set())
+    return tuple(move(v) if i in cols else v for i, v in enumerate(spec))
+
+
 class Mission:
     def __init__(self, number, name, build, spawns, boss_col, boss, boss_title, song, theme, briefing, outro,
-                 props=()):
-        self.number, self.name, self.build, self.spawns, self.props = number, name, build, spawns, list(props)
+                 props=(), more=None):
+        """more: (column, section, placed spawns, edge kinds, props) a stretch spliced in at that column; what
+        lies past it (the arena, the boss, spawns, props) moves along. Section columns count from its start."""
+        props, spawns = list(props), list(spawns)
+        if more:
+            at, section, placed, kinds, extra = more
+            n, road = len(section()[0]), build
+
+            def build():
+                g, sec = road(), section()
+                for r in range(ROWS):
+                    g[r][at:at] = sec[r]
+                return g
+            boss_col += n
+            props = [_moved(p, lambda c: c + n if c >= at else c) for p in props] +                 [_moved(p, lambda c: c + at) for p in extra]
+            x0, dx = at * TILE, n * TILE
+            spawns = [(c + dx, k, x if x == "edge" else x + dx, e)
+                      if (x == "edge" and c + W >= x0) or (x != "edge" and x >= x0) else (c, k, x, e)
+                      for c, k, x, e in spawns]
+            spawns += _waves([(k, c + at, e) for k, c, e in placed], x0 - W, kinds, x0 + dx - W)
+        self.number, self.name, self.build, self.spawns, self.props = number, name, build, spawns, props
         self.boss_col, self.boss, self.boss_title = boss_col, boss, boss_title
         self.song, self.theme, self.briefing, self.outro = song, theme, briefing, outro
 
@@ -346,16 +426,25 @@ class Mission:
 MISSIONS = [
     Mission(1, "SCRAPYARD DUSK", _scrapyard, SCRAPYARD_SPAWNS, 212, "bastion", "BASTION  LEGION GATE CRAWLER",
             ("stage", "boss"), 0, ["FREE THE CAPTURED TECHNICIANS.", "BREAK THE LEGION GATE."],
-            ["THE GATE IS DOWN.", "THE PRISONERS WERE MOVED BY RAIL."], SCRAPYARD_PROPS),
+            ["THE GATE IS DOWN.", "THE PRISONERS WERE MOVED BY RAIL."], SCRAPYARD_PROPS,
+            (206, _gate_yard, [("hostage", 12, "S"), ("lobber", 25, None), ("barrel", 27, None)],
+             ["soldier", "cutter", "drone"],
+             [("shutter", 9), ("crumble", 18, 19, 11), ("crusher", 29, 40)])),
     Mission(2, "THE PRISONER LINE", _line, LINE_SPAWNS, 228, "warden", "WARDEN  PRISONER LINE ENGINE",
             ("line", "warden"), 1, ["THE LEGION SHIPS ITS PRISONERS BY RAIL.", "STOP THE TRAIN."],
-            ["THE PRISONER CARS ARE OPEN.", "KES'S BROTHER WAS NOT ABOARD."], LINE_PROPS),
+            ["THE PRISONER CARS ARE OPEN.", "KES'S BROTHER WAS NOT ABOARD."], LINE_PROPS,
+            (218, _signal_gantry, [("hostage", 20, "B"), ("turret", 12, None), ("lobber", 27, None)],
+             ["soldier", "shield", "soldier"], [("shutter", 17)])),
     Mission(3, "PYLON ROAD", _pylon_road, ROAD_SPAWNS, 220, "harrow", "HARROW  LINE SURVEY GUNSHIP",
             ("pylon", "harrow"), 2, ["THE LAST LIVE LINE RUNS TO THE CRADLE.", "FOLLOW IT. DOWN THE GUNSHIP."],
-            ["HARROW'S LOG CARRIES THE BROTHER'S MAPS.", "GRAIVE IS RELIGHTING THE OLD GRID."], ROAD_PROPS),
+            ["HARROW'S LOG CARRIES THE BROTHER'S MAPS.", "GRAIVE IS RELIGHTING THE OLD GRID."], ROAD_PROPS,
+            (213, _last_pylon, [("hostage", 16, "R"), ("lobber", 29, None)], ["trike", "sapper", "cutter"],
+             [("arc", 3, 10, 8, 30), ("laser", 13), ("laser", 27)])),
     Mission(4, "THE CRADLE", _cradle, CRADLE_SPAWNS, 220, "graive", "GRAIVE  WARLORD OF THE CRADLE",
             ("cradle", "graive"), 3, ["THE CRADLE STILL TURNS. GRAIVE IS INSIDE.", "TAKE THE TOWER. FIND KES'S BROTHER."],
-            ["GRAIVE IS DOWN. THE CRADLE IS OURS.", "KES'S BROTHER IS AT THE CONTROLS."], CRADLE_PROPS),
+            ["GRAIVE IS DOWN. THE CRADLE IS OURS.", "KES'S BROTHER IS AT THE CONTROLS."], CRADLE_PROPS,
+            (216, _turbine_hall, [("hostage", 19, "H"), ("guard", 24, None)], ["cutter", "guard", "cutter"],
+             [("vent", 2), ("piston", 16, 0), ("laser", 21)])),
 ]
 
 

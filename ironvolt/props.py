@@ -540,6 +540,11 @@ class Shutter(Prop):
         for k in range(-6, self.W, 6):                         # hazard stripes on the jammed edge
             pygame.draw.line(surf, C["gold"], (x + max(0, k), bottom - 2), (x + min(self.W - 1, k + 4), bottom - 6), 2)
         pygame.draw.line(surf, C["black"], (x, bottom - 1), (x + self.W - 1, bottom - 1))
+        for rx in (x - 3, x + self.W):                         # the rails' hazard paint: never a plain girder
+            for k in range(bottom - 40, GROUND_Y, 6):
+                pygame.draw.line(surf, C["gold"], (rx, k + 3), (rx + 2, k), 1)
+        lamp = C["red"] if frame % 30 < 15 else C["rust_d"]
+        pygame.draw.circle(surf, lamp, (x + self.W // 2, bottom - 12), 2)
         if self.near and frame % 40 < 26:                      # a chevron along the floor: under here
             cy = GROUND_Y - 7
             cx = x - 14 + (frame // 6) % 3
