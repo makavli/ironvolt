@@ -58,7 +58,7 @@ def _scrapyard():
     walk(134, 140, 7)
     walk(142, 148, 4)
     block(152, 156, 9)
-    pit(162, 164)                          # the grate at 157 leads down into the scrap tunnel                          # pits stay 3 tiles: a running jump clears ~3.4
+    pit(162, 164)                          # 3 tiles (a running jump clears ~3.4); the grate at 157 leads down
     block(170, 171, 10, CRATE)
     walk(176, 182, 8)
     block(186, 190, 9)
