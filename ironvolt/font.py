@@ -1,5 +1,7 @@
 """A 5x7 arcade bitmap font, drawn from bits (no font files, nothing to license)."""
 
+import math
+
 import pygame
 
 _GLYPHS = {
@@ -58,6 +60,15 @@ def draw(surf, text, pos, colour=(255, 255, 255), scale=1, shadow=(8, 6, 14), ce
                 g = pygame.transform.scale(g, (GLYPH_W * scale, GLYPH_H * scale))
             surf.blit(g, (gx + off, y + off))
     return x
+
+
+def wobble(surf, text, centre, frame, colours=((255, 214, 64), (255, 255, 255))):
+    """A sign that bounces: each letter bobs on its own beat and the colours take turns. For "GO DOWN!" moments."""
+    text = text.upper()
+    x = centre[0] - width(text) // 2
+    for i, ch in enumerate(text):
+        dy = round(2.5 * math.sin(frame * 0.25 - i * 0.7))
+        draw(surf, ch, (x + i * ADVANCE, centre[1] + dy), colours[(i + frame // 8) % len(colours)])
 
 
 def logo(text, scale, top, bottom, outline):

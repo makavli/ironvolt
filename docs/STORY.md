@@ -73,6 +73,12 @@ The Brigade brings it down on the road. In its flight log Juno finds survey runs
 been mapping the dead lines, tower by tower, from maps drawn by a prisoner. Kes knows the handwriting. Graive is not
 just holding the Cradle. He is relighting the old grid, one line at a time, and every line he relights he owns.
 
+## The brother's maps
+
+Kes's brother read the old grid's maps for the Legion, and he copied them as he went: page by page, hidden where
+only a lineman would look, in drains, up on the catwalks, in places the Legion walks past. Each page the Brigade
+finds is a piece of the whole grid, drawn the way it was before the fire.
+
 ## Mission 4: The Cradle
 
 The Cradle stands at the centre of the dead grid: one cooling tower among forty that burned, and the only one whose

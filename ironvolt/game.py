@@ -13,7 +13,7 @@ import pygame
 from . import __version__, audio, font, storage
 from .autopilot import BotPad
 from .menu import Layout, Menu, Options
-from .settings import CHAIN_FRAMES, CHAIN_MAX, LEVELS, C, H, W
+from .settings import CALM, CHAIN_FRAMES, CHAIN_MAX, CROWD, LEVELS, C, H, W
 from .stage import MISSIONS
 from .world import World
 
@@ -30,8 +30,26 @@ STORY = [
     ["THE LEGION TAKES THE PEOPLE", "WHO CAN KEEP THE CRADLE ALIVE:", "", "TECHNICIANS. LINEMEN.", "IN CHAINS."],
     ["THE OLD REPAIR CREWS FIGHT BACK.", "", "KES ADEYEMI.  JUNO VARGA.", "", "THE IRONVOLT BRIGADE."],
 ]
-LEVEL_LINES = {"EASY": "FIVE LIVES. SLOWER SHOTS.", "NORMAL": "THE CABINET AS IT WAS.",
-               "HARD": "TWO LIVES. NO MERCY."}
+LEVEL_LINES = {"RELAXED": "NINE LIVES. FEWER FOES, FEWER SHOTS.", "EASY": "FIVE LIVES. SLOWER SHOTS.",
+               "NORMAL": "THE CABINET AS IT WAS.", "HARD": "TWO LIVES. NO MERCY."}
+GRADE_BONUS = {"S": 30000, "A": 15000, "B": 5000, "C": 0}
+GRADE_COLOUR = {"S": "gold", "A": "cyan", "B": "cream", "C": "steel_l"}
+# The between-missions map of the Voltline: one node per mission, the towns around each that get their light back.
+MAP_NODES = [(46, 150), (114, 116), (190, 142), (264, 88)]
+MAP_TOWNS = [[(x + dx, y + dy) for dx, dy in ((-20, -14), (14, -18), (22, 10), (-14, 16), (4, 24), (-28, 4))]
+             for x, y in MAP_NODES]
+
+
+def grade(freed, total, deaths):
+    """S: every prisoner (secrets too) and nobody down. Then A, B, C."""
+    share = freed / max(1, total)
+    if share >= 1 and deaths == 0:
+        return "S"
+    if share >= 0.75 and deaths <= 1:
+        return "A"
+    if share >= 0.5 and deaths <= 3:
+        return "B"
+    return "C"
 try:                                         # playtests: IRONVOLT_STAGE=2 starts on a later mission
     FIRST_STAGE = min(max(0, int(os.environ.get("IRONVOLT_STAGE", "1")) - 1), len(MISSIONS) - 1)
 except ValueError:
@@ -94,11 +112,14 @@ class Game:
         for w in (self.world, self.demo):
             if w:
                 w.shake_on, w.flashes_on = self.opts["shake"] == "ON", self.opts["flashes"] == "FULL"
+        if self.world and key in ("enemies", "enemy_fire"):
+            self.world.set_enemies(CROWD.get(self.opts["enemies"]), CALM.get(self.opts["enemy_fire"]))
         self.on_option(key)
 
     def start(self, players, level=None):
         lives = None if self.opts["lives"] == "AUTO" else int(self.opts["lives"])
-        self.world = World(players, level=level or self.level, lives=lives, stage=FIRST_STAGE)
+        self.world = World(players, level=level or self.level, lives=lives, stage=FIRST_STAGE,
+                           crowd=CROWD.get(self.opts["enemies"]), calm=CALM.get(self.opts["enemy_fire"]))
         if self.opts["level"] != self.world.level:
             self.set_option("level", self.world.level)       # offered first next time
         self.demo = None
@@ -144,13 +165,23 @@ class Game:
         elif self.mode == "play":
             self.play_step(ctl, starts)
         elif self.mode in ("over", "clear"):
+            if self.mode == "clear" and self.t == 100:
+                audio.play("stomp")                         # the grade stamped on the tally
             if self.t > (240 if self.mode == "over" else 420) or (self.t > 90 and starts):
                 if self.mode == "clear" and not self.world.stage.last:
-                    self.world = self.world.advance()       # on to the next mission, the same team
-                    audio.play("start")
-                    self.go("play")
+                    self.go("map")                          # the Voltline: what the team has lit so far
                 else:
                     self.begin_entry()
+        elif self.mode == "map":
+            n = self.world.stage.mission.number - 1
+            if self.t in [30 + k * 14 for k in range(len(MAP_TOWNS[n]))]:
+                audio.play("clank")                         # a town's lights come back
+            if self.t == 210:
+                audio.play("free")
+            if self.t > 480 or (self.t > 90 and starts):
+                self.world = self.world.advance()           # on to the next mission, the same team
+                audio.play("start")
+                self.go("play")
         elif self.mode == "entry":
             self.entry_step(ctl)
 
@@ -220,8 +251,8 @@ class Game:
         i = LEVELS.index(self.level)
         for pad in ctl.pads:
             i += pad.pressed("down") - pad.pressed("up")
-        if LEVELS[max(0, min(2, i))] != self.level:
-            self.level = LEVELS[max(0, min(2, i))]
+        if LEVELS[max(0, min(len(LEVELS) - 1, i))] != self.level:
+            self.level = LEVELS[max(0, min(len(LEVELS) - 1, i))]
             audio.play("clank")
         if (self.t > 15 and (starts or self.skip(ctl))) or self.t > 900:
             self.start(self.pending)
@@ -271,7 +302,9 @@ class Game:
             audio.music(True, boss_song if w.locked else stage_song)
         if w.cleared > 180:
             audio.music(False)
-            self.bonus = w.hostages_freed * 1000
+            self.grade = grade(w.hostages_freed, w.hostage_total, w.deaths - w.deaths_start)
+            w.grades[w.stage.mission.number] = self.grade
+            self.bonus = w.hostages_freed * 1000 + GRADE_BONUS[self.grade]
             for p in w.players:
                 if p:
                     p.score += self.bonus
@@ -360,6 +393,8 @@ class Game:
                 self.tally(surf)
             if self.feeble is not None and self.mode == "play":
                 self.feeble_offer(surf)
+        elif self.mode == "map":
+            self.voltline(surf)
         elif self.mode == "demo" and self.demo:
             self.demo.draw(surf, self.atlas)
             self.hud(surf, self.demo)
@@ -370,7 +405,7 @@ class Game:
             font.draw(surf, "CHOOSE YOUR FIGHT", (W // 2, 44), C["sun"], 2, center=True)
             for k, name in enumerate(LEVELS):
                 on = name == self.level
-                y = 74 + k * 26
+                y = 68 + k * 22
                 font.draw(surf, name, (W // 2, y), C["cream"] if on else C["steel"], 2, center=True)
                 if on:
                     x = W // 2 - font.width(name, 2) // 2 - 18
@@ -431,6 +466,44 @@ class Game:
             label = "FREE PLAY" if self.free_play else "CREDIT %d" % self.credits
             font.draw(surf, label, (W // 2, H - 10), C["steel_l"], center=True)
             font.draw(surf, "V" + __version__, (W - 4 - font.width("V" + __version__), H - 10), C["steel"])
+
+    def voltline(self, surf):
+        """Between missions: the map of the old grid, the route the team has fought along lit up, the towns around
+        the mission just won getting their power back one by one, and the next mission's node blinking."""
+        self.backdrop(surf)
+        self.shade(surf, 170)
+        w, t = self.world, self.t
+        done = w.stage.mission.number                     # missions cleared, this one included
+        font.draw(surf, "THE VOLTLINE", (W // 2, 14), C["sun"], 2, center=True)
+        for k, (a, b) in enumerate(zip(MAP_NODES, MAP_NODES[1:])):
+            pygame.draw.line(surf, C["steel_d"], a, b, 3)
+            share = 1.0 if k < done - 1 else max(0.0, min(1.0, (t - 120) / 90)) if k == done - 1 else 0.0
+            if share:
+                end = (round(a[0] + (b[0] - a[0]) * share), round(a[1] + (b[1] - a[1]) * share))
+                pygame.draw.line(surf, C["cyan"], a, end, 3)
+                pygame.draw.line(surf, C["white"], a, end, 1)
+        for m, towns in enumerate(MAP_TOWNS):
+            for k, (x, y) in enumerate(towns):
+                lit = m < done - 1 or (m == done - 1 and t > 30 + k * 14)
+                pygame.draw.rect(surf, C["gold"] if lit else C["ink"], (x - 1, y - 1, 3, 3))
+                if lit and (t + k * 7) % 50 < 3:
+                    pygame.draw.rect(surf, C["cream"], (x - 2, y - 2, 5, 5), 1)
+        for m, (x, y) in enumerate(MAP_NODES):
+            num = m + 1
+            nxt = num == done + 1
+            col = C["cream"] if num <= done else (C["ember"] if t % 30 < 18 else C["rust"]) if nxt else C["steel_d"]
+            pygame.draw.circle(surf, C["ink"], (x, y), 7)
+            pygame.draw.circle(surf, col, (x, y), 5)
+            if num in w.grades:
+                g = w.grades[num]
+                font.draw(surf, g, (x, y + 10), C[GRADE_COLOUR[g]], center=True)
+            if num in w.pages:
+                surf.blit(self.atlas.caps["M"], (x + 8, y - 16))
+        if t > 210 and done < len(MISSIONS):
+            m = MISSIONS[done]
+            font.draw(surf, "NEXT  MISSION %d" % m.number, (W // 2, 176), C["sun"], center=True)
+            font.draw(surf, m.name, (W // 2, 188), C["cream"], center=True)
+        font.draw(surf, "MAP PAGES  %d/%d" % (len(w.pages), len(MISSIONS)), (6, H - 10), C["steel_l"])
 
     def feeble_offer(self, surf):
         w = self.world
@@ -524,14 +597,27 @@ class Game:
         elif w.locked and w.boss and w.boss.state == "enter" and w.frame % 30 < 20:
             font.draw(surf, "WARNING", (W // 2, 80), C["red"], 3, center=True)
             font.draw(surf, w.stage.mission.boss_title, (W // 2, 110), C["cream"], center=True)
+        elif w.stage.timed:
+            if w.room_t < 150 and w.room_t % 30 < 20:
+                font.draw(surf, "HOLD THE LIFT", (W // 2, 80), C["sun"], 2, center=True)
         elif not w.locked and not any(0 < f.x - w.cam_x < W for f in w.foes) and (w.frame // 30) % 2:
             font.draw(surf, "GO >", (W - 50, 100), C["sun"], 2)
 
     def tally(self, surf):
         self.shade(surf)
+        w = self.world
         font.draw(surf, "MISSION COMPLETE", (W // 2, 60), C["sun"], 2, center=True)
-        font.draw(surf, "PRISONERS FREED  %d" % self.world.hostages_freed, (W // 2, 96), C["cream"], center=True)
-        font.draw(surf, "BONUS  %d" % self.bonus, (W // 2, 110), C["cream"], center=True)
+        font.draw(surf, "PRISONERS FREED  %d/%d" % (w.hostages_freed, w.hostage_total), (W // 2, 92), C["cream"],
+                  center=True)
+        font.draw(surf, "BONUS  %d" % self.bonus, (W // 2, 104), C["cream"], center=True)
+        found = w.stage.mission.number in w.pages
+        font.draw(surf, "MAP PAGE FOUND" if found else "MAP PAGE  STILL HIDDEN", (W // 2, 116),
+                  C["gold"] if found else C["steel"], center=True)
+        if self.t > 100:                                    # the grade, stamped
+            g = getattr(self, "grade", "C")
+            size = 4 if self.t > 104 else 6
+            font.draw(surf, "RANK", (W - 36, 70), C["steel_l"], center=True)
+            font.draw(surf, g, (W - 36, 82 - (size - 4) * 4), C[GRADE_COLOUR[g]], size, center=True)
         st = self.world.stage
         for k, line in enumerate(st.mission.outro):
             if self.t > 60 + k * 30:

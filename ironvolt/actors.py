@@ -86,7 +86,7 @@ COYOTE, BUFFER = 6, 6                      # frames of forgiveness at ledges and
 FIRE_BUFFER = 8                            # a tap between two shots still fires, as soon as the gun allows
 STAND, DUCK = 21, 12                       # body heights: rifle fire flies 15 px up, over a crouch
 SLIDE, SLIDE_V, SLIDE_DRAG = 22, 3.2, 0.95  # down + jump on solid ground: a low dash under rifle fire
-KNIFE_REACH, KNIFE_DMG, KNIFE_RATE = 18, 3, 14   # fire with a foe this close: a stab that downs any trooper
+KNIFE_REACH, KNIFE_DMG, KNIFE_RATE = 30, 3, 14   # fire with a foe this close: a stab that downs any trooper
 SAPPER_FUSE = 40                           # frames from a sapper lighting up beside you to the blast: time to knife it
 STOMP_DMG, STOMP_BOUNCE = 2, -4.6          # landing on a foe's head; hold jump to bounce high
 
@@ -115,6 +115,8 @@ class Player(Body):
         self.run_t = 0.0
         self.recoil = 0
         self.slide = self.slash = 0    # frames left in a slide, and of the knife's swipe on screen
+        self.riding = None             # the deck (a prop) under the feet
+        self.flung = 0                 # frames of a vent's throw: a let-go jump button does not cut it short
         self.god = False               # tests and the attract demo
 
     @property
@@ -199,7 +201,8 @@ class Player(Body):
             audio.play("jump")
         self.buffer = max(0, self.buffer - 1)
         held = pad.held("jump")
-        if not held and self.vy < JUMP_V * JUMP_CUT:
+        self.flung = max(0, self.flung - 1)
+        if not held and self.vy < JUMP_V * JUMP_CUT and not self.flung:
             self.vy = JUMP_V * JUMP_CUT
         gravity = JUMP_GRAVITY if self.vy < 0 else FALL_GRAVITY
         # the float is for a jump only: a step off a ledge, or a drop through a catwalk, just falls
@@ -246,7 +249,7 @@ class Player(Body):
 
     def in_reach(self, world):
         """The foe a knife would reach: in front, at body height. Not the boss: a blade is no answer to a tank."""
-        x0 = self.x if self.facing > 0 else self.x - KNIFE_REACH
+        x0 = self.x - 4 if self.facing > 0 else self.x + 4 - KNIFE_REACH     # from inside the body: a foe in your face counts
         box = pygame.Rect(round(x0), round(self.y - STAND), KNIFE_REACH, STAND)
         return next((e for e in world.foes if not getattr(e, "dying", 0) and box.colliderect(e.rect())), None)
 
@@ -540,7 +543,7 @@ class Foe(Body):
             if on_screen and self.timer <= 0 and not far:
                 if not self.aiming:
                     self.aiming = world.windup        # a visible wind-up before every shot
-                self.timer = random.randint(70, 120)
+                self.timer = round(random.randint(70, 120) * world.calm)   # calmer levels shoot less often
             if self.aiming:
                 self.aiming -= 1
                 if self.aiming % 8 == 4:                  # the muzzle glints: a shot is coming
@@ -665,7 +668,7 @@ class Drone(Body):
         self.timer -= 1
         if target and self.timer <= 0 and abs(target.x - self.x) < 24 and 0 < self.x - world.cam_x < W:
             world.bolts.append(Bolt(self.x, self.y + 2, self.vx * 0.5, 0.5, 0.12, "bolt"))
-            self.timer = 80
+            self.timer = round(80 * world.calm)
             audio.play("enemy_shot")
         if self.x < world.cam_x - 60:
             self.dead = True
@@ -711,7 +714,7 @@ class Turret(Body):
         if self.timer in (18, 12, 6):                     # the barrel glints before it fires
             world.flash(self.x + c * 12, self.y - 10 + s * 12, small=True)
         if self.timer <= 0:
-            self.timer = 80
+            self.timer = round(80 * world.calm)
             world.bolts.append(Bolt(self.x + c * 12, self.y - 10 + s * 12, c * 1.7 * world.fire, s * 1.7 * world.fire))
             world.flash(self.x + c * 12, self.y - 10 + s * 12, small=True)
             audio.play("enemy_shot")
@@ -806,10 +809,10 @@ class Pickup(Body):
             else:
                 p.weapon, p.ammo = self.kind, WEAPONS[self.kind][1]
         elif self.kind == "B":
-            p.grenades += 10
+            p.grenades += GRENADES
         elif self.kind == "1":
             p.lives += 1
-        self.dead = True
+        self.dead = True                                   # "M", a map page: the world keeps count
         audio.play("pickup")
 
     def draw(self, surf, atlas, cam):

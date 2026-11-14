@@ -52,7 +52,8 @@ class Menu:
 
 
 ROWS = [
-    ("GAME", None), ("DIFFICULTY", "level"), ("LIVES", "lives"), ("TOO FEEBLE OFFER", "feeble"),
+    ("GAME", None), ("DIFFICULTY", "level"), ("LIVES", "lives"), ("ENEMIES", "enemies"),
+    ("ENEMY FIRE", "enemy_fire"), ("TOO FEEBLE OFFER", "feeble"),
     ("FREE PLAY", "free_play"),
     ("VIDEO", None), ("FULLSCREEN", "fullscreen"), ("SCALING", "scale"), ("CRT LINES", "crt"),
     ("AUDIO", None), ("MUSIC", "music"), ("EFFECTS", "sfx"),
@@ -60,6 +61,7 @@ ROWS = [
     ("ACCESSIBILITY", None), ("SCREEN SHAKE", "shake"), ("FLASHES", "flashes"), ("GAME SPEED", "speed"),
     ("BACK", "back"),
 ]
+SHOWN = 20                                     # option rows on screen at once
 WEB_HIDDEN = ("fullscreen", "scale")              # the page's own fullscreen button does these
 
 
@@ -96,8 +98,12 @@ class Options:
     def draw(self, surf, t):
         font.draw(surf, "OPTIONS", (W // 2, 6), C["sun"], 2, center=True)
         y = 26
+        sel = self.picks[self.i]
+        top = max(0, min(sel - 9, len(self.rows) - SHOWN))   # more rows than fit: the list scrolls with the cursor
         for k, (label, key) in enumerate(self.rows):
-            on = k == self.picks[self.i]
+            if not top <= k < top + SHOWN:
+                continue
+            on = k == sel
             if key is None:
                 font.draw(surf, label, (40, y), C["ember"])
             elif key == "back":

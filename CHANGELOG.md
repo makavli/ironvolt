@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.11.0
+
+Missions 1 and 2 get set pieces of their own, and a hidden map page each: all four pages can now be found.
+- **Mission 1, SCRAPYARD DUSK:**
+  - **The magnet crane:** the first pit is now wide and flooded. Hop on the car wreck hanging from the crane's
+    magnet and it carries the team over. Its magnet holds your boots; empty at the far side, it swings back.
+  - **The car presses:** two presses stamp the yard floor on a beat. Run under between blows; troopers caught under
+    one get SQUASHED.
+  - **The scrap tunnel:** a grate near the end of the yard leads down to where the Legion keeps what it strips from
+    the wrecks: three prisoners and the brother's first map page, up on a shelf of scrap.
+- **Mission 2, THE PRISONER LINE:**
+  - **The train roofs:** halfway along the yard, a boxcar rolls by with its ladder down. Climb on and the team rides
+    the moving train's roofs while the yard rushes past and troopers drop in. Signal gantries sweep the roof at head
+    height: a bell, a DUCK! sign, then the beam. Crouch under it; troopers who stand get BONKED off. A map page rides
+    along too.
+- **Shouts:** WHEE! off a steam vent, SQUASHED! under a crusher, and a bouncing sign over the crane.
+- The demo bot ducks under the gantries.
+
+## 0.10.0
+
+Missions 3 and 4 play differently, not only look different, and there is more to do between missions.
+- **Mission 3, PYLON ROAD:**
+  - **Live cross-arms:** the line's current jumps along some arms on a beat. They crackle first, then burn anyone
+    standing on them. Cross between beats.
+  - **The storm drain:** crouch on the grate in the road and the team drops into the drain under it. It is dark and
+    wet, it holds two prisoners and a map page, and it comes up past the hardest stretch of road.
+  - **The gully:** a lineman's cable trolley carries the team across while drones come at it. It waits until
+    everyone is aboard, and its cage keeps you on.
+- **Mission 4, THE CRADLE:**
+  - **Steam vents:** stand on one and it throws you up to the high catwalks, where a prisoner and a map page wait.
+  - **The crushers:** four rams slam the floor in a rolling wave. Run under them between blows; they crush troopers
+    too.
+  - **Lights out:** a long stretch in the dark. Only your lamp, muzzle flashes, fire and the Legion's red lenses
+    show.
+  - **The lift:** the team rides the freight lift up the tower while Graive's guard drops onto it, then steps out
+    into the arena.
+- **Between missions:** a map of the old grid, the Voltline. The route you fought along lights up, the towns around
+  the mission you won get their power back one by one, and the next mission's node blinks.
+- **A rank for every mission (S, A, B, C)** on the tally, with a bonus up to 30,000: S means every prisoner,
+  secrets included, and nobody down.
+- **The brother's map pages:** one is hidden in missions 3 and 4. Each is worth 5,000, and the map screen keeps
+  count.
+- **Gentler choices:**
+  - **RELAXED**, a new level below EASY: nine lives, half the troopers, half as many shots, a weaker boss.
+  - EASY now sends fewer troopers and shoots less often too.
+  - **Two new options**, ENEMIES (fewer, normal, more) and ENEMY FIRE (less, normal, more), override the
+    difficulty. The options page scrolls.
+- **Grenades:** six at the start, at each respawn and from each B capsule (was ten), so the bosses are no longer a
+  grenade spam.
+- New mission art: the salt road has its own near layer (poles, salt mounds, a bucket truck), and the Cradle its
+  own (pipe racks, tanks, a venting stack). New sounds for the arcs, vents, the drain and the lift.
+- **The knife reaches further:** fire with a trooper in your face or a long arm away and it is a stab, not a shot.
+- **Bouncing signs:** "DUCK HERE: GO DOWN!" over the drain grate and "WALK IN: GOING UP!" at the lift, and a shout
+  as you go down, up and back out.
+- In the storm drain, prisoners and troopers stand on its floor (they appeared on top of its ceiling).
+- Mission 4's high catwalks now run on over the pits beyond them: walking off the end no longer drops you in one.
+
 ## 0.9.0
 
 Mission 4, the last one.

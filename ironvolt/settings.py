@@ -12,19 +12,23 @@ MAX_FALL = 6.0             # well under a tile a frame: nothing falls through a 
 RUN = 1.5
 JUMP_V = -6.6              # a held jump tops out 58 px up: the stage's 3-tile (48 px) slabs, with room to spare
 LIVES = 3
-GRENADES = 10
+GRENADES = 6
 RESPAWN_SAFE = 120         # frames of blinking safety after a respawn
 CHAIN_FRAMES = 150         # a kill within this many frames of the last one grows the chain
 CHAIN_MAX = 8              # the score multiplier tops out here
 
 # Chosen before a game starts. lives, enemy wind-up before a shot (frames), enemy bullet speed (x),
-# boss armour, respawn safety (frames), deaths before the game asks if you are too feeble
-LEVELS = ("EASY", "NORMAL", "HARD")
+# boss armour, respawn safety (frames), deaths before the game asks if you are too feeble,
+# crowd (how many of each wave come, x), calm (time between enemy shots, x)
+LEVELS = ("RELAXED", "EASY", "NORMAL", "HARD")
 DIFFICULTY = {
-    "EASY": (5, 36, 0.8, 100, 180, None),
-    "NORMAL": (3, 24, 1.0, 150, 120, 4),
-    "HARD": (2, 16, 1.25, 200, 90, 3),
+    "RELAXED": (9, 48, 0.65, 70, 240, None, 0.5, 1.8),
+    "EASY": (5, 36, 0.8, 100, 180, None, 0.8, 1.3),
+    "NORMAL": (3, 24, 1.0, 150, 120, 4, 1.0, 1.0),
+    "HARD": (2, 16, 1.25, 200, 90, 3, 1.15, 0.85),
 }
+CROWD = {"FEWER": 0.5, "NORMAL": 1.0, "MORE": 1.5}        # the options' ENEMIES (AUTO: the difficulty's)
+CALM = {"LESS": 1.8, "NORMAL": 1.0, "MORE": 0.7}          # the options' ENEMY FIRE
 
 BULLET_V = 6.5             # a pistol shot crosses the screen in under a second
 ENEMY_BULLET_V = 1.9

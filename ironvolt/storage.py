@@ -86,8 +86,10 @@ def _save(data, where):
 
 # Every option and its choices, in the order the options screen shows them. Only these are ever loaded.
 OPTIONS = {
-    "level": ("EASY", "NORMAL", "HARD"),         # offered first on the difficulty screen
+    "level": ("RELAXED", "EASY", "NORMAL", "HARD"),  # offered first on the difficulty screen
     "lives": ("AUTO", "1", "2", "3", "5", "7", "9"),
+    "enemies": ("AUTO", "FEWER", "NORMAL", "MORE"),  # AUTO: as many as the difficulty sends
+    "enemy_fire": ("AUTO", "LESS", "NORMAL", "MORE"),
     "feeble": ("ON", "OFF"),                     # the "too feeble, soldier?" offer
     "free_play": ("ON", "OFF"),
     "fullscreen": ("OFF", "ON"),
