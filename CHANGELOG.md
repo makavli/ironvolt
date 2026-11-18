@@ -9,6 +9,8 @@ No two runs alike.
   somewhere else. The road itself (pits, ledges, set pieces) and the hidden map pages stay where they are, so every
   jump is as fair as before. The lift, the bell tower and the train roofs are scripted and stay as they are.
 - The attract demo still plays the missions as built.
+- **Fix:** in the browser, the sound could throw an error at start-up and drop its first moment: the game opened the
+  sound device twice. It now opens it once, with its own settings from the start.
 
 ## 0.14.0
 

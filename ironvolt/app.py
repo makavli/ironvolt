@@ -79,6 +79,7 @@ class App:
     def __init__(self):
         os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "0")      # nearest: crisp pixels
         os.environ.setdefault("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2")   # real pixels at 125%, 150%...
+        audio.pre_init()                        # the mixer's settings, before pygame.init() opens it
         pygame.init()
         audio.init()
         self.screen = pygame.Surface((W, H))
