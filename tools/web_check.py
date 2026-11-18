@@ -64,6 +64,9 @@ def main():
                 lines.append(" ".join(str(a.get("value", a.get("description", ""))) for a in m["params"]["args"]))
             elif m.get("method") == "Runtime.exceptionThrown":
                 lines.append("EXCEPTION " + m["params"]["exceptionDetails"].get("text", ""))
+            elif m.get("method") == "Log.entryAdded" and m["params"]["entry"]["level"] == "error":    # a script that failed to load
+                e = m["params"]["entry"]
+                lines.append("browser %s: %s %s" % (e["source"], e["text"], e.get("url", "")))
 
         def pump(seconds):
             end = time.time() + seconds
@@ -87,6 +90,7 @@ def main():
                 pump(0.2)
 
         call("Runtime.enable")
+        call("Log.enable")
         call("Page.enable")
         call("Page.navigate", url="http://127.0.0.1:%d/%s" % (port, os.environ.get("WEB_HASH", "")))
         pump(WAIT)
@@ -146,6 +150,8 @@ def main():
         bad.append("the mixer did not open at 44.1 kHz stereo, or its effects play at the wrong speed")
     if "song title loaded" not in text:
         bad.append("the page did not load the title song")
+    if not any(l.startswith("pythons.js") for l in lines):
+        bad.insert(0, "the page's loader never ran: pythons.js and Python come from the pygame-web CDN, did it load?")
     if bad or "Traceback" in text:
         print("FAIL:", *bad[:5], sep="\n  ")
         sys.exit(1)

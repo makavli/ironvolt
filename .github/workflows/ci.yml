@@ -93,6 +93,12 @@ jobs:
         env:
           SDL_VIDEODRIVER: ""                 # the page draws for real; only the runner's Python was headless
         run: python tools/web_check.py 60
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-check-shots
+          path: shots/
+          retention-days: 3
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-Web
