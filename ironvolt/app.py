@@ -16,9 +16,8 @@ import pygame
 from . import __version__, audio, font
 from .art import Atlas
 from .controls import Controls
-from .game import FIRST_STAGE, Game
+from .game import Game
 from .settings import C, H, MAX_DT, STEP, W
-from .stage import MISSIONS
 
 WEB = sys.platform == "emscripten"
 WEB_SCALE = 3                                     # the canvas is 960x672; the page fits it to the browser window
@@ -81,7 +80,7 @@ class App:
         os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "0")      # nearest: crisp pixels
         os.environ.setdefault("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2")   # real pixels at 125%, 150%...
         pygame.init()
-        audio.init(first=MISSIONS[FIRST_STAGE].song)      # IRONVOLT_STAGE: its songs are ready when it starts
+        audio.init()
         self.screen = pygame.Surface((W, H))
         self.atlas = Atlas()
         if WEB:
@@ -227,7 +226,6 @@ class App:
         self.controls.touch.draw(self.screen)
         self.turned()
         self.present()
-        audio.tick()
         self.shown += 1
         return self.running and not self.game.quit and not (self.limit and self.shown >= self.limit)
 

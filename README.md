@@ -7,8 +7,8 @@
 **Two soldiers. One endless dusk. Every bullet counts.**
 
 A 90s-arcade run-and-gun for one or two players: chunky pixels, screen-shaking explosions,
-a tank boss with a second phase, and not a single image or sound file in the repo.
-**Every pixel and every note is made by code.**
+a tank boss with a second phase, and not a single image file in the repo.
+**Every pixel and every sound effect is made by code.**
 
 ![Python 3.13](https://img.shields.io/badge/python-3.13-3776AB?logo=python&logoColor=white)
 ![pygame-ce](https://img.shields.io/badge/pygame--ce-2.5.8-6aa84f)
@@ -75,9 +75,9 @@ S to C, and hides a page of the brother's maps.
   feeble.
 - **Options for everyone:** lives, how many enemies and how often they shoot, music and effects volume, rumble, swapped fire and jump, screen shake, flashes
   and a slower game speed, all saved. A controls page shows the keys and the pad.
-- **A synthesized stereo soundtrack:** a title theme, and for each mission a stage theme and a boss theme that
-  crossfades in when the arena locks.
-- **Zero asset files:** sprites, tiles, the font, every sound effect and the music are generated at start-up.
+- **A chiptune soundtrack:** a title theme, a theme for each mission and a boss theme that crossfades in when the
+  arena locks (CC0 music by Juhani Junkala, see [CREDITS.md](CREDITS.md)).
+- **Drawn in code:** sprites, tiles, the font and every sound effect are generated at start-up.
 
 ## Play from the source
 

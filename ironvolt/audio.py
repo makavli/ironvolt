@@ -1,20 +1,18 @@
-"""Synthesized sound: every effect and the songs (music.py) are computed at start-up (no audio files).
+"""Sound: every effect is synthesized at start-up; the songs are CC0 Ogg files in songs/ (see CREDITS.md).
 
-The songs are built in a background thread so the title appears at once. The browser build ships them baked
-(tools/music_bake.py): a browser runs the sound on the game's own thread, and building there made it tick. Without an audio device (tests, a PC with no sound), every call is a silent no-op.
+Without an audio device (tests, a PC with no sound), every call is a silent no-op.
 """
 
 import math
 import os
 import random
+import struct
 import sys
-import threading
-import time
+import tempfile
 from array import array
 
 import pygame
 
-from . import music as songs
 from .music import RATE
 
 _sounds = {}
@@ -91,76 +89,57 @@ def _effects():
 
 # --------------------------------------------------------------- music
 
-ORDER = ("title", "stage", "boss", "line", "warden", "pylon", "harrow", "cradle", "graive", "sakura", "blademaster", "harbour",
-         "leviathan")            # built in this order: the first one heard comes first
-VOLUME = {"title": 0.11, "stage": 0.14, "boss": 0.131, "line": 0.133, "warden": 0.118, "pylon": 0.137,
-          "harrow": 0.104, "cradle": 0.133, "graive": 0.121, "sakura": 0.12, "blademaster": 0.104, "harbour": 0.114,
-          "leviathan": 0.116}   # evens out the songs' loudness
-_tracks = {}
-_wanted = set()                                   # songs asked for before they were built: built next
-_building = None
+FILE = {"title": "title", "stage": "level1", "line": "level2", "pylon": "level3", "cradle": "stage2",
+        "sakura": "stage1", "harbour": "ending", "boss": "boss", "warden": "boss", "harrow": "boss",
+        "graive": "boss", "blademaster": "boss", "leviathan": "boss"}   # song -> songs/*.ogg (CREDITS.md)
+VOLUME = {"title": 0.10, "level1": 0.09, "level2": 0.09, "level3": 0.095, "ending": 0.14, "stage1": 0.16,
+          "stage2": 0.156, "boss": 0.175}   # evens out the files' loudness: rms x volume ~1120, the boss ~1210
+_tracks = {}                                      # file -> Sound
 _playing, _ch = None, 0
 _volume = {"music": 0.8, "sfx": 0.8}              # the options' sliders, 0..1
 _base = {"heavy": 0.7}                            # effects mixed quieter than the rest
 
 
-def _stereo(mono):
+def _sound(mono, path):
+    """A Sound from mono samples at RATE, sent through a WAV file so SDL converts it to the mixer's own rate: a
+    browser's mixer runs at the device's (48 or 96 kHz), where raw 22 kHz samples played 2-4x too fast and too high.
+    A file, as the browser's pygame loads sounds from paths only."""
     out = array("h", bytes(4 * len(mono)))
     out[0::2] = mono
     out[1::2] = mono
-    return out
+    n = 2 * len(out)
+    head = struct.pack("<4sI4s4sIHHIIHH4sI", b"RIFF", 36 + n, b"WAVE", b"fmt ", 16, 1, 2, RATE, RATE * 4, 4, 16,
+                       b"data", n)
+    with open(path, "wb") as f:
+        f.write(head + out.tobytes())
+    return pygame.mixer.Sound(path)
 
 
-def init(first=()):
-    """Starts the mixer and the sound build, the songs in `first` right after the title's. Returns False with no
-    audio device."""
-    global _on, _building
-    _wanted.update(("title",) + tuple(first))
+def init():
+    """Starts the mixer, makes the effects and loads the songs. Returns False with no audio device."""
+    global _on
     try:
-        pygame.mixer.pre_init(RATE, -16, 2, 512)
-        pygame.mixer.init(RATE, -16, 2, 512)
+        # the browser mixes on the game's own thread: its deeper buffer must outlast a slow frame or the sound ticks
+        size = 2048 if sys.platform == "emscripten" else 512
+        pygame.mixer.pre_init(RATE, -16, 2, size)
+        pygame.mixer.init(RATE, -16, 2, size)
         pygame.mixer.set_num_channels(24)
         pygame.mixer.set_reserved(2)               # channels 0 and 1 are the music's: one fades out as the other comes in
     except pygame.error:
         return False
     _on = True
-    for name, data in _effects().items():
-        _sounds[name] = pygame.mixer.Sound(buffer=_stereo(data).tobytes())
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, data in _effects().items():
+            _sounds[name] = _sound(data, os.path.join(tmp, name + ".wav"))
     set_volume()
-    baked = os.path.join(os.path.dirname(__file__), "baked")
-    if os.path.isdir(baked):
-        for name in ORDER:
-            _tracks[name] = pygame.mixer.Sound(os.path.join(baked, name + ".ogg"))
-        if sys.platform == "emscripten":
-            import platform
-            platform.window.console.log("music: baked")       # tools/web_check.py looks for this
-        return True
-    _building = _build_all()
-    if sys.platform != "emscripten":               # a browser has no threads: tick() builds there, a slice a frame
-        threading.Thread(target=lambda: all(True for _ in _building), daemon=True).start()
+    here = os.path.join(os.path.dirname(__file__), "songs")
+    for f in set(FILE.values()):
+        _tracks[f] = pygame.mixer.Sound(os.path.join(here, f + ".ogg"))
+    if sys.platform == "emscripten":
+        import platform
+        platform.window.console.log("music: loaded, mixer %s, start jingle %.2fs"          # tools/web_check.py reads this
+                                    % (pygame.mixer.get_init(), _sounds["start"].get_length()))
     return True
-
-
-def _build_all():
-    pending = list(ORDER)
-    while pending:
-        name = next((n for n in pending if n in _wanted), pending[0])
-        pending.remove(name)
-        data = yield from songs.build(name)
-        _tracks[name] = pygame.mixer.Sound(buffer=data.tobytes())
-
-
-def tick(budget=0.006):
-    """Browser without baked songs only: builds the music for a few milliseconds of this frame."""
-    global _building
-    if sys.platform != "emscripten" or _building is None:
-        return
-    end = time.perf_counter() + budget
-    try:
-        while time.perf_counter() < end:
-            next(_building)
-    except StopIteration:
-        _building = None
 
 
 def set_volume(music=None, sfx=None):
@@ -174,7 +153,7 @@ def set_volume(music=None, sfx=None):
     for name, sound in _sounds.items():
         sound.set_volume(_base.get(name, 1.0) * _volume["sfx"])
     if _playing:
-        pygame.mixer.Channel(_ch).set_volume(VOLUME[_playing] * _volume["music"])
+        pygame.mixer.Channel(_ch).set_volume(VOLUME[FILE[_playing]] * _volume["music"])
 
 
 def play(name):
@@ -184,7 +163,7 @@ def play(name):
 
 def music(on=True, track="stage"):
     """Plays a song on a loop, crossfading from the one before; music(False) fades out. Calling it again
-    with the song already playing does nothing, and a song still being built starts once it is ready."""
+    with the song already playing does nothing."""
     global _playing, _ch
     if not _on:
         return
@@ -195,21 +174,11 @@ def music(on=True, track="stage"):
         return
     if track == _playing:
         return
-    if track not in _tracks:                       # still being built: silence, not the last mission's song
-        _wanted.add(track)
-        if _playing:
-            pygame.mixer.Channel(_ch).fadeout(600)
-            _playing = None
-        return
     fade = 4000                                    # from silence: eases in under the start jingle
     if _playing:
         pygame.mixer.Channel(_ch).fadeout(1200)
         _ch, fade = 1 - _ch, 1200
     ch = pygame.mixer.Channel(_ch)
-    ch.set_volume(VOLUME[track] * _volume["music"])
-    ch.play(_tracks[track], loops=-1, fade_ms=fade)
+    ch.set_volume(VOLUME[FILE[track]] * _volume["music"])
+    ch.play(_tracks[FILE[track]], loops=-1, fade_ms=fade)
     _playing = track
-
-
-def music_ready(track="stage"):
-    return track in _tracks

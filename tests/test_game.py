@@ -832,13 +832,14 @@ class BrowserPad(unittest.TestCase):
 
 
 class Music(unittest.TestCase):
-    def test_every_mission_song_is_built(self):
-        from ironvolt import audio, music, stage
+    def test_every_mission_song_has_its_file(self):
+        import os
+        from ironvolt import audio, stage
         for m in stage.MISSIONS:
-            for song in m.song:
-                self.assertIn(song, audio.ORDER, m.name)
-                self.assertIn(song, audio.VOLUME, m.name)
-        self.assertEqual(set(audio.ORDER), set(music.SONGS))      # the baked folder holds what ORDER loads
+            for song in m.song + ("title",):
+                f = audio.FILE[song]
+                self.assertIn(f, audio.VOLUME, m.name)
+                self.assertTrue(os.path.isfile(os.path.join(os.path.dirname(audio.__file__), "songs", f + ".ogg")), f)
 
     def test_ninjas_only_in_the_eastern_missions(self):
         from ironvolt import stage

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.1
+
+A new soundtrack, and clean sound in the browser.
+- **New music:** real chiptune tracks by Juhani Junkala (CC0) replace the synthesized songs, which ticked and
+  sounded harsh: a title theme, a theme for each mission and one boss fight for every boss. See CREDITS.md.
+- **Fix:** in the browser, the sound played too fast and too high, and the gunfire turned into hard ticks. The page's
+  audio runs at its own rate, and the game's mixer took that rate instead of the one its sounds are made at. The
+  mixer now keeps the game's rate everywhere and lets the browser convert.
+- **Fix:** the browser's sound buffer is deeper, so a slow frame no longer leaves a click in the music.
+- The game starts faster: there are no songs to build.
+
 ## 0.13.0
 
 Every mission has its own band now (the songs are still made in code, no audio files):
