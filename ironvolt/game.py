@@ -299,7 +299,7 @@ class Game:
             audio.music(False)                      # the boss is down: silence, then the tally
         else:
             stage_song, boss_song = w.stage.mission.song
-            audio.music(True, boss_song if w.locked else stage_song)
+            audio.music(True, boss_song if w.locked else stage_song, ready=w.stage.mission.song)
         if w.cleared > 180:
             audio.music(False)
             self.grade = grade(w.hostages_freed, w.hostage_total, w.deaths - w.deaths_start)

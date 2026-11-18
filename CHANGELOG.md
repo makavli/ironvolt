@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.14.0
+
+A new soundtrack, and clean sound, in the browser most of all.
+- **New music:** every mission has its own song again, played by its own band: scrapyard rock, the prison train's
+  harmonica and banjo, brass and strings on the pylon road, the Cradle's pipe organ, koto and taiko on Hanakiri, neon
+  synths in the harbour rain. Every boss has its own battle theme. Made for IRONVOLT with ACE-Step 1.5 (see
+  CREDITS.md) and cut into seamless loops.
+- **Fix: the ticking in the browser.** The page's sound buffer was 5 ms long, shorter than a frame, so the sound ran
+  dry every frame. pygame had opened the mixer with its own defaults before the game could set it up. The game now
+  reopens it with its settings: a buffer of 4096 frames in the browser, and one rate (44.1 kHz) everywhere.
+- **Fix:** effects no longer end with a click (the alarm, the start jingle, pickups, the whistle, the lift).
+- **Fix:** the same effect started twice within 40 ms plays once, so a spread shot on a wall makes one clank instead
+  of five stacked into a hard tick.
+- Songs load when their mission starts instead of all at start-up.
+
 ## 0.13.1
 
 A new soundtrack, and clean sound in the browser.

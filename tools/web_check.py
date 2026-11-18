@@ -98,6 +98,7 @@ def main():
         key("Enter", 13, "\r")                      # -> play
         pump(6)
         shot("web_play.png")
+        call("Runtime.evaluate", expression="window.gaps = []; (function f(t0) { requestAnimationFrame(t => { gaps.push(t - t0); f(t) }) })(performance.now())")
         box = json.loads(call("Runtime.evaluate", returnByValue=True, expression=
                               "JSON.stringify(document.getElementById('canvas').getBoundingClientRect())")
                          ["result"]["value"])
@@ -114,6 +115,13 @@ def main():
         call("Input.dispatchTouchEvent", type="touchEnd", touchPoints=[])
         pump(1)
         full = call("Runtime.evaluate", returnByValue=True, expression="!!document.fullscreenElement")["result"]["value"]
+        # the frames while playing, and the sound's buffer: SDL fills it on the page's thread between frames, so a
+        # frame longer than the buffer leaves a gap in the sound (a tick)
+        live = json.loads(call("Runtime.evaluate", returnByValue=True, expression="""JSON.stringify((() => {
+            const g = gaps.slice().sort((a, b) => a - b), q = p => Math.round(g[Math.floor(p * (g.length - 1))]);
+            let a = null;
+            try { const s = Module.SDL2; a = [s.audioContext.sampleRate, s.audio.scriptProcessorNode.bufferSize] } catch (e) {}
+            return {frames: g.length, p50: q(0.5), p95: q(0.95), max: q(1), audio: a} })())""")["result"]["value"])
     finally:
         proc.terminate()
         proc.wait(timeout=10)
@@ -123,11 +131,21 @@ def main():
     bad = [l for l in lines if "Traceback" in l or "Error" in l.split(":")[0] or l.startswith("EXCEPTION")]
     print("\n".join(lines[-25:]))
     print("screenshots: shots/web_title.png shots/web_play.png shots/web_touch.png")
+    print("frames while playing: %(frames)d, p50 %(p50)s ms, p95 %(p95)s ms, max %(max)s ms" % live)
+    if not live["audio"]:
+        bad.append("could not read the page's sound buffer (Module.SDL2)")
+    else:
+        rate, size = live["audio"]
+        print("sound: device %d Hz, buffer %d frames = %.0f ms" % (rate, size, 1000 * size / rate))
+        if 1000 * size / rate < 40:
+            bad.append("the sound buffer is shorter than a slow frame: the sound ticks")
     # headless Chrome never grants fullscreen ("not granted"); without the touch's gesture it says "Permissions check failed"
     if not full and "fullscreen: TypeError: not granted" not in text:
         bad.append("a touch did not ask for fullscreen inside its gesture")
-    if "music: loaded" not in text or "start jingle 0.32s" not in text:    # 4 notes of 0.08 s at any mixer rate
-        bad.append("the page did not load its songs, or its effects play at the wrong speed")
+    if "audio: mixer (44100, -16, 2), start jingle 0.32s" not in text:    # 4 notes of 0.08 s: effects at the right speed
+        bad.append("the mixer did not open at 44.1 kHz stereo, or its effects play at the wrong speed")
+    if "song title loaded" not in text:
+        bad.append("the page did not load the title song")
     if bad or "Traceback" in text:
         print("FAIL:", *bad[:5], sep="\n  ")
         sys.exit(1)
