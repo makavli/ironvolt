@@ -6,6 +6,7 @@ Game.step(controls) runs one 60 Hz frame; Game.draw(surface) paints it at 320x22
 
 import math
 import os
+import random
 import sys
 
 import pygame
@@ -119,7 +120,8 @@ class Game:
     def start(self, players, level=None):
         lives = None if self.opts["lives"] == "AUTO" else int(self.opts["lives"])
         self.world = World(players, level=level or self.level, lives=lives, stage=FIRST_STAGE,
-                           crowd=CROWD.get(self.opts["enemies"]), calm=CALM.get(self.opts["enemy_fire"]))
+                           crowd=CROWD.get(self.opts["enemies"]), calm=CALM.get(self.opts["enemy_fire"]),
+                           shuffle=random.getrandbits(30))           # every run its own: see stage.Stage.shuffle
         if self.opts["level"] != self.world.level:
             self.set_option("level", self.world.level)       # offered first next time
         self.demo = None

@@ -16,7 +16,7 @@ CONTINUE_FRAMES = 600
 
 class World:
     def __init__(self, players=(0,), seed=None, god=False, level="NORMAL", lives=None, stage=0, crowd=None,
-                 calm=None):
+                 calm=None, shuffle=None):
         if seed is not None:
             random.seed(seed)
         self.lives_set = lives            # the options' lives, or None: the difficulty's
@@ -25,7 +25,8 @@ class World:
         self.set_level(level)
         self.deaths = 0                   # the team's, for the "too feeble?" offer
         self.offered = 0                  # deaths when it was last offered
-        self.stage = Stage(stage)
+        self.shuffle = shuffle            # this run's shuffle of the missions (stage.Stage), or None: as built
+        self.stage = Stage(stage, seed=shuffle)
         self.props = [props.build(spec) for spec in self.stage.props]
         self.above = None                 # in a room: (the road, its props, its spawn index, the column to come up at)
         self.room_t = 0                   # frames spent in the room
@@ -88,7 +89,7 @@ class World:
     def advance(self):
         """The next mission, with the same team: scores, lives, guns and grenades carry over."""
         nxt = World((), god=self.god, level=self.level, lives=self.lives_set, stage=self.stage.index + 1,
-                    crowd=self.crowd_set, calm=self.calm_set)
+                    crowd=self.crowd_set, calm=self.calm_set, shuffle=self.shuffle)
         nxt.shake_on, nxt.flashes_on = self.shake_on, self.flashes_on
         nxt.deaths, nxt.offered, nxt.deaths_start = self.deaths, self.offered, self.deaths
         nxt.pages, nxt.grades = set(self.pages), dict(self.grades)
@@ -360,7 +361,7 @@ class World:
     def enter(self, room, back_col):
         """The team goes into a room (a drain, a lift): the road waits, and is joined again at back_col."""
         self.above = (self.stage, self.props, self.spawn_i, back_col)
-        self.stage = Stage(self.stage.index, room)
+        self.stage = Stage(self.stage.index, room, seed=self.shuffle)
         self.props = [props.build(spec) for spec in self.stage.props]
         self.switch(40.0, float(self.stage.drop_y) if self.stage.drop_y > 0 else 150.0)
         audio.play(self.stage.sound)
@@ -553,7 +554,7 @@ class World:
         climb = (self.room_t * 2 - (1 - self.blend) * 2) if self.stage.timed and not self.stage.run else 0   # the lift: the shaft slides down
         for layer, factor, yoff in layers:
             lw, lh = layer.get_width(), layer.get_height()
-            ox = -int((view - sx + self.room_t * self.stage.run) * factor) % lw     # on the train the yard rushes by
+            ox = -int((view - sx + self.room_t * self.stage.run + self.stage.scroll) * factor) % lw     # on the train the yard rushes by
             oy = int(climb * factor) % lh if climb else 0
             for dy in ((oy - lh, oy) if climb else (0,)):
                 surf.blit(layer, (ox - lw, yoff + sy + dy))

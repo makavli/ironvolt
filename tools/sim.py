@@ -1,4 +1,4 @@
-"""Plays the stage with the autopilot, headless, and prints what happened. Usage: python tools/sim.py [god] [MISSION] [seed=N]"""
+"""Plays the stage with the autopilot, headless, and prints what happened. Usage: python tools/sim.py [god] [MISSION] [seed=N] [shuffle=N]"""
 import os, sys, time
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy"); os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -14,7 +14,8 @@ from ironvolt.stage import MISSIONS  # noqa: E402
 mission = min(max(1, mission), len(MISSIONS))
 a, s = Atlas(), pygame.Surface((320, 224))
 seed = next((int(a[5:]) for a in sys.argv[1:] if a.startswith("seed=")), 1)
-w, bots = World((0,), seed=seed, god=god, stage=mission - 1), [BotPad(), BotPad()]
+shuffle = next((int(a[8:]) for a in sys.argv[1:] if a.startswith("shuffle=")), None)     # None: as built
+w, bots = World((0,), seed=seed, god=god, stage=mission - 1, shuffle=shuffle), [BotPad(), BotPad()]
 t = time.time()
 deaths = 0
 rooms = set()

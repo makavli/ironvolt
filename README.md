@@ -71,6 +71,8 @@ S to C, and hides a page of the brother's maps.
   screens too.
 - **Arcade to the bone:** hit-stop, screen shake, a kill-chain multiplier up to x8, continues, coins or free
   play, and a high-score table.
+- **No two runs alike:** every game shuffles the troops, the barrels, the crates and the prisoners' gifts; the
+  road stays the same, so you learn the jumps, not where every enemy waits.
 - **Relaxed, Easy, Normal or Hard**, chosen before every game. Die too often and the game asks if you are too
   feeble.
 - **Options for everyone:** lives, how many enemies and how often they shoot, music and effects volume, rumble, swapped fire and jump, screen shake, flashes

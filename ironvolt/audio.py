@@ -93,6 +93,9 @@ def _effects():
 # --------------------------------------------------------------- music
 
 MIX = 44100                                       # the mixer's rate everywhere; SDL converts for the device
+# rate, 16-bit, stereo, buffer: the browser fills the sound on the game's own thread between frames, so its buffer must
+# outlast a slow frame or the sound ticks
+SETTINGS = (MIX, -16, 2, 4096 if WEB else 512)
 SONGS = os.path.join(os.path.dirname(__file__), "songs")
 # per song, so every song plays as loud: rms x volume ~1120 for a mission, ~1210 for a boss
 VOLUME = {"title": 0.159, "stage": 0.192, "boss": 0.17, "line": 0.167, "warden": 0.191, "pylon": 0.165, "harrow": 0.172,
@@ -119,14 +122,19 @@ def _sound(mono, path):
     return pygame.mixer.Sound(path)
 
 
+def pre_init():
+    """Called before pygame.init(), which opens the mixer: with our SETTINGS, not pygame's defaults. Reopening it
+    afterwards is no fix: in the browser the old device's sound node can still fire once, into the new device, and
+    throws ("Web Audio output buffer length mismatch")."""
+    pygame.mixer.pre_init(*SETTINGS, allowedchanges=0)
+
+
 def init():
-    """Starts the mixer, makes the effects and loads the songs. Returns False with no audio device."""
+    """Makes the effects; the songs load when a mission needs them. Returns False with no audio device."""
     global _on
     try:
-        # pygame.init() has already opened the mixer with pygame's defaults: reopen it with ours. The browser fills the
-        # sound on the game's own thread between frames, so its buffer must outlast a slow frame or the sound ticks.
-        pygame.mixer.quit()
-        pygame.mixer.init(MIX, -16, 2, 4096 if WEB else 512, allowedchanges=0)
+        if not pygame.mixer.get_init():            # pygame.init() opens it; open it here if that failed or never ran
+            pygame.mixer.init(*SETTINGS, allowedchanges=0)
         pygame.mixer.set_num_channels(24)
         pygame.mixer.set_reserved(2)               # channels 0 and 1 are the music's: one fades out as the other comes in
     except pygame.error:

@@ -3,6 +3,8 @@
 Tiles: 0 air, 1 ground, 2 crate (solid), 3 catwalk (one-way: stand on it, jump up through it).
 """
 
+import random
+
 from .settings import H, TILE, W
 
 ROWS = H // TILE                  # 14
@@ -572,10 +574,15 @@ MISSIONS = [
 ]
 
 
-class Stage:
-    """A mission's main road, or one of its rooms (ROOMS): the tiles, the spawns, the props, how it is lit."""
+MOVES = {"hostage": 3, "lobber": 4, "turret": 4, "sniper": 4, "guard": 4, "barrel": 6}   # how far each may shift, in tiles
 
-    def __init__(self, index=0, room=None):
+
+class Stage:
+    """A mission's main road, or one of its rooms (ROOMS): the tiles, the spawns, the props, how it is lit.
+    seed: the run's shuffle (None: as built). The same seed gives the same stretch, so a room or the next mission
+    follows the run."""
+
+    def __init__(self, index=0, room=None, seed=None):
         self.index, self.room = index, room
         self.mission = m = MISSIONS[index]
         r = ROOMS[room] if room else dict(build=m.build, spawns=m.spawns, theme=m.theme, props=m.props)
@@ -589,6 +596,89 @@ class Stage:
         self.run, self.shout = r.get("run", 0), r.get("shout", "DOWN WE GO!")      # run: px a frame the world rushes past
         self.sound = r.get("sound", "lift" if self.timed else "drop")
         self.drop_y = r.get("ceil", -10)          # where a player drops back in: from the sky, or under the roof
+        self.scroll = 0                           # where the skyline starts
+        if seed is not None and not self.timed:   # the lift, the bell tower, the train roofs are scripted: as built
+            self.shuffle(random.Random("%s/%d/%s" % (seed, index, room)))
+
+    def shuffle(self, rng):
+        """This run's take on the stretch. The waves from the edge change kind (from this stretch's own troops),
+        number and timing; what stands in the level shifts along its ledge; the prisoners swap their gifts; loose
+        crate stacks move along bare floor; the skyline starts elsewhere. Pits, platforms and set pieces stay."""
+        g = self.grid
+        end = (self.cols if self.room else self.boss_x // TILE) - 8
+        keep = set()                              # the set pieces and the rooms' ways in and out, give or take 2
+        for p in self.props:
+            cols = [p[1]] + ([p[2]] if p[0] in SPAN else []) + ([p[3]] if p[0] in INTO else [])
+            keep.update(range(min(cols) - 2, max(cols) + 3))
+        placed = [s for s in self.spawns if s[2] != "edge"]
+        stands = {int(x) // TILE + d for _, _, x, _ in placed for d in (-1, 0, 1)}
+
+        def bare(c):                              # floor to stand on and nothing above it
+            return 2 <= c < end and c not in keep and g[FLOOR_ROW][c] == GROUND and \
+                all(g[r][c] == AIR for r in range(FLOOR_ROW))
+
+        def pile(c):                              # the height of a crate pile standing alone on the floor, or 0
+            n = 0
+            while n < FLOOR_ROW and g[FLOOR_ROW - 1 - n][c] == CRATE:
+                n += 1
+            return n if n and g[FLOOR_ROW][c] == GROUND and all(g[r][c] == AIR for r in range(FLOOR_ROW - n)) else 0
+
+        if not self.room:                         # rooms keep their crates: their roofs leave no bare floor
+            c = 0
+            while c < end:
+                if not pile(c):
+                    c += 1
+                    continue
+                a = c
+                while pile(c):
+                    c += 1
+                heights = [pile(k) for k in range(a, c)]
+                if any(k in stands for k in range(a, c)) or \
+                        not all(bare(k) for k in (*range(a - 3, a), *range(c, c + 3))):
+                    continue                      # a step up to something, a spawn's perch, or by a pit: as built
+                for k in range(a, c):
+                    for r in range(FLOOR_ROW):
+                        g[r][k] = AIR
+                for d in rng.sample([d for d in range(-6, 7) if d], 12):
+                    if all(bare(k) for k in range(a + d - 3, c + d + 3)) and \
+                            not any(k in stands for k in range(a + d, c + d)):
+                        a += d
+                        break
+                for k, h in enumerate(heights):
+                    for r in range(FLOOR_ROW - h, FLOOR_ROW):
+                        g[r][a + k] = CRATE
+                c = max(c, a + len(heights))      # a pile moved ahead is not met again
+
+        start = max(0, self.drop_y) // TILE
+
+        def top(c):
+            return next((r for r in range(start, ROWS) if g[r][c] != AIR), None) if 0 <= c < self.cols else None
+
+        gifts = [e for _, k, _, e in placed if k == "hostage"]
+        rng.shuffle(gifts)
+        pool = [k for _, k, x, _ in self.spawns if x == "edge"]
+        out = []
+        for c, kind, x, extra in self.spawns:
+            if x == "edge":
+                if rng.random() < 0.15:
+                    continue                      # a wave that does not come
+                out.append((max(0, c + rng.randint(-24, 24)), rng.choice(pool) if c >= 320 else kind, x, extra))
+                if c >= 320 and rng.random() < 0.15:     # ...and one that comes too (the first screen stays gentle)
+                    out.append((c + rng.randint(30, 60), rng.choice(pool), x, extra))
+                continue
+            if kind in MOVES:
+                col = int(x) // TILE
+                h, ok = top(col), [col]
+                for step in (1, -1):              # along the same ledge, no further than the kind may go
+                    k = col + step
+                    while abs(k - col) <= MOVES[kind] and 2 <= k < end and k not in keep and top(k) == h:
+                        ok.append(k)
+                        k += step
+                d = (rng.choice(ok) - col) * TILE
+                c, x = c + d, x + d
+            out.append((c, kind, x, gifts.pop() if kind == "hostage" else extra))
+        self.spawns = sorted(out, key=lambda s: s[0])
+        self.scroll = rng.randrange(4096)
 
     def hostage_count(self):
         """Every prisoner in the mission: on the road and in its rooms."""

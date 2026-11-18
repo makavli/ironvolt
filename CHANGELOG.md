@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.0
+
+No two runs alike.
+- **Every game shuffles the missions:** the waves that rush in change kind, number and timing (each mission keeps
+  its own troops: ninjas still only in the east); gunners, lobbers, snipers and guards stand somewhere else along
+  their ledge; barrels and loose crate piles move; each prisoner hands a different gift; the skyline starts
+  somewhere else. The road itself (pits, ledges, set pieces) and the hidden map pages stay where they are, so every
+  jump is as fair as before. The lift, the bell tower and the train roofs are scripted and stay as they are.
+- The attract demo still plays the missions as built.
+- **Fix:** in the browser, the sound could throw an error at start-up and drop its first moment: the game opened the
+  sound device twice. It now opens it once, with its own settings from the start.
+
 ## 0.14.0
 
 A new soundtrack, and clean sound, in the browser most of all.
