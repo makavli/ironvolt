@@ -75,8 +75,9 @@ S to C, and hides a page of the brother's maps.
   feeble.
 - **Options for everyone:** lives, how many enemies and how often they shoot, music and effects volume, rumble, swapped fire and jump, screen shake, flashes
   and a slower game speed, all saved. A controls page shows the keys and the pad.
-- **A chiptune soundtrack:** a title theme, a theme for each mission and a boss theme that crossfades in when the
-  arena locks (CC0 music by Juhani Junkala, see [CREDITS.md](CREDITS.md)).
+- **A band for every mission:** scrapyard rock, harmonica and banjo on the prison train, brass on the pylon road, a pipe
+  organ in the Cradle, koto and taiko on Hanakiri, neon synths in the harbour rain, and a battle theme for every boss
+  that crossfades in when the arena locks (made with ACE-Step 1.5, see [CREDITS.md](CREDITS.md)).
 - **Drawn in code:** sprites, tiles, the font and every sound effect are generated at start-up.
 
 ## Play from the source

@@ -5,8 +5,8 @@ backing (drums, rolling bass, detuned pad and arpeggio, all pumped by the kick) 
 chord and style, so each one is rendered once and copied. The lead, a ping-pong delay and a
 soft-clipping master then run once over the whole song. render() returns 16-bit stereo, interleaved.
 
-build() is the same work as a generator that yields every few thousand samples: a browser has no
-threads, so audio.tick() runs it a few milliseconds a frame and the game never stalls.
+build() is the same work as a generator that yields every few thousand samples. The game now plays the songs in
+songs/ (see CREDITS.md); this synth is kept for tools/music_check.py and the effects' RATE.
 
 A song's FLAVOR picks its band: "arcade" (synths, drum machine: the title), "rock" (mission 1: distorted guitar,
 chugging power chords), "rail" (2: harmonica, boom-chick bass, ticking train beat, banjo), "wide" (3: brass,

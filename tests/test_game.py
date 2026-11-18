@@ -837,9 +837,31 @@ class Music(unittest.TestCase):
         from ironvolt import audio, stage
         for m in stage.MISSIONS:
             for song in m.song + ("title",):
-                f = audio.FILE[song]
-                self.assertIn(f, audio.VOLUME, m.name)
-                self.assertTrue(os.path.isfile(os.path.join(os.path.dirname(audio.__file__), "songs", f + ".ogg")), f)
+                self.assertIn(song, audio.VOLUME, m.name)
+                self.assertTrue(os.path.isfile(os.path.join(audio.SONGS, song + ".ogg")), song)
+
+    def test_one_effect_at_a_time_per_40_ms(self):
+        from unittest import mock
+        from ironvolt import audio
+        played, clock = [], [5000]
+
+        class Fake:
+            def play(self):
+                played.append(clock[0])
+        with mock.patch.dict(audio._sounds, {"clank": Fake()}), mock.patch.dict(audio._last, clear=True), \
+                mock.patch.object(audio, "_on", True), mock.patch("pygame.time.get_ticks", lambda: clock[0]):
+            audio.play("clank")
+            audio.play("clank")                    # five bullets on one wall in the same frame: one clank
+            clock[0] += 39
+            audio.play("clank")
+            clock[0] += 1
+            audio.play("clank")
+        self.assertEqual(played, [5000, 5040])
+
+    def test_effects_end_in_silence(self):
+        from ironvolt import audio
+        for name, data in audio._effects().items():
+            self.assertLess(abs(data[-1]), 400, name)   # a hard cut at the end is a click
 
     def test_ninjas_only_in_the_eastern_missions(self):
         from ironvolt import stage
