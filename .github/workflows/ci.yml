@@ -58,7 +58,7 @@ jobs:
       - run: pip install -r requirements.txt pyinstaller==6.22.3
       - name: Build
         shell: bash
-        run: python -m PyInstaller --noconfirm --clean --windowed --onefile --name Ironvolt run.py   # one exe to double-click
+        run: python -m PyInstaller --noconfirm --clean --windowed --onefile --name Ironvolt --add-data ironvolt/songs:ironvolt/songs run.py   # one exe to double-click
       - name: The build starts, plays 120 frames and quits
         timeout-minutes: 3             # the game quits itself after IRONVOLT_FRAMES
         shell: bash
@@ -87,7 +87,6 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -r requirements.txt pygbag==0.9.3 websocket-client==1.8.0
-      - run: sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends ffmpeg   # tools/music_bake.py
       - name: Build
         run: bash tools/web_build.sh
       - name: Play it in Chrome

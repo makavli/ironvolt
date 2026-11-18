@@ -126,8 +126,8 @@ def main():
     # headless Chrome never grants fullscreen ("not granted"); without the touch's gesture it says "Permissions check failed"
     if not full and "fullscreen: TypeError: not granted" not in text:
         bad.append("a touch did not ask for fullscreen inside its gesture")
-    if "music: baked" not in text:
-        bad.append("the page built its music instead of loading the baked songs")
+    if "music: loaded" not in text or "start jingle 0.32s" not in text:    # 4 notes of 0.08 s at any mixer rate
+        bad.append("the page did not load its songs, or its effects play at the wrong speed")
     if bad or "Traceback" in text:
         print("FAIL:", *bad[:5], sep="\n  ")
         sys.exit(1)
