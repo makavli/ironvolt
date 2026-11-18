@@ -464,15 +464,16 @@ class SlideAndRun(unittest.TestCase):
 
 class Stage(unittest.TestCase):
     def test_the_bot_finishes_every_mission(self):
-        for i, m in enumerate(MISSIONS):
-            w = World((0,), seed=1, god=True, stage=i)
-            bots = [BotPad(), BotPad()]
-            for _ in range(20000):
-                bots[0].think(w, w.players[0])
-                w.step(bots)
-                if w.cleared:
-                    break
-            self.assertTrue(w.cleared, "%s not finished; camera at %d" % (m.name, w.cam_x))
+        for shuffle in (None, 7):                       # as built, and one run's shuffle
+            for i, m in enumerate(MISSIONS):
+                w = World((0,), seed=1, god=True, stage=i, shuffle=shuffle)
+                bots = [BotPad(), BotPad()]
+                for _ in range(20000):
+                    bots[0].think(w, w.players[0])
+                    w.step(bots)
+                    if w.cleared:
+                        break
+                self.assertTrue(w.cleared, "%s (shuffle %s) not finished; camera at %d" % (m.name, shuffle, w.cam_x))
 
     def test_every_pit_is_jumpable(self):
         for i in range(len(MISSIONS)):
@@ -486,6 +487,53 @@ class Stage(unittest.TestCase):
                 else:
                     self.assertLessEqual(run_len, 3, "pit ending at column %d" % c)
                     run_len = 0
+
+
+class Shuffle(unittest.TestCase):
+    """Every run shuffles the missions (stage.Stage.shuffle): not where they were last time, as fair as built."""
+
+    def pairs(self, seed):
+        from ironvolt import stage
+        for i, m in enumerate(MISSIONS):
+            for room in [None] + [p[2] for p in m.props if p[0] in stage.INTO]:
+                yield stage.Stage(i, room), stage.Stage(i, room, seed=seed)
+
+    def test_a_shuffle_moves_things_but_keeps_the_road(self):
+        from collections import Counter
+        from ironvolt.stage import CRATE
+
+        def stands(st):                                   # each troop and prisoner, and how high it stands
+            return Counter((k, st.floor_y(x, max(0, st.drop_y))) for _, k, x, _ in st.spawns
+                           if x != "edge" and k not in ("page", "gift"))
+
+        def road(st):                                     # every tile but the crates
+            return [[0 if t == CRATE else t for t in row] for row in st.grid]
+
+        for seed in range(12):
+            for old, new in self.pairs(seed):
+                at = "%s %s, shuffle %d" % (old.mission.name, old.room, seed)
+                self.assertEqual(stands(old), stands(new), at)            # on a ledge as high as before
+                self.assertNotIn(None, [y for _, y in stands(new)], at)   # never over a pit
+                self.assertEqual(sorted(s for s in old.spawns if s[1] in ("page", "gift")),
+                                 sorted(s for s in new.spawns if s[1] in ("page", "gift")), at)   # pages stay hidden
+                self.assertEqual(sorted(e for _, k, _, e in old.spawns if k == "hostage"),
+                                 sorted(e for _, k, _, e in new.spawns if k == "hostage"), at)    # the same gifts
+                self.assertLessEqual({k for _, k, x, _ in new.spawns if x == "edge"},
+                                     {k for _, k, x, _ in old.spawns if x == "edge"}, at)       # no stranger troops
+                self.assertEqual(road(old), road(new), at)                # pits, ledges, walls as built
+                self.assertEqual(sum(r.count(CRATE) for r in old.grid), sum(r.count(CRATE) for r in new.grid), at)
+                self.assertEqual(new.spawns, sorted(new.spawns, key=lambda s: s[0]), at)
+
+    def test_a_run_keeps_its_shuffle_and_the_next_run_gets_another(self):
+        from ironvolt import stage
+        a, b, c = stage.Stage(0, seed=5), stage.Stage(0, seed=5), stage.Stage(0, seed=6)
+        self.assertEqual((a.spawns, a.grid, a.scroll), (b.spawns, b.grid, b.scroll))
+        self.assertNotEqual(a.spawns, c.spawns)
+        self.assertEqual(stage.Stage(0).spawns, sorted(MISSIONS[0].spawns, key=lambda s: s[0]))   # no seed: as built
+        self.assertEqual(World((0,), shuffle=5).advance().stage.spawns, stage.Stage(1, seed=5).spawns)
+        w = World((0,), shuffle=5, stage=0)
+        w.enter("stash", 165)
+        self.assertEqual(w.stage.spawns, stage.Stage(0, "stash", seed=5).spawns)    # its rooms too
 
 
 class Missions(unittest.TestCase):
